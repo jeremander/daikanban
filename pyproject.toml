@@ -15,3 +15,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.commitizen]
 tag_format = "v$major.$minor.$patch"
+version = "0.1.0"
+version_files = [
+  "pyproject.toml:tool.poetry.version"
+]
