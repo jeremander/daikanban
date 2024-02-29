@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "daikanban"
+version = "0.1.0"
+description = "A kanban-style project task queue."
+authors = ["Jeremy Silver <jeremys@nessiness.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.commitizen]
+tag_format = "v$major.$minor.$patch"
