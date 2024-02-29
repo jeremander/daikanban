@@ -30,6 +30,7 @@ ignore = [
     "B905",  # zip without explicit 'strict' parameter
     "D100",  # module-level docstring
     "D105",  # magic method docstring
+    "D107",  # __init__ docstring
     "D203",  # blank line before class docstring
     # "D204",  # blank line after class docstring
     "D205",  # blank line between summary and description
@@ -87,7 +88,7 @@ force-to-top = ["package.utils"]
 # number of lines after each import block?
 lines-after-imports = 2
 # whether to order imports by type, rather than strictly alphabetically
-order-by-type = false
+order-by-type = true
 
 [pydocstyle]
 convention = "google"
