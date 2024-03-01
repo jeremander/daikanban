@@ -1,17 +1,23 @@
 import base64
 from collections.abc import Collection
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Annotated, Any, Literal, Optional, TypeAlias, TypeVar
 from uuid import uuid4
 
-from pydantic import AnyUrl, BaseModel, Field, PlainSerializer, computed_field, model_validator
+from pydantic import AnyUrl, BaseModel, BeforeValidator, Field, PlainSerializer, computed_field, model_validator
 
 
 T = TypeVar('T')
 
+TIME_FORMAT = '%Y-%m-%dT%H:%M:%SZ%z'
+
 Id: TypeAlias = Annotated[str, Field(min_length=12, max_length=12)]
 TaskStatus = Literal['pending', 'active', 'paused', 'complete']
-Datetime = Annotated[datetime, PlainSerializer(lambda dt: dt.isoformat()[:19], return_type=str)]
+Datetime = Annotated[
+    datetime,
+    BeforeValidator(lambda s: datetime.strptime(s, TIME_FORMAT)),
+    PlainSerializer(lambda dt: dt.strftime(TIME_FORMAT), return_type=str)
+]
 Timedelta = Annotated[timedelta, PlainSerializer(lambda td: td.total_seconds(), return_type=float)]
 
 
@@ -19,11 +25,15 @@ def _get_random_id() -> Id:
     """Generates a random 12-long base64 ID string."""
     return base64.b64encode(uuid4().bytes)[:12].decode()
 
-def get_new_id(current_ids: Collection[Id]) -> Id:
+def get_new_id(current_ids: Collection[Id] = set()) -> Id:
     """Generates a new random ID string not in the set of current_ids."""
     while ((id_ := _get_random_id()) in current_ids):
         pass
     return id_
+
+def get_current_time() -> datetime:
+    """Gets the current time (timezone-aware)."""
+    return datetime.now(timezone.utc).astimezone()
 
 
 class KanbanError(ValueError):
@@ -60,7 +70,7 @@ class Project(Model):
     )
     created_time: Datetime = Field(
         description='Time the project was created',
-        default_factory=datetime.now
+        default_factory=get_current_time
     )
     links: Optional[set[AnyUrl]] = Field(
         default=None,
@@ -100,7 +110,7 @@ class Task(Model):
     )
     created_time: Datetime = Field(
         description='Time the task was created',
-        default_factory=datetime.now
+        default_factory=get_current_time
     )
     first_started_time: Optional[Datetime] = Field(
         default=None,
@@ -147,7 +157,7 @@ class Task(Model):
         """Gets the total time worked on the task."""
         td = timedelta(0) if (self.prior_time_worked is None) else self.prior_time_worked
         if self.last_started_time is not None:
-            td += datetime.now() - self.last_started_time
+            td += get_current_time() - self.last_started_time
         return td
 
     @model_validator(mode='after')
@@ -170,7 +180,7 @@ class Task(Model):
         """Returns a new started version of the Task, if its status is pending.
         Otherwise raises a TaskStatusError."""
         if self.status == 'pending':
-            now = datetime.now()
+            now = get_current_time()
             update = {'first_started_time': now, 'last_started_time': now}
             return self.model_copy(update=update)
         raise TaskStatusError(f'cannot start Task with status {self.status!r}')
@@ -179,7 +189,7 @@ class Task(Model):
         """Returns a new completed version of the Task, if its status is active.
         Otherwise raises a TaskStatusError."""
         if self.status == 'active':
-            return self.model_copy(update={'completed_time': datetime.now()})
+            return self.model_copy(update={'completed_time': get_current_time()})
         raise TaskStatusError(f'cannot complete Task with status {self.status!r}')
 
     def paused(self) -> 'Task':
@@ -193,7 +203,7 @@ class Task(Model):
         """Returns a new restarted version of the Task, if its status is paused.
         Otherwise raises a TaskStatusError."""
         if self.status == 'paused':
-            return self.model_copy(update={'last_started_time': datetime.now()})
+            return self.model_copy(update={'last_started_time': get_current_time})
         raise TaskStatusError(f'cannot restart Task with status {self.status!r}')
 
 
