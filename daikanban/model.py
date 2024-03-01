@@ -239,7 +239,7 @@ class Task(Model):
         """Returns a new restarted version of the Task, if its status is paused.
         Otherwise raises a TaskStatusError."""
         if self.status == TaskStatus.paused:
-            return self.model_copy(update={'last_started_time': get_current_time})
+            return self.model_copy(update={'last_started_time': get_current_time()})
         raise TaskStatusError(f'cannot restart Task with status {self.status!r}')
 
 

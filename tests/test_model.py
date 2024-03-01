@@ -1,4 +1,8 @@
-from daikanban.model import DaiKanban, Project, Task
+from datetime import datetime
+
+import pytest
+
+from daikanban.model import DaiKanban, Project, ProjectNotFoundError, Task, TaskStatus, TaskStatusError
 
 
 class TestTask:
@@ -9,6 +13,37 @@ class TestTask:
         assert schema['required'] == ['name', 'status', 'total_time_worked']
         for field in ['status', 'total_time_worked']:
             assert schema['properties'][field]['readOnly'] is True
+
+    def test_status(self):
+        pending = Task(name='mytask')
+        assert pending.status == TaskStatus.pending == 'pending'
+        assert pending.first_started_time is None
+        assert pending.completed_time is None
+        with pytest.raises(TaskStatusError, match='cannot complete'):
+            _ = pending.completed()
+        started = pending.started()
+        assert started != pending
+        assert started.status == TaskStatus.active
+        assert isinstance(started.first_started_time, datetime)
+        assert started.first_started_time == started.last_started_time
+        assert started.prior_time_worked is None
+        assert started.completed_time is None
+        with pytest.raises(TaskStatusError, match='cannot start'):
+            _ = started.started()
+        with pytest.raises(TaskStatusError, match='cannot restart'):
+            _ = started.restarted()
+        paused = started.paused()
+        assert paused.status == TaskStatus.paused
+        assert paused.last_started_time is None
+        assert isinstance(paused.prior_time_worked, float)
+        restarted = paused.restarted()
+        assert isinstance(restarted.last_started_time, datetime)
+        assert restarted.first_started_time < restarted.last_started_time
+        _ = restarted.paused()
+        completed = started.completed()
+        assert isinstance(completed.completed_time, datetime)
+        with pytest.raises(TaskStatusError, match='cannot restart'):
+            _ = completed.restarted()
 
 
 class TestDaiKanban:
@@ -32,3 +67,22 @@ class TestDaiKanban:
         assert dk.new_project_id() == 3
         assert dk.create_project(Project(name='proj3')) == 3
         assert dk.new_project_id() == 4
+
+    def test_crud_project(self):
+        dk = DaiKanban(name='myboard')
+        with pytest.raises(ProjectNotFoundError):
+            _ = dk.get_project(0)
+        proj = Project(name='myproj')
+        assert dk.create_project(proj) == 0
+        assert 0 in dk.projects
+        assert dk.get_project(0) is proj
+        dk.update_project(0, name='mynewproj')
+        assert dk.get_project(0) != proj
+        assert dk.get_project(0).name == 'mynewproj'
+        with pytest.raises(ProjectNotFoundError):
+            _ = dk.update_project(1, name='proj')
+        dk.delete_project(0)
+        assert len(dk.projects) == 0
+        with pytest.raises(ProjectNotFoundError):
+            dk.delete_project(0)
+        assert dk.create_project(proj) == 0
