@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from enum import Enum
 from typing import Annotated, Any, Literal, Optional, TypeAlias, TypeVar
 
 from pydantic import AnyUrl, BaseModel, BeforeValidator, Field, PlainSerializer, computed_field, model_validator
@@ -8,6 +9,11 @@ T = TypeVar('T')
 
 TIME_FORMAT = '%Y-%m-%dT%H:%M:%SZ%z'
 SECS_PER_DAY = 3600 * 24
+
+
+################
+# TYPE ALIASES #
+################
 
 Id: TypeAlias = Annotated[int, Field(ge=0)]
 Datetime: TypeAlias = Annotated[
@@ -19,8 +25,11 @@ Datetime: TypeAlias = Annotated[
 Duration: TypeAlias = Annotated[float, Field(ge=0.0)]
 # a score between 0 and 10
 Score: TypeAlias = Annotated[float, Field(ge=0.0, le=10.0)]
-TaskStatus: TypeAlias = Literal['pending', 'active', 'paused', 'complete']
 
+
+####################
+# HELPER FUNCTIONS #
+####################
 
 def get_current_time() -> datetime:
     """Gets the current time (timezone-aware)."""
@@ -30,6 +39,10 @@ def get_duration_between(dt1: datetime, dt2: datetime) -> Duration:
     """Gets the duration (in days) between two datetimes."""
     return (dt2 - dt1).total_seconds() / SECS_PER_DAY
 
+
+###############
+# ERROR TYPES #
+###############
 
 class KanbanError(ValueError):
     """Custom error type for Kanban errors."""
@@ -46,6 +59,18 @@ class TaskNotFoundError(KanbanError):
 
 class TaskStatusError(KanbanError):
     """Error that occurs when a task's status is invalid for a certain operation."""
+
+
+#########
+# MODEL #
+#########
+
+class TaskStatus(str, Enum):
+    """Possible status a task can have."""
+    pending = 'pending'
+    active = 'active'
+    paused = 'paused'
+    complete = 'complete'
 
 
 class Model(BaseModel):
@@ -148,21 +173,21 @@ class Task(Model):
         description='List of dated logs related to the task'
     )
 
-    @computed_field  # type: ignore
+    @computed_field  # type: ignore[misc]
     @property
     def status(self) -> TaskStatus:
         """Gets the current status of the task."""
         if self.first_started_time is None:
-            return 'pending'
+            return TaskStatus.pending
         if (self.last_started_time is not None) and (self.completed_time is None):
-            return 'active'
+            return TaskStatus.active
         if self.last_started_time is None:
-            return 'paused'
+            return TaskStatus.paused
         if self.completed_time is None:
-            return 'active'
-        return 'complete'
+            return TaskStatus.active
+        return TaskStatus.complete
 
-    @computed_field  # type: ignore
+    @computed_field  # type: ignore[misc]
     @property
     def total_time_worked(self) -> Duration:
         """Gets the total time (in days) worked on the task."""
@@ -183,14 +208,14 @@ class Task(Model):
             assert self.last_started_time is not None
             assert self.completed_time >= self.last_started_time
         # task is paused or completed => task has prior time worked
-        if self.status in ['paused', 'completed']:
+        if self.status in [TaskStatus.paused, TaskStatus.complete]:
             assert self.prior_time_worked is not None
         return self
 
     def started(self) -> 'Task':
         """Returns a new started version of the Task, if its status is pending.
         Otherwise raises a TaskStatusError."""
-        if self.status == 'pending':
+        if self.status == TaskStatus.pending:
             now = get_current_time()
             update = {'first_started_time': now, 'last_started_time': now}
             return self.model_copy(update=update)
@@ -199,21 +224,21 @@ class Task(Model):
     def completed(self) -> 'Task':
         """Returns a new completed version of the Task, if its status is active.
         Otherwise raises a TaskStatusError."""
-        if self.status == 'active':
+        if self.status == TaskStatus.active:
             return self.model_copy(update={'completed_time': get_current_time()})
         raise TaskStatusError(f'cannot complete Task with status {self.status!r}')
 
     def paused(self) -> 'Task':
         """Returns a new paused version of the Task, if its status is active.
         Otherwise raises a TaskStatusError."""
-        if self.status == 'active':
+        if self.status == TaskStatus.active:
             return self.model_copy(update={'last_started_time': None, 'prior_time_worked': self.total_time_worked})
         raise TaskStatusError(f'cannot pause Task with status {self.status!r}')
 
     def restarted(self) -> 'Task':
         """Returns a new restarted version of the Task, if its status is paused.
         Otherwise raises a TaskStatusError."""
-        if self.status == 'paused':
+        if self.status == TaskStatus.paused:
             return self.model_copy(update={'last_started_time': get_current_time})
         raise TaskStatusError(f'cannot restart Task with status {self.status!r}')
 
