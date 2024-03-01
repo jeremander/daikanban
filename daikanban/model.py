@@ -93,9 +93,9 @@ class Task(Model):
         ge=0.0,
         le=10.0
     )
-    expected_complexity: float = Field(
+    expected_difficulty: float = Field(
         default=3.0,
-        description='Estimated complexity of task on a 0-10 scale',
+        description='Estimated difficulty of task on a 0-10 scale',
         ge=0.0,
         le=10.0
     )
@@ -209,8 +209,9 @@ class Task(Model):
 
 class DaiKanban(Model):
     """A database of projects and tasks."""
-    projects: dict[Id, Project]
-    tasks: dict[Id, Task]
+    name: str = Field(description='name of DaiKanban board')
+    projects: dict[Id, Project] = Field(description='mapping from IDs to projects')
+    tasks: dict[Id, Task] = Field(description='mapping from IDs to tasks')
     version: Literal[0] = Field(
         default=0,
         description='version of the DaiKanban specification',

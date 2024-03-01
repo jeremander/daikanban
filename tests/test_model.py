@@ -6,7 +6,7 @@ def test_serialization():
     proj_id = get_new_id()
     task = Task(name='mytask')
     task_id = get_new_id()
-    dk = DaiKanban(projects={proj_id: proj}, tasks={task_id: task})
+    dk = DaiKanban(name='myboard', projects={proj_id: proj}, tasks={task_id: task})
     for obj in [proj, task, dk]:
         d = obj.model_dump()
         assert type(obj)(**d).model_dump() == d
