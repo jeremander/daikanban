@@ -1,8 +1,5 @@
-import base64
-from collections.abc import Collection
 from datetime import datetime, timezone
 from typing import Annotated, Any, Literal, Optional, TypeAlias, TypeVar
-from uuid import uuid4
 
 from pydantic import AnyUrl, BaseModel, BeforeValidator, Field, PlainSerializer, computed_field, model_validator
 
@@ -12,28 +9,18 @@ T = TypeVar('T')
 TIME_FORMAT = '%Y-%m-%dT%H:%M:%SZ%z'
 SECS_PER_DAY = 3600 * 24
 
-Id: TypeAlias = Annotated[str, Field(min_length=12, max_length=12)]
-Datetime = Annotated[
+Id: TypeAlias = Annotated[int, Field(ge=0)]
+Datetime: TypeAlias = Annotated[
     datetime,
     BeforeValidator(lambda s: datetime.strptime(s, TIME_FORMAT)),
     PlainSerializer(lambda dt: dt.strftime(TIME_FORMAT), return_type=str)
 ]
 # duration (in days)
-Duration = Annotated[float, Field(ge=0.0)]
+Duration: TypeAlias = Annotated[float, Field(ge=0.0)]
 # a score between 0 and 10
-Score = Annotated[float, Field(ge=0.0, le=10.0)]
-TaskStatus = Literal['pending', 'active', 'paused', 'complete']
+Score: TypeAlias = Annotated[float, Field(ge=0.0, le=10.0)]
+TaskStatus: TypeAlias = Literal['pending', 'active', 'paused', 'complete']
 
-
-def _get_random_id() -> Id:
-    """Generates a random 12-long base64 ID string."""
-    return base64.b64encode(uuid4().bytes)[:12].decode()
-
-def get_new_id(current_ids: Collection[Id] = set()) -> Id:
-    """Generates a new random ID string not in the set of current_ids."""
-    while ((id_ := _get_random_id()) in current_ids):
-        pass
-    return id_
 
 def get_current_time() -> datetime:
     """Gets the current time (timezone-aware)."""
@@ -234,16 +221,30 @@ class Task(Model):
 class DaiKanban(Model):
     """A database of projects and tasks."""
     name: str = Field(description='name of DaiKanban board')
-    projects: dict[Id, Project] = Field(description='mapping from IDs to projects')
-    tasks: dict[Id, Task] = Field(description='mapping from IDs to tasks')
+    projects: dict[Id, Project] = Field(
+        default_factory=dict,
+        description='mapping from IDs to projects'
+    )
+    tasks: dict[Id, Task] = Field(
+        default_factory=dict,
+        description='mapping from IDs to tasks'
+    )
     version: Literal[0] = Field(
         default=0,
         description='version of the DaiKanban specification',
     )
 
+    def new_project_id(self) -> Id:
+        """Gets an available integer as a project ID."""
+        return max(self.projects) + 1 if self.projects else 0
+
+    def new_task_id(self) -> Id:
+        """Gets an available integer as a task ID."""
+        return max(self.tasks) + 1 if self.tasks else 0
+
     def create_project(self, project: Project) -> Id:
         """Adds a new project and returns its ID."""
-        id_ = get_new_id(self.projects)
+        id_ = self.new_project_id()
         self.projects[id_] = project
         return id_
 
@@ -268,7 +269,7 @@ class DaiKanban(Model):
 
     def create_task(self, task: Task) -> Id:
         """Adds a new task and returns its ID."""
-        id_ = get_new_id(self.tasks)
+        id_ = self.new_task_id()
         self.tasks[id_] = task
         return id_
 
