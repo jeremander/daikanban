@@ -1,6 +1,6 @@
 import base64
 from collections.abc import Collection
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Annotated, Any, Literal, Optional, TypeAlias, TypeVar
 from uuid import uuid4
 
@@ -10,15 +10,19 @@ from pydantic import AnyUrl, BaseModel, BeforeValidator, Field, PlainSerializer,
 T = TypeVar('T')
 
 TIME_FORMAT = '%Y-%m-%dT%H:%M:%SZ%z'
+SECS_PER_DAY = 3600 * 24
 
 Id: TypeAlias = Annotated[str, Field(min_length=12, max_length=12)]
-TaskStatus = Literal['pending', 'active', 'paused', 'complete']
 Datetime = Annotated[
     datetime,
     BeforeValidator(lambda s: datetime.strptime(s, TIME_FORMAT)),
     PlainSerializer(lambda dt: dt.strftime(TIME_FORMAT), return_type=str)
 ]
-Timedelta = Annotated[timedelta, PlainSerializer(lambda td: td.total_seconds(), return_type=float)]
+# duration (in days)
+Duration = Annotated[float, Field(ge=0.0)]
+# a score between 0 and 10
+Score = Annotated[float, Field(ge=0.0, le=10.0)]
+TaskStatus = Literal['pending', 'active', 'paused', 'complete']
 
 
 def _get_random_id() -> Id:
@@ -34,6 +38,10 @@ def get_new_id(current_ids: Collection[Id] = set()) -> Id:
 def get_current_time() -> datetime:
     """Gets the current time (timezone-aware)."""
     return datetime.now(timezone.utc).astimezone()
+
+def get_duration_between(dt1: datetime, dt2: datetime) -> Duration:
+    """Gets the duration (in days) between two datetimes."""
+    return (dt2 - dt1).total_seconds() / SECS_PER_DAY
 
 
 class KanbanError(ValueError):
@@ -69,12 +77,28 @@ class Project(Model):
         description='Project description'
     )
     created_time: Datetime = Field(
-        description='Time the project was created',
-        default_factory=get_current_time
+        default_factory=get_current_time,
+        description='Time the project was created'
     )
     links: Optional[set[AnyUrl]] = Field(
         default=None,
         description='Links associated with the project'
+    )
+
+
+class Log(Model):
+    """A piece of information associated with a task at a particular time."""
+    created_time: Datetime = Field(
+        default_factory=get_current_time,
+        description='Time the log was created'
+    )
+    note: Optional[str] = Field(
+        default=None,
+        description='Textual content of the log'
+    )
+    rating: Optional[Score] = Field(
+        default=None,
+        description="Rating of the task's current progress"
     )
 
 
@@ -87,17 +111,13 @@ class Task(Model):
         default=None,
         description='More detailed description of the task'
     )
-    priority: float = Field(
+    priority: Score = Field(
         default=3.0,
-        description='Priority of task on a 0-10 scale',
-        ge=0.0,
-        le=10.0
+        description='Priority of task on a 0-10 scale'
     )
-    expected_difficulty: float = Field(
+    expected_difficulty: Score = Field(
         default=3.0,
-        description='Estimated difficulty of task on a 0-10 scale',
-        ge=0.0,
-        le=10.0
+        description='Estimated difficulty of task on a 0-10 scale'
     )
     expected_duration: Optional[float] = Field(
         default=None,
@@ -124,9 +144,9 @@ class Task(Model):
         default=None,
         description='Time the task was completed'
     )
-    prior_time_worked: Optional[Timedelta] = Field(
+    prior_time_worked: Optional[Duration] = Field(
         default=None,
-        description='Total time the task was worked on prior to last_started_time'
+        description='Total time (in days) the task was worked on prior to last_started_time'
     )
     tags: Optional[set[str]] = Field(
         default=None,
@@ -135,6 +155,10 @@ class Task(Model):
     links: Optional[set[AnyUrl]] = Field(
         default=None,
         description='Links associated with the project'
+    )
+    logs: list[Log] = Field(
+        default_factory=list,
+        description='List of dated logs related to the task'
     )
 
     @computed_field  # type: ignore
@@ -153,12 +177,12 @@ class Task(Model):
 
     @computed_field  # type: ignore
     @property
-    def total_time_worked(self) -> Timedelta:
-        """Gets the total time worked on the task."""
-        td = timedelta(0) if (self.prior_time_worked is None) else self.prior_time_worked
+    def total_time_worked(self) -> Duration:
+        """Gets the total time (in days) worked on the task."""
+        dur = 0.0 if (self.prior_time_worked is None) else self.prior_time_worked
         if self.last_started_time is not None:
-            td += get_current_time() - self.last_started_time
-        return td
+            dur += get_duration_between(self.last_started_time, get_current_time())
+        return dur
 
     @model_validator(mode='after')
     def check_consistent_times(self) -> 'Task':
