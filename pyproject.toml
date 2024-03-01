@@ -9,6 +9,10 @@ readme = "README.md"
 python = "^3.10"
 pydantic = "^2.6.3"
 
+[tool.poetry.group.test.dependencies]
+pytest = "^8.0.2"
+pytest-cov = "^4.1.0"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
@@ -19,3 +23,13 @@ version = "0.1.0"
 version_files = [
   "pyproject.toml:tool.poetry.version"
 ]
+
+[tool.coverage.run]
+omit = ["venv/*"]
+
+[tool.coverage.report]
+skip_covered = true
+show_missing = true
+
+[tool.pytest.ini_options]
+addopts = "--verbose --cov=daikanban"

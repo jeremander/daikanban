@@ -1,0 +1,16 @@
+- CLI app via rich
+    - Subcommands
+        - schema: display schema
+        - settings: interact with settings (once there are some)
+        - shell: launch shell
+        - web: launch web app
+- Recurring tasks? A la Pianote.
+- Web app (streamlit? FastUI?)
+- I/O
+    - Output markdown checklist/table
+    - "Scanner": Input task list (grab preceding regex like "TODO:") and update board
+        config["settings.scanner"] = {
+            "Files": ".py .md",
+            "Patterns": "# TODO,#TODO,# BUG",
+        }
+- Fuzzy search
