@@ -1,6 +1,5 @@
 - CLI app via rich
     - Subcommands
-        - schema: display schema
         - settings: interact with settings (once there are some)
         - shell: launch shell
         - web: launch web app
