@@ -8,12 +8,19 @@ from pydantic import BaseModel, Field
 from rich import print
 from rich.prompt import Confirm, Prompt
 
-from daikanban.model import Board, BoardConfig
+from daikanban.model import Board, BoardConfig, KanbanError
 from daikanban.utils import handle_error
 
 
 PKG_DIR = Path(__file__).parent
 BILLBOARD_ART_PATH = PKG_DIR / 'billboard_art.txt'
+
+
+class UserInputError(KanbanError):
+    """Class for user input errors."""
+
+class BoardNotLoadedError(KanbanError):
+    """Error type for when a board has not yet been loaded."""
 
 
 ####################
@@ -38,6 +45,11 @@ def simple_input(prompt: str, default: Optional[str] = None, match: str = '.*') 
 def to_snake_case(name: str) -> str:
     """Converts an arbitrary string to snake case."""
     return re.sub(r'[^\w]+', '_', name.strip()).lower()
+
+def prefix_match(token: str, match: str, minlen: int = 1) -> bool:
+    """Returns true if token is a prefix of match and has length at least minlen."""
+    n = len(token)
+    return (n >= minlen) and (match[:n] == token)
 
 
 ###################
@@ -74,6 +86,7 @@ class BoardInterface(BaseModel):
         with open(board_path) as f:
             self.board = Board(**json.load(f))
         self.board_path = Path(board_path)
+        print(f'Loaded board from {self.board_path}')
 
     def new_board(self) -> None:
         """Interactively creates a new DaiKanban board.
@@ -94,14 +107,43 @@ class BoardInterface(BaseModel):
             self.board_path = board_path
             self.board = board
 
+    def show_board(self) -> None:
+        """Displays the board to the screen using the current configurations."""
+        # TODO: take kwargs to filter board contents
+        # TODO: display pretty board rather than JSON
+        if self.board is None:
+            raise BoardNotLoadedError("No board has been loaded.\nRun 'board new' to create a new board or 'board load' to load an existing one.")
+        print(self.board.model_dump_json(indent=self.config.json_indent))
+
     # SHELL
+
+    def evaluate_prompt(self, prompt: str) -> None:
+        """Given user prompt, takes a particular action."""
+        prompt = prompt.strip()
+        if not prompt:
+            return None
+        tokens = prompt.split()
+        ntokens = len(tokens)
+        tok0 = tokens[0]
+        if prefix_match(tok0, 'board'):
+            if ntokens > 1:
+                tok1 = tokens[1]
+                if prefix_match(tok1, 'show'):
+                    return self.show_board()
+        raise UserInputError('Invalid input')
 
     def launch_shell(self, board_path: Optional[Path] = None) -> None:
         """Launches an interactive shell to interact with a board.
         Optionally a board path may be provided, which will be loaded after the shell launches."""
         print(get_billboard_art())
         print('[italic cyan]Welcome to DaiKanban![/]')
+        # TODO: load default board from global config
         if board_path is not None:
             with handle_error(json.JSONDecodeError, OSError):
                 self.load(board_path)
-        print(self.board)
+        while True:
+            try:
+                prompt = input('🚀 ')
+                self.evaluate_prompt(prompt)
+            except KanbanError as e:
+                print(str(e))

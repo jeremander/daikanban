@@ -38,9 +38,9 @@ Duration = Annotated[float, Field(ge=0.0)]
 Score = Annotated[float, Field(ge=0.0, le=10.0)]
 
 
-###############
+##################
 # ERROR HANDLING #
-###############
+##################
 
 class KanbanError(ValueError):
     """Custom error type for Kanban errors."""
@@ -288,6 +288,10 @@ class BoardConfig(Model):
     statuses: set[TaskStatus] = Field(
         default_factory=lambda: {TaskStatus.todo, TaskStatus.active, TaskStatus.complete},
         description='set of task statuses to display'
+    )
+    json_indent: Optional[int] = Field(
+        default=2,
+        description='indentation level for displaying JSON'
     )
 
 
