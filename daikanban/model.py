@@ -278,8 +278,21 @@ class Task(Model):
         raise TaskStatusError(f'cannot restart Task with status {self.status!r}')
 
 
+class BoardConfig(Model):
+    """Configurations for a DaiKanban board."""
+    limit: Optional[int] = Field(
+        default=None,
+        description='max number of tasks to display',
+        ge=0
+    )
+    statuses: set[TaskStatus] = Field(
+        default_factory=lambda: {TaskStatus.todo, TaskStatus.active, TaskStatus.complete},
+        description='set of task statuses to display'
+    )
+
+
 class Board(Model):
-    """A kanban board (collection of projects and tasks)."""
+    """A DaiKanban board (collection of projects and tasks)."""
     name: str = Field(description='name of DaiKanban board')
     description: Optional[str] = Field(
         default=None,

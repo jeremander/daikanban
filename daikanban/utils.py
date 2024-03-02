@@ -9,6 +9,11 @@ import rich
 SECS_PER_DAY = 3600 * 24
 
 
+def exit_with_error(msg: str) -> None:
+    """Exits the program with the given error message."""
+    rich.print(f'[bold red]ERROR: {msg}[/]', file=sys.stderr)
+    sys.exit(1)
+
 @contextmanager
 def handle_error(*errtypes: type[Exception], msg: Optional[str] = None) -> Iterator[None]:
     """Context manager for catching an error of a certain type (or types), optionally displaying a message, then exiting the program."""
@@ -16,8 +21,7 @@ def handle_error(*errtypes: type[Exception], msg: Optional[str] = None) -> Itera
         yield
     except errtypes as e:
         msg = str(e) if (msg is None) else msg
-        rich.print(f'[bold red]ERROR: {msg}[/]', file=sys.stderr)
-        sys.exit(1)
+        exit_with_error(msg)
 
 def get_current_time() -> datetime:
     """Gets the current time (timezone-aware)."""
