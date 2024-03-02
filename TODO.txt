@@ -1,4 +1,3 @@
-- Rename pending -> todo
 - Version string
 - CLI app via rich
     - Subcommands
