@@ -1,8 +1,12 @@
-from datetime import datetime, timezone
+from abc import ABC, abstractmethod
+from contextlib import contextmanager
+from datetime import datetime
 from enum import Enum
-from typing import Annotated, Any, Literal, Optional, TypeAlias, TypeVar
+from typing import Annotated, Any, ClassVar, Iterator, Literal, Optional, TypeAlias, TypeVar
 
 from pydantic import AnyUrl, BaseModel, BeforeValidator, Field, PlainSerializer, computed_field, model_validator
+
+from daikanban.utils import get_current_time, get_duration_between
 
 
 T = TypeVar('T')
@@ -27,21 +31,8 @@ Duration: TypeAlias = Annotated[float, Field(ge=0.0)]
 Score: TypeAlias = Annotated[float, Field(ge=0.0, le=10.0)]
 
 
-####################
-# HELPER FUNCTIONS #
-####################
-
-def get_current_time() -> datetime:
-    """Gets the current time (timezone-aware)."""
-    return datetime.now(timezone.utc).astimezone()
-
-def get_duration_between(dt1: datetime, dt2: datetime) -> Duration:
-    """Gets the duration (in days) between two datetimes."""
-    return (dt2 - dt1).total_seconds() / SECS_PER_DAY
-
-
 ###############
-# ERROR TYPES #
+# ERROR HANDLING #
 ###############
 
 class KanbanError(ValueError):
@@ -59,6 +50,15 @@ class TaskNotFoundError(KanbanError):
 
 class TaskStatusError(KanbanError):
     """Error that occurs when a task's status is invalid for a certain operation."""
+
+
+@contextmanager
+def catch_key_error(cls: type[Exception]) -> Iterator[None]:
+    """Catches a KeyError and rewraps it as an Exception of the given type."""
+    try:
+        yield
+    except KeyError as e:
+        raise cls(e.args[0]) from None
 
 
 #########
@@ -136,6 +136,10 @@ class Task(Model):
         description='Expected number of days to complete task',
         ge=0.0
     )
+    due_date: Optional[Datetime] = Field(
+        default=None,
+        description='Date the task is due'
+    )
     project_id: Optional[Id] = Field(
         default=None,
         description='Project ID'
@@ -168,6 +172,10 @@ class Task(Model):
         default=None,
         description='Links associated with the project'
     )
+    blocked_by: Optional[set[Id]] = Field(
+        default=None,
+        description='IDs of other tasks that block the completion of this one'
+    )
     logs: list[Log] = Field(
         default_factory=list,
         description='List of dated logs related to the task'
@@ -195,6 +203,26 @@ class Task(Model):
         if self.last_started_time is not None:
             dur += get_duration_between(self.last_started_time, get_current_time())
         return dur
+
+    @computed_field  # type: ignore[misc]
+    @property
+    def lead_time(self) -> Optional[Duration]:
+        """If the task is completed, returns the lead time (in days), which is the elapsed time from started to completed.
+        Otherwise, returns None."""
+        if self.status == TaskStatus.complete:
+            assert self.first_started_time is not None
+            assert self.completed_time is not None
+            return get_duration_between(self.first_started_time, self.completed_time)
+        return None
+
+    @computed_field  # type: ignore[misc]
+    @property
+    def is_overdue(self) -> bool:
+        """Returns True if the task is overdue (i.e. it was not completed before the due date)."""
+        if self.due_date is None:
+            return False
+        eval_date = self.completed_time or get_current_time()
+        return eval_date > self.due_date
 
     @model_validator(mode='after')
     def check_consistent_times(self) -> 'Task':
@@ -277,24 +305,20 @@ class DaiKanban(Model):
         self.projects[id_] = project
         return id_
 
+    @catch_key_error(ProjectNotFoundError)
     def get_project(self, project_id: Id) -> Project:
         """Gets a project with the given ID."""
-        try:
-            return self.projects[project_id]
-        except KeyError:
-            raise ProjectNotFoundError(project_id) from None
+        return self.projects[project_id]
 
     def update_project(self, project_id: Id, **kwargs: Any) -> None:
         """Updates a project with the given keyword arguments."""
         proj = self.get_project(project_id)
         self.projects[project_id] = proj.model_copy(update=kwargs)
 
+    @catch_key_error(ProjectNotFoundError)
     def delete_project(self, project_id: Id) -> None:
         """Deletes a project with the given ID."""
-        try:
-            del self.projects[project_id]
-        except KeyError:
-            raise ProjectNotFoundError(project_id) from None
+        del self.projects[project_id]
 
     def create_task(self, task: Task) -> Id:
         """Adds a new task and returns its ID."""
@@ -302,21 +326,38 @@ class DaiKanban(Model):
         self.tasks[id_] = task
         return id_
 
+    @catch_key_error(TaskNotFoundError)
     def get_task(self, task_id: Id) -> Task:
         """Gets a task with the given ID."""
-        try:
-            return self.tasks[task_id]
-        except KeyError:
-            raise TaskNotFoundError(task_id) from None
+        return self.tasks[task_id]
 
     def update_task(self, task_id: Id, **kwargs: Any) -> None:
         """Updates a task with the given keyword arguments."""
         task = self.get_task(task_id)
         self.tasks[task_id] = task.model_copy(update=kwargs)
 
+    @catch_key_error(TaskNotFoundError)
     def delete_task(self, task_id: Id) -> None:
         """Deletes a task with the given ID."""
-        try:
-            del self.tasks[task_id]
-        except KeyError:
-            raise TaskNotFoundError(task_id) from None
+        del self.tasks[task_id]
+
+    @catch_key_error(TaskNotFoundError)
+    def add_blocking_task(self, blocking_task_id: Id, blocked_task_id: Id) -> None:
+        """Adds a task ID to the list of blacking tasks for another."""
+        _ = self.get_task(blocking_task_id)  # ensure blocking task exists
+        blocked_task = self.get_task(blocked_task_id)
+        blocked_by = set(blocked_task.blocked_by) if blocked_task.blocked_by else set()
+        blocked_by.add(blocking_task_id)
+        self.tasks[blocked_task_id] = blocked_task.model_copy(update={'blocked_by': blocked_by})
+
+
+class TaskScorer(ABC):
+    """Interface for a class which scores tasks.
+    Higher scores represent tasks more deserving of work."""
+
+    name: ClassVar[str]  # name of the scorer
+    units: ClassVar[Optional[str]] = None  # unit of measurement for the scorer
+
+    @abstractmethod
+    def __call__(self, task: Task) -> float:
+        """Override this to implement task scoring."""

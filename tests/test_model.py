@@ -2,16 +2,17 @@ from datetime import datetime
 
 import pytest
 
-from daikanban.model import DaiKanban, Project, ProjectNotFoundError, Task, TaskStatus, TaskStatusError
+from daikanban.model import DaiKanban, Project, ProjectNotFoundError, Task, TaskNotFoundError, TaskStatus, TaskStatusError
 
 
 class TestTask:
 
     def test_schema(self):
         schema = Task.model_json_schema(mode='serialization')
-        # FIXME: status and total_time_worked should not be required?
-        assert schema['required'] == ['name', 'status', 'total_time_worked']
-        for field in ['status', 'total_time_worked']:
+        # FIXME: computed fields should not be required?
+        computed_fields = ['status', 'total_time_worked', 'lead_time', 'is_overdue']
+        assert schema['required'] == ['name'] + computed_fields
+        for field in computed_fields:
             assert schema['properties'][field]['readOnly'] is True
 
     def test_status(self):
@@ -86,3 +87,18 @@ class TestDaiKanban:
         with pytest.raises(ProjectNotFoundError):
             dk.delete_project(0)
         assert dk.create_project(proj) == 0
+
+    def test_add_blocking_task(self):
+        dk = DaiKanban(name='myboard')
+        task0 = Task(name='task0')
+        task1 = Task(name='task1')
+        dk.create_task(task0)
+        assert task0.blocked_by is None
+        with pytest.raises(TaskNotFoundError, match='1'):
+            dk.add_blocking_task(0, 1)
+        with pytest.raises(TaskNotFoundError, match='1'):
+            dk.add_blocking_task(1, 0)
+        dk.create_task(task1)
+        dk.add_blocking_task(0, 1)
+        assert task1.blocked_by is None  # no mutation on original task
+        assert dk.get_task(1).blocked_by == {0}

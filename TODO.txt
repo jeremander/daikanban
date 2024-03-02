@@ -1,8 +1,15 @@
+- Rename pending -> todo
 - CLI app via rich
     - Subcommands
         - settings: interact with settings (once there are some)
         - shell: launch shell
         - web: launch web app
+- "pull" is a synonym for moving from todo to started
+- If task progresses from pending to complete/paused, prompt for what time it was started, ex post facto.
+- Blocking logic
+    - Prevent cyclic blocking?
+    - Prevent completion of a blocked task without its precursors
+        - Prompt user to complete all of them at once
 - Recurring tasks? A la Pianote.
 - Web app (streamlit? FastUI?)
 - I/O
