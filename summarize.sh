@@ -1,3 +1,5 @@
 #!/usr/bin/env zsh
 
-radon raw daikanban/**/*.py -s | tail -n 12
+echo "LINE STATS"
+echo "----------"
+radon raw daikanban/**/*.py -s | tail -n 11 | head -n 7
