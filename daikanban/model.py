@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from datetime import datetime
 from enum import Enum
-from typing import Annotated, Any, ClassVar, Iterator, Literal, Optional, TypeAlias, TypeVar
+from typing import Annotated, Any, ClassVar, Iterator, Literal, Optional, TypeVar
 
 from pydantic import AnyUrl, BaseModel, BeforeValidator, Field, PlainSerializer, computed_field, model_validator
 
@@ -19,16 +19,16 @@ SECS_PER_DAY = 3600 * 24
 # TYPE ALIASES #
 ################
 
-Id: TypeAlias = Annotated[int, Field(ge=0)]
-Datetime: TypeAlias = Annotated[
+Id = Annotated[int, Field(ge=0)]
+Datetime = Annotated[
     datetime,
     BeforeValidator(lambda s: datetime.strptime(s, TIME_FORMAT)),
     PlainSerializer(lambda dt: dt.strftime(TIME_FORMAT), return_type=str)
 ]
 # duration (in days)
-Duration: TypeAlias = Annotated[float, Field(ge=0.0)]
+Duration = Annotated[float, Field(ge=0.0)]
 # a score between 0 and 10
-Score: TypeAlias = Annotated[float, Field(ge=0.0, le=10.0)]
+Score = Annotated[float, Field(ge=0.0, le=10.0)]
 
 
 ###############

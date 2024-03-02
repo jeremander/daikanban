@@ -4,7 +4,7 @@
         - shell: launch shell
         - web: launch web app
 - "pull" is a synonym for moving from todo to started
-- If task progresses from pending to complete/paused, prompt for what time it was started, ex post facto.
+- If task progresses todo->complete/paused or paused->complete, prompt for what time it was started, ex post facto.
 - Blocking logic
     - Prevent cyclic blocking?
     - Prevent completion of a blocked task without its precursors
