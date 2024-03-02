@@ -152,8 +152,8 @@ class Task(Model):
         description='Project ID'
     )
     created_time: Datetime = Field(
-        description='Time the task was created',
-        default_factory=get_current_time
+        default_factory=get_current_time,
+        description='Time the task was created'
     )
     first_started_time: Optional[Datetime] = Field(
         default=None,
@@ -301,6 +301,10 @@ class Board(Model):
     description: Optional[str] = Field(
         default=None,
         description='description of the DaiKanban board'
+    )
+    created_time: Optional[Datetime] = Field(
+        default_factory=get_current_time,
+        description='Time the board was created'
     )
     projects: dict[Id, Project] = Field(
         default_factory=dict,

@@ -21,6 +21,9 @@ BILLBOARD_ART_PATH = PKG_DIR / 'billboard_art.txt'
 class UserInputError(KanbanError):
     """Class for user input errors."""
 
+class BoardFileError(KanbanError):
+    """Error reading or writing a board file."""
+
 class BoardNotLoadedError(KanbanError):
     """Error type for when a board has not yet been loaded."""
 
@@ -53,6 +56,10 @@ def prefix_match(token: str, match: str, minlen: int = 1) -> bool:
     n = len(token)
     return (n >= minlen) and (match[:n] == token)
 
+def path_style(path: str | Path) -> str:
+    """Renders a path as a rich-styled string."""
+    return f'[dodger_blue2]{path}[/]'
+
 
 ###################
 # BOARD INTERFACE #
@@ -76,24 +83,40 @@ class BoardInterface(BaseModel):
 
     # HELP/INFO
 
-    @staticmethod
-    def show_help() -> None:
-        """Displays the help menu listing various commands."""
+    def make_new_help_table(self) -> Table:
+        """Creates a new 3-column rich table for displaying help menus."""
         grid = Table.grid(expand=True)
         grid.add_column(style='bold grey0', width=5)
-        grid.add_column(style='bold grey0', width=6)
+        grid.add_column(style='bold grey0', width=13)
         grid.add_column()
+        return grid
+
+    def add_board_help(self, grid: Table) -> None:
+        """Adds entries to help menu related to boards."""
+        grid.add_row('\[b]oard', '\[d]elete', 'delete current board')
+        grid.add_row('', '\[n]ew', 'create new board')
+        grid.add_row('', '\[l]oad [not bold]\[FILENAME][/]', 'load existing board')
+        grid.add_row('', 'schema', 'show board JSON schema')
+        grid.add_row('', '\[s]how', 'show current board, can provide extra filters like:')
+        grid.add_row('', '', '  status:\[STATUSES] project:\[PROJECT_IDS] tags:\[TAGS] limit:\[SIZE]')
+
+    def show_help(self) -> None:
+        """Displays the main help menu listing various commands."""
+        grid = self.make_new_help_table()
         grid.add_row('\[h]elp', '', 'show help menu')
         grid.add_row('\[q]uit', '', 'exit the shell')
         # TODO: global settings?
         # grid.add_row('settings', 'view/edit the settings')
-        grid.add_row('\[b]oard', '\[n]new', 'create new board')
-        grid.add_row('', '\[l]oad', 'load existing board')
-        grid.add_row('', 'schema', 'show board JSON schema')
-        grid.add_row('', '\[s]how', 'show current board, can provide extra filters like:')
-        grid.add_row('', '', '  status:\[STATUSES] project:\[PROJECT_IDS] tags:\[TAGS] limit:\[SIZE]')
+        self.add_board_help(grid)
         # TODO: board config?
         print('[bold underline]User options[/]')
+        print(grid)
+
+    def show_board_help(self) -> None:
+        """Displays the board-specific help menu."""
+        grid = self.make_new_help_table()
+        self.add_board_help(grid)
+        print('[bold underline]Board options[/]')
         print(grid)
 
     @staticmethod
@@ -103,12 +126,32 @@ class BoardInterface(BaseModel):
 
     # BOARD
 
-    def load(self, board_path: str | Path) -> None:
-        """Loads a board from a JSON file."""
-        with open(board_path) as f:
-            self.board = Board(**json.load(f))
+    def delete_board(self) -> None:
+        """Deletes the currently loaded board."""
+        if self.board_path is None:
+            raise BoardNotLoadedError("No board has been loaded.\nRun 'board load' to load a board.")
+        path = path_style(self.board_path)
+        if not self.board_path.exists():
+            raise BoardFileError(f'Board file {path} does not exist.')
+        delete = Confirm.ask(f'Are you sure you want to delete {path}?')
+        if delete:
+            self.board_path.unlink()
+            assert self.board is not None
+            print(f'Deleted board {self.board.name!r} from {path}.')
+
+    def load_board(self, board_path: Optional[str | Path] = None) -> None:
+        """Loads a board from a JSON file.
+        If none is provided, prompts the user interactively."""
+        if board_path is None:
+            board_path = simple_input('Board filename', match=r'.*\w.*')
+        try:
+            with open(board_path) as f:
+                self.board = Board(**json.load(f))
+        except (json.JSONDecodeError, OSError) as e:
+            msg = f'ERROR loading JSON {path_style(board_path)}: {e}'
+            raise BoardFileError(msg) from None
         self.board_path = Path(board_path)
-        print(f'Loaded board from {self.board_path}')
+        print(f'Loaded board from {path_style(self.board_path)}.')
 
     def new_board(self) -> None:
         """Interactively creates a new DaiKanban board.
@@ -119,13 +162,16 @@ class BoardInterface(BaseModel):
         path = simple_input('Output filename', default=default_path).strip()
         path = path or default_path
         board_path = Path(path)
-        create = (not board_path.exists()) or Confirm.ask(f'A file named {path} already exists.\n\tOverwrite?')
+        create = (not board_path.exists()) or Confirm.ask(f'A file named {path_style(path)} already exists.\n\tOverwrite?')
         if create:
             description = simple_input('Board description').strip() or None
             board = Board(name=name, description=description)
-            with open(path, 'w') as f:
-                f.write(board.model_dump_json(indent=2))
-            print(f'Saved DaiKanban board {name!r} to [deep_sky_blue3]{path}[/]')
+            try:
+                with open(path, 'w') as f:
+                    f.write(board.model_dump_json(indent=2))
+            except OSError as e:
+                raise BoardFileError(str(e)) from None
+            print(f'Saved DaiKanban board {name!r} to {path_style(path)}')
             self.board_path = board_path
             self.board = board
 
@@ -139,7 +185,7 @@ class BoardInterface(BaseModel):
 
     # SHELL
 
-    def evaluate_prompt(self, prompt: str) -> None:
+    def evaluate_prompt(self, prompt: str) -> None:  # noqa: C901
         """Given user prompt, takes a particular action."""
         prompt = prompt.strip()
         if not prompt:
@@ -148,12 +194,22 @@ class BoardInterface(BaseModel):
         ntokens = len(tokens)
         tok0 = tokens[0]
         if prefix_match(tok0, 'board'):
-            if ntokens > 1:
-                tok1 = tokens[1]
-                if prefix_match(tok1, 'show'):
-                    return self.show_board()
-                if prefix_match(tok1, 'schema', minlen=2):
-                    return self.show_schema(Board)
+            if ntokens == 1:
+                return self.show_board_help()
+            tok1 = tokens[1]
+            if prefix_match(tok1, 'help'):
+                return self.show_board_help()
+            if prefix_match(tok1, 'delete'):
+                return self.delete_board()
+            if prefix_match(tok1, 'load'):
+                board_path = tokens[2] if (ntokens >= 3) else None
+                return self.load_board(board_path)
+            if prefix_match(tok1, 'new'):
+                return self.new_board()
+            if prefix_match(tok1, 'show'):
+                return self.show_board()
+            if prefix_match(tok1, 'schema', minlen=2):
+                return self.show_schema(Board)
         elif prefix_match(tok0, 'help'):
             return self.show_help()
         elif prefix_match(tok0, 'quit'):
@@ -173,15 +229,15 @@ class BoardInterface(BaseModel):
         print('[italic cyan]Welcome to DaiKanban![/]')
         # TODO: load default board from global config
         if board_path is not None:
-            with handle_error(json.JSONDecodeError, OSError):
-                self.load(board_path)
+            with handle_error(BoardFileError):
+                self.load_board(board_path)
         try:
             while True:
                 try:
                     prompt = input('🚀 ')
                     self.evaluate_prompt(prompt)
                 except KanbanError as e:
-                    print(str(e))
+                    print(f'[red]{e}[/]')
         except KeyboardInterrupt:
             print('')
             self.quit_shell()
