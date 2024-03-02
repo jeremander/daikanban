@@ -246,6 +246,10 @@ class Task(Model):
 class DaiKanban(Model):
     """A database of projects and tasks."""
     name: str = Field(description='name of DaiKanban board')
+    description: Optional[str] = Field(
+        default=None,
+        description='description of the DaiKanban board'
+    )
     projects: dict[Id, Project] = Field(
         default_factory=dict,
         description='mapping from IDs to projects'

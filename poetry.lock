@@ -12,6 +12,17 @@ files = [
 ]
 
 [[package]]
+name = "bullet"
+version = "2.2.0"
+description = "Beautiful Python prompts made simple."
+optional = false
+python-versions = "*"
+files = [
+    {file = "bullet-2.2.0-py3-none-any.whl", hash = "sha256:d22528deb914ce3ff20a4a000fa5ba37179697f384a0748f90691de8a74cf006"},
+    {file = "bullet-2.2.0.tar.gz", hash = "sha256:dfa0fa81810ad1a9e688815ca04f24af87ff5cdbe803b42fa634b1f50fc9d887"},
+]
+
+[[package]]
 name = "click"
 version = "8.1.7"
 description = "Composable command line interface toolkit"
@@ -432,4 +443,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "b202c83667fe8cd6d8f759380444b159b7ff874a4f82fde38932a1e4dadc0939"
+content-hash = "d868b835bb1593c01d6138bdc96c85fae89a0ede7c996e9fd351c8d21086984c"
