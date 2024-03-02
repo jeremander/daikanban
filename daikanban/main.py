@@ -10,6 +10,7 @@ from rich.prompt import Confirm, Prompt
 import typer
 
 from daikanban.model import DaiKanban
+import daikanban.shell
 
 
 APP = typer.Typer(
@@ -33,7 +34,7 @@ def to_snake_case(name: str) -> str:
     return re.sub(r'[^\w]+', '_', name.strip()).lower()
 
 
-@APP.command()
+@APP.command(short_help='create new board')
 def new() -> None:
     """Create a new DaiKanban board."""
     print('Creating new DaiKanban board.\n')
@@ -53,12 +54,15 @@ def new() -> None:
         print(f'Saved DaiKanban board {name!r} to [deep_sky_blue3]{path}[/]')
 
 
-@APP.command()
+@APP.command(short_help='display JSON schema')
 def schema(
     indent: Annotated[int, typer.Option(help='JSON indentation level')] = 2
 ) -> None:
     """Print out the DaiKanban schema."""
     print(json.dumps(DaiKanban.model_json_schema(mode='serialization'), indent=indent))
+
+
+APP.command(short_help='enter interactive shell')(daikanban.shell.shell)
 
 
 if __name__ == '__main__':
