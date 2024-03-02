@@ -6,6 +6,7 @@ from typing import Annotated, Optional
 import typer
 
 from daikanban.interface import BoardInterface
+from daikanban.model import Board
 
 
 APP = typer.Typer(
@@ -25,7 +26,7 @@ def schema(
     indent: Annotated[int, typer.Option(help='JSON indentation level')] = 2
 ) -> None:
     """Print out the DaiKanban schema."""
-    BoardInterface.show_board_schema(indent=indent)
+    BoardInterface.show_schema(Board, indent=indent)
 
 @APP.command(short_help='enter interactive shell')
 def shell(

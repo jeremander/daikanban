@@ -2,11 +2,13 @@ from functools import cache
 import json
 from pathlib import Path
 import re
+import sys
 from typing import Optional
 
 from pydantic import BaseModel, Field
 from rich import print
 from rich.prompt import Confirm, Prompt
+from rich.table import Table
 
 from daikanban.model import Board, BoardConfig, KanbanError
 from daikanban.utils import handle_error
@@ -75,9 +77,29 @@ class BoardInterface(BaseModel):
     # HELP/INFO
 
     @staticmethod
-    def show_board_schema(indent: int = 2) -> None:
-        """Prints out the DaiKanban board JSON schema."""
-        print(json.dumps(Board.model_json_schema(mode='serialization'), indent=indent))
+    def show_help() -> None:
+        """Displays the help menu listing various commands."""
+        grid = Table.grid(expand=True)
+        grid.add_column(style='bold grey0', width=5)
+        grid.add_column(style='bold grey0', width=6)
+        grid.add_column()
+        grid.add_row('\[h]elp', '', 'show help menu')
+        grid.add_row('\[q]uit', '', 'exit the shell')
+        # TODO: global settings?
+        # grid.add_row('settings', 'view/edit the settings')
+        grid.add_row('\[b]oard', '\[n]new', 'create new board')
+        grid.add_row('', '\[l]oad', 'load existing board')
+        grid.add_row('', 'schema', 'show board JSON schema')
+        grid.add_row('', '\[s]how', 'show current board, can provide extra filters like:')
+        grid.add_row('', '', '  status:\[STATUSES] project:\[PROJECT_IDS] tags:\[TAGS] limit:\[SIZE]')
+        # TODO: board config?
+        print('[bold underline]User options[/]')
+        print(grid)
+
+    @staticmethod
+    def show_schema(cls: type[BaseModel], indent: int = 2) -> None:
+        """Prints out the JSON schema of the given type."""
+        print(json.dumps(cls.model_json_schema(mode='serialization'), indent=indent))
 
     # BOARD
 
@@ -130,7 +152,19 @@ class BoardInterface(BaseModel):
                 tok1 = tokens[1]
                 if prefix_match(tok1, 'show'):
                     return self.show_board()
+                if prefix_match(tok1, 'schema', minlen=2):
+                    return self.show_schema(Board)
+        elif prefix_match(tok0, 'help'):
+            return self.show_help()
+        elif prefix_match(tok0, 'quit'):
+            return self.quit_shell()
         raise UserInputError('Invalid input')
+
+    @staticmethod
+    def quit_shell() -> None:
+        """Quits the shell and exits the program."""
+        print('👋 Goodbye!')
+        sys.exit(0)
 
     def launch_shell(self, board_path: Optional[Path] = None) -> None:
         """Launches an interactive shell to interact with a board.
@@ -141,9 +175,13 @@ class BoardInterface(BaseModel):
         if board_path is not None:
             with handle_error(json.JSONDecodeError, OSError):
                 self.load(board_path)
-        while True:
-            try:
-                prompt = input('🚀 ')
-                self.evaluate_prompt(prompt)
-            except KanbanError as e:
-                print(str(e))
+        try:
+            while True:
+                try:
+                    prompt = input('🚀 ')
+                    self.evaluate_prompt(prompt)
+                except KanbanError as e:
+                    print(str(e))
+        except KeyboardInterrupt:
+            print('')
+            self.quit_shell()
