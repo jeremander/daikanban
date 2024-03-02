@@ -1,4 +1,3 @@
-- Version string
 - CLI app via rich
     - Subcommands
         - settings: interact with settings (once there are some)
@@ -13,7 +12,7 @@
 - Recurring tasks? A la Pianote.
 - Web app (streamlit? FastUI?)
 - I/O
-    - Output markdown checklist/table
+    - Pretty output: markdown checklist/table
     - "Scanner": Input task list (grab preceding regex like "TODO:") and update board
         config["settings.scanner"] = {
             "Files": ".py .md",
