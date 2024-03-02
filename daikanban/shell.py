@@ -9,11 +9,21 @@ from daikanban.model import DaiKanban
 from daikanban.utils import handle_error
 
 
+PKG_DIR = Path(__file__).parent
+BILLBOARD_ART_PATH = PKG_DIR / 'billboard_art.txt'
+
+def get_billboard_art() -> str:
+    """Loads billboard ASCII art from a file."""
+    with open(BILLBOARD_ART_PATH) as f:
+        return f.read()
+
+
 def shell(
     board: Annotated[Optional[Path], typer.Option(help='DaiKanban board JSON file')] = None
 ) -> None:
     """Activate the DaiKanban shell."""
-    rich.print('[cyan]Activating DaiKanban shell...[/]')
+    rich.print(get_billboard_art())
+    rich.print('[italic cyan]Welcome to DaiKanban![/]')
     if board is None:
         dk = None
     else:
