@@ -24,7 +24,7 @@ def simple_input(prompt: str, default: Optional[str] = None, match: str = '.*') 
     """Prompts the user with the given string until the user's response matches a certain regex."""
     regex = re.compile(match)
     while True:
-        result = Prompt.ask(prompt, default=default) or ''
+        result = Prompt.ask(f'[bold]{prompt}[/]', default=default) or ''
         if regex.fullmatch(result):
             break
     return result
