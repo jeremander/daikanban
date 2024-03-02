@@ -16,14 +16,14 @@ class TestTask:
             assert schema['properties'][field]['readOnly'] is True
 
     def test_status(self):
-        pending = Task(name='mytask')
-        assert pending.status == TaskStatus.pending == 'pending'
-        assert pending.first_started_time is None
-        assert pending.completed_time is None
+        todo = Task(name='mytask')
+        assert todo.status == TaskStatus.todo == 'todo'
+        assert todo.first_started_time is None
+        assert todo.completed_time is None
         with pytest.raises(TaskStatusError, match='cannot complete'):
-            _ = pending.completed()
-        started = pending.started()
-        assert started != pending
+            _ = todo.completed()
+        started = todo.started()
+        assert started != todo
         assert started.status == TaskStatus.active
         assert isinstance(started.first_started_time, datetime)
         assert started.first_started_time == started.last_started_time

@@ -1,4 +1,5 @@
 - Rename pending -> todo
+- Version string
 - CLI app via rich
     - Subcommands
         - settings: interact with settings (once there are some)

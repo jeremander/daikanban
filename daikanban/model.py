@@ -67,7 +67,7 @@ def catch_key_error(cls: type[Exception]) -> Iterator[None]:
 
 class TaskStatus(str, Enum):
     """Possible status a task can have."""
-    pending = 'pending'
+    todo = 'todo'
     active = 'active'
     paused = 'paused'
     complete = 'complete'
@@ -186,7 +186,7 @@ class Task(Model):
     def status(self) -> TaskStatus:
         """Gets the current status of the task."""
         if self.first_started_time is None:
-            return TaskStatus.pending
+            return TaskStatus.todo
         if (self.last_started_time is not None) and (self.completed_time is None):
             return TaskStatus.active
         if self.last_started_time is None:
@@ -241,9 +241,9 @@ class Task(Model):
         return self
 
     def started(self) -> 'Task':
-        """Returns a new started version of the Task, if its status is pending.
+        """Returns a new started version of the Task, if its status is todo.
         Otherwise raises a TaskStatusError."""
-        if self.status == TaskStatus.pending:
+        if self.status == TaskStatus.todo:
             now = get_current_time()
             update = {'first_started_time': now, 'last_started_time': now}
             return self.model_copy(update=update)
