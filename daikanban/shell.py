@@ -5,7 +5,7 @@ from typing import Annotated, Optional
 import rich
 import typer
 
-from daikanban.model import DaiKanban
+from daikanban.model import Board
 from daikanban.utils import handle_error
 
 
@@ -29,5 +29,5 @@ def shell(
     else:
         with handle_error(OSError):
             with open(board) as f:
-                dk = DaiKanban(**json.load(f))
+                dk = Board(**json.load(f))
     rich.print(dk)

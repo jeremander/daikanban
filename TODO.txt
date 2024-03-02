@@ -3,7 +3,11 @@
         - settings: interact with settings (once there are some)
         - shell: launch shell
         - web: launch web app
-- "pull" is a synonym for moving from todo to started
+- Settings
+    - Global config file?
+    - Store board-specific settings in file itself?
+    - Size limit, set of statuses to show
+- XDG directory?
 - If task progresses todo->complete/paused or paused->complete, prompt for what time it was started, ex post facto.
 - Blocking logic
     - Prevent cyclic blocking?

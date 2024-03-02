@@ -9,7 +9,7 @@ from rich import print
 from rich.prompt import Confirm, Prompt
 import typer
 
-from daikanban.model import DaiKanban
+from daikanban.model import Board
 import daikanban.shell
 
 
@@ -42,15 +42,12 @@ def new() -> None:
     default_path = to_snake_case(name) + '.json'
     path = simple_input('Output filename', default=default_path).strip()
     path = path or default_path
-    if Path(path).exists():
-        overwrite = Confirm.ask(f'A file named {path} already exists.\n\tOverwrite?')
-    else:
-        overwrite = True
+    overwrite = (not Path(path).exists()) or Confirm.ask(f'A file named {path} already exists.\n\tOverwrite?')
     if overwrite:
         description = simple_input('Board description').strip() or None
-        dk = DaiKanban(name=name, description=description)
+        board = Board(name=name, description=description)
         with open(path, 'w') as f:
-            f.write(dk.model_dump_json(indent=2))
+            f.write(board.model_dump_json(indent=2))
         print(f'Saved DaiKanban board {name!r} to [deep_sky_blue3]{path}[/]')
 
 
@@ -59,7 +56,7 @@ def schema(
     indent: Annotated[int, typer.Option(help='JSON indentation level')] = 2
 ) -> None:
     """Print out the DaiKanban schema."""
-    print(json.dumps(DaiKanban.model_json_schema(mode='serialization'), indent=indent))
+    print(json.dumps(Board.model_json_schema(mode='serialization'), indent=indent))
 
 
 APP.command(short_help='enter interactive shell')(daikanban.shell.shell)

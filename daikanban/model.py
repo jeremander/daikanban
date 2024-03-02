@@ -4,7 +4,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Annotated, Any, ClassVar, Iterator, Literal, Optional, TypeVar
 
-from pydantic import AnyUrl, BaseModel, BeforeValidator, Field, PlainSerializer, computed_field, model_validator
+from pydantic import AfterValidator, AnyUrl, BaseModel, BeforeValidator, Field, PlainSerializer, computed_field, model_validator
 
 from daikanban.utils import get_current_time, get_duration_between
 
@@ -20,6 +20,13 @@ SECS_PER_DAY = 3600 * 24
 ################
 
 Id = Annotated[int, Field(ge=0)]
+
+def _check_name(name: str) -> str:
+    if not any(c.isalpha() for c in name):
+        raise ValueError('name must have at least one letter')
+    return name
+
+Name = Annotated[str, AfterValidator(_check_name)]
 Datetime = Annotated[
     datetime,
     BeforeValidator(lambda s: datetime.strptime(s, TIME_FORMAT)),
@@ -81,7 +88,7 @@ class Model(BaseModel):
 
 class Project(Model):
     """A project associated with multiple tasks."""
-    name: str = Field(
+    name: Name = Field(
         description='Project name'
     )
     description: Optional[str] = Field(
@@ -116,7 +123,7 @@ class Log(Model):
 
 class Task(Model):
     """A task to be performed."""
-    name: str = Field(
+    name: Name = Field(
         description='Task name'
     )
     details: Optional[str] = Field(
@@ -271,8 +278,8 @@ class Task(Model):
         raise TaskStatusError(f'cannot restart Task with status {self.status!r}')
 
 
-class DaiKanban(Model):
-    """A database of projects and tasks."""
+class Board(Model):
+    """A kanban board (collection of projects and tasks)."""
     name: str = Field(description='name of DaiKanban board')
     description: Optional[str] = Field(
         default=None,
