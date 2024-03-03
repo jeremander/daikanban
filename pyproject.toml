@@ -1,6 +1,7 @@
 [tool.poetry]
 name = "daikanban"
-dynamic = ["version"]
+# poetry-version-plugin will set this to correct value
+version = "0"
 description = "A kanban-style project task queue."
 authors = ["Jeremy Silver <jeremys@nessiness.com>"]
 readme = "README.md"
@@ -16,6 +17,8 @@ python = "^3.9"
 pydantic = "^2.6.3"
 typer = {extras = ["all"], version = "^0.9.0"}
 bullet = "^2.2.0"
+pytimeparse = "^1.1.8"
+pendulum = "^3.0.0"
 
 [tool.poetry.group.test.dependencies]
 pytest = "^8.0.2"
@@ -27,7 +30,6 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.commitizen]
 tag_format = "v$major.$minor.$patch"
-version = "0.1.0"
 version_files = [
   "pyproject.toml:tool.poetry.version"
 ]

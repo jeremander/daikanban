@@ -1,4 +1,6 @@
+import csv
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from functools import cache, wraps
 import json
 from pathlib import Path
@@ -6,14 +8,17 @@ import re
 import sys
 from typing import Any, Callable, Generic, Optional, TypeVar
 
+import pendulum
+import pendulum.parsing
 from pydantic import BaseModel, Field, ValidationError
 from pydantic_core import PydanticUndefined
+import pytimeparse
 from rich import print
 from rich.prompt import Confirm, Prompt
 from rich.table import Table
 
-from daikanban.model import Board, BoardConfig, KanbanError, Project
-from daikanban.utils import handle_error, prefix_match, to_snake_case
+from daikanban.model import TIME_FORMAT, Board, BoardConfig, Datetime, Duration, Id, KanbanError, Project, Task
+from daikanban.utils import SECS_PER_DAY, get_current_time, handle_error, prefix_match, to_snake_case
 
 
 M = TypeVar('M', bound=BaseModel)
@@ -37,14 +42,6 @@ class BoardFileError(KanbanError):
 class BoardNotLoadedError(KanbanError):
     """Error type for when a board has not yet been loaded."""
 
-def require_board(func):  # noqa
-    @wraps(func)
-    def wrapped(self, *args, **kwargs):  # noqa
-        if self.board_path is None:
-            raise BoardNotLoadedError("No board has been loaded.\nRun 'board load' to load a board.")
-        func(self, *args, **kwargs)
-    return wrapped
-
 
 ####################
 # HELPER FUNCTIONS #
@@ -65,12 +62,51 @@ def err_style(obj: object) -> str:
     return f'[red]{obj}[/]'
 
 
+###########
+# PARSING #
+###########
+
+def parse_string_set(s: str) -> set[str]:
+    """Parses a comma-separated string into a set of strings.
+    Allows for quote delimiting so that commas can be escaped."""
+    return set(list(csv.reader([s]))[0])
+
+def parse_duration(s: str) -> Duration:
+    """Parses a string into a time duration (number of days)."""
+    secs = pytimeparse.parse(s)
+    if (secs is None):
+        raise UserInputError('Invalid time duration.')
+    return secs / SECS_PER_DAY
+
+def parse_date(s: str) -> Datetime:
+    """Parses a string into a datetime.
+    The string can either specify a datetime directly, or a time duration from the present moment."""
+    try:
+        dt = pendulum.parse(s, strict=False)
+        assert isinstance(dt, datetime)
+        return dt
+    except (AssertionError, pendulum.parsing.ParserError):
+        # parse as a duration from now
+        s = s.strip()
+        is_past = s.endswith(' ago')
+        s = s.removeprefix('in ').removesuffix(' from now').removesuffix(' ago').strip()
+        secs = pytimeparse.parse(s)
+        if secs is None:
+            raise UserInputError('Invalid date') from None
+        td = timedelta(seconds=secs)
+        return get_current_time() + (-td if is_past else td)
+
+
 #############
 # PROMPTING #
 #############
 
 def validated_input(prompt: str, validator: Callable[[str], T], default: Any = None) -> T:
     """Prompts the user with the given string until the user's response passes a validator function with no error."""
+    if default not in (None, PydanticUndefined):
+        if isinstance(default, float) and (int(default) == default):
+            default = int(default)
+        default = str(default)
     while True:
         result = Prompt.ask(f'[bold]{prompt}[/]', default=default) or ''
         try:
@@ -141,6 +177,15 @@ def model_from_prompt(model_type: type[M], parsers: dict[str, FieldParser] = {})
 # BOARD INTERFACE #
 ###################
 
+def require_board(func):  # noqa
+    @wraps(func)
+    def wrapped(self, *args, **kwargs):  # noqa
+        if self.board_path is None:
+            raise BoardNotLoadedError("No board has been loaded.\nRun 'board load' to load a board.")
+        func(self, *args, **kwargs)
+    return wrapped
+
+
 class BoardInterface(BaseModel):
     """Interactive user interface to view and manipulate a DaiKanban board.
     This object maintains a state containing the currently loaded board and configurations."""
@@ -156,6 +201,24 @@ class BoardInterface(BaseModel):
         default_factory=BoardConfig,
         description='board configurations'
     )
+
+    def _parse_project(self, s: str) -> Optional[Id]:
+        """Parses a project ID or name.
+        If it is in the current board, returns the Id; otherwise, raise a UserInputError.
+        Returs None if the string is vacuous."""
+        assert self.board is not None
+        s = s.strip()
+        if not s:
+            return None
+        if s.isdigit():
+            id_ = int(s)
+            if (id_ in self.board.projects):
+                return id_
+            raise UserInputError('Invalid project ID.')
+        for (id_, proj) in self.board.projects.items():
+            if (proj.name.lower() == s.lower()):
+                return id_
+        raise UserInputError('Invalid project name.')
 
     # HELP/INFO
 
@@ -181,6 +244,11 @@ class BoardInterface(BaseModel):
         grid.add_row('\[p]roject', '\[d]elete [not bold]\[ID][/]', 'delete a project')
         grid.add_row('', '\[n]ew', 'create new project')
 
+    def add_task_help(self, grid: Table) -> None:
+        """Adds entries to help menu related to tasks."""
+        grid.add_row('\[t]ask', '\[d]elete [not bold]\[ID][/]', 'delete a task')
+        grid.add_row('', '\[n]ew', 'create new task')
+
     def show_help(self) -> None:
         """Displays the main help menu listing various commands."""
         grid = self.make_new_help_table()
@@ -190,6 +258,7 @@ class BoardInterface(BaseModel):
         # grid.add_row('settings', 'view/edit the settings')
         self.add_board_help(grid)
         self.add_project_help(grid)
+        self.add_task_help(grid)
         # TODO: board config?
         print('[bold underline]User options[/]')
         print(grid)
@@ -209,6 +278,10 @@ class BoardInterface(BaseModel):
         """Displays the project-specific help menu."""
         self._show_subgroup_help('project')
 
+    def show_task_help(self) -> None:
+        """Displays the task-specific help menu."""
+        self._show_subgroup_help('task')
+
     @staticmethod
     def show_schema(cls: type[BaseModel], indent: int = 2) -> None:
         """Prints out the JSON schema of the given type."""
@@ -226,14 +299,61 @@ class BoardInterface(BaseModel):
             },
             'description': {},
             'links': {
-                'prompt': 'Links (optional, comma-separated)',
-                'parse': lambda s: [url for tok in s.split(',') if (url := tok.strip())]
+                'prompt': 'Links [not bold]\[optional, comma-separated][/]',
+                'parse': parse_string_set
             }
         }
         parsers: dict[str, FieldParser] = {field: FieldParser(Project, field, **kwargs) for (field, kwargs) in params.items()}
         proj = model_from_prompt(Project, parsers)
         id_ = self.board.create_project(proj)
+        self.save_board()
         print(f'Created new project with ID {id_}')
+
+    # TASK
+
+    @require_board
+    def new_task(self) -> None:
+        """Createas a new task."""
+        assert self.board is not None
+        params: dict[str, dict[str, Any]] = {
+            'name': {
+                'prompt': 'Task name'
+            },
+            'description': {},
+            'priority': {
+                'prompt': 'Priority [not bold]\[0-10][/]'
+            },
+            'expected_difficulty': {
+                'prompt': 'Expected difficulty [not bold]\[0-10][/]'
+            },
+            'expected_duration': {
+                'prompt': 'Expected duration [not bold]\[optional, e.g. "3 days", "2 months"][/]',
+                'parse': parse_duration
+            },
+            'due_date': {
+                'prompt': 'Due date [not bold]\[optional][/]',
+                'parse': lambda s: parse_date(s).strftime(TIME_FORMAT)
+            },
+            'project_id': {
+                'prompt': 'Project ID or name [not bold]\[optional][/]',
+                'parse': self._parse_project
+            },
+            'tags': {
+                'prompt': 'Tags [not bold]\[optional, comma-separated][/]',
+                'parse': parse_string_set
+            },
+            'links': {
+                'prompt': 'Links [not bold]\[optional, comma-separated][/]',
+                'parse': parse_string_set
+            }
+        }
+        parsers: dict[str, FieldParser] = {
+            field: FieldParser(Task, field, **kwargs) for (field, kwargs) in params.items()
+        }
+        task = model_from_prompt(Task, parsers)
+        id_ = self.board.create_task(task)
+        self.save_board()
+        print(f'Created new task with ID {id_}')
 
     # BOARD
 
@@ -335,6 +455,12 @@ class BoardInterface(BaseModel):
                 return self.new_project()
         elif prefix_match(tok0, 'quit'):
             return self.quit_shell()
+        elif prefix_match(tok0, 'task'):
+            if (ntokens == 1) or prefix_match(tokens[1], 'help'):
+                return self.show_task_help()
+            tok1 = tokens[1]
+            if prefix_match(tok1, 'new'):
+                return self.new_task()
         raise UserInputError('Invalid input')
 
     @staticmethod

@@ -126,9 +126,9 @@ class Task(Model):
     name: Name = Field(
         description='Task name'
     )
-    details: Optional[str] = Field(
+    description: Optional[str] = Field(
         default=None,
-        description='More detailed description of the task'
+        description='Task description'
     )
     priority: Score = Field(
         default=3.0,
@@ -151,6 +151,14 @@ class Task(Model):
         default=None,
         description='Project ID'
     )
+    tags: Optional[set[str]] = Field(
+        default=None,
+        description='Tags associated with the task'
+    )
+    links: Optional[set[AnyUrl]] = Field(
+        default=None,
+        description='Links associated with the project'
+    )
     created_time: Datetime = Field(
         default_factory=get_current_time,
         description='Time the task was created'
@@ -170,14 +178,6 @@ class Task(Model):
     prior_time_worked: Optional[Duration] = Field(
         default=None,
         description='Total time (in days) the task was worked on prior to last_started_time'
-    )
-    tags: Optional[set[str]] = Field(
-        default=None,
-        description='Tags associated with the task'
-    )
-    links: Optional[set[AnyUrl]] = Field(
-        default=None,
-        description='Links associated with the project'
     )
     blocked_by: Optional[set[Id]] = Field(
         default=None,
