@@ -1,3 +1,5 @@
+- Name uniqueness on projects/tasks
+- Set widths for each help menu separately...
 - CLI app via rich
     - Subcommands
         - settings: interact with settings (once there are some)

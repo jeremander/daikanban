@@ -1,22 +1,32 @@
-from functools import cache
+from dataclasses import dataclass
+from functools import cache, wraps
 import json
 from pathlib import Path
 import re
 import sys
-from typing import Optional
+from typing import Any, Callable, Generic, Optional, TypeVar
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
+from pydantic_core import PydanticUndefined
 from rich import print
 from rich.prompt import Confirm, Prompt
 from rich.table import Table
 
-from daikanban.model import Board, BoardConfig, KanbanError
-from daikanban.utils import handle_error
+from daikanban.model import Board, BoardConfig, KanbanError, Project
+from daikanban.utils import handle_error, prefix_match, to_snake_case
+
+
+M = TypeVar('M', bound=BaseModel)
+T = TypeVar('T')
 
 
 PKG_DIR = Path(__file__).parent
 BILLBOARD_ART_PATH = PKG_DIR / 'billboard_art.txt'
 
+
+##########
+# ERRORS #
+##########
 
 class UserInputError(KanbanError):
     """Class for user input errors."""
@@ -26,6 +36,14 @@ class BoardFileError(KanbanError):
 
 class BoardNotLoadedError(KanbanError):
     """Error type for when a board has not yet been loaded."""
+
+def require_board(func):  # noqa
+    @wraps(func)
+    def wrapped(self, *args, **kwargs):  # noqa
+        if self.board_path is None:
+            raise BoardNotLoadedError("No board has been loaded.\nRun 'board load' to load a board.")
+        func(self, *args, **kwargs)
+    return wrapped
 
 
 ####################
@@ -38,6 +56,28 @@ def get_billboard_art() -> str:
     with open(BILLBOARD_ART_PATH) as f:
         return f.read()
 
+def path_style(path: str | Path) -> str:
+    """Renders a path as a rich-styled string."""
+    return f'[dodger_blue2]{path}[/]'
+
+def err_style(obj: object) -> str:
+    """Renders an error as a rich-styled string."""
+    return f'[red]{obj}[/]'
+
+
+#############
+# PROMPTING #
+#############
+
+def validated_input(prompt: str, validator: Callable[[str], T], default: Any = None) -> T:
+    """Prompts the user with the given string until the user's response passes a validator function with no error."""
+    while True:
+        result = Prompt.ask(f'[bold]{prompt}[/]', default=default) or ''
+        try:
+            return validator(result)
+        except Exception as e:
+            print(err_style(e))
+
 def simple_input(prompt: str, default: Optional[str] = None, match: str = '.*') -> str:
     """Prompts the user with the given string until the user's response matches a certain regex."""
     regex = re.compile(match)
@@ -47,18 +87,54 @@ def simple_input(prompt: str, default: Optional[str] = None, match: str = '.*') 
             break
     return result
 
-def to_snake_case(name: str) -> str:
-    """Converts an arbitrary string to snake case."""
-    return re.sub(r'[^\w]+', '_', name.strip()).lower()
+@dataclass
+class FieldParser(Generic[M, T]):
+    """Bundle of parameters for how to parse a field from a string."""
+    model_type: type[M]
+    field: str
+    prompt: Optional[str] = None
+    parse: Optional[Callable[[str], T]] = None
 
-def prefix_match(token: str, match: str, minlen: int = 1) -> bool:
-    """Returns true if token is a prefix of match and has length at least minlen."""
-    n = len(token)
-    return (n >= minlen) and (match[:n] == token)
+    @property
+    def readable_name(self) -> str:
+        """Gets a readable version of the field name."""
+        return self.field.replace('_', ' ').capitalize()
 
-def path_style(path: str | Path) -> str:
-    """Renders a path as a rich-styled string."""
-    return f'[dodger_blue2]{path}[/]'
+    @property
+    def default(self) -> T:
+        """Gets the default value for the particular field."""
+        info = self.model_type.model_fields[self.field]
+        # TODO: default_factory?
+        return info.default
+
+    def validate(self, val: Any) -> None:
+        """Validates the field value."""
+        if val == PydanticUndefined:  # field is required
+            raise UserInputError('This field is required.')
+        try:
+            self.model_type.__pydantic_validator__.validate_assignment(self.model_type.model_construct(), self.field, val)
+        except ValidationError as e:
+            msg = '\n'.join(d['msg'] for d in e.errors())
+            raise UserInputError(msg) from None
+
+    def parse_field(self, s: str) -> T:
+        """Given a BaseModel type and string, parses the field value from a string and validates it."""
+        val = s if (self.parse is None) else self.parse(s)
+        self.validate(val)
+        return val  # type: ignore
+
+    def prompt_field(self) -> T:
+        """Given a BaseModel type, prompts the user for the field until a valid one is entered."""
+        prompt = self.prompt or self.readable_name
+        return validated_input(prompt, self.parse_field, default=self.default)
+
+
+def model_from_prompt(model_type: type[M], parsers: dict[str, FieldParser] = {}) -> M:  # noqa: B006
+    """Given a BaseModel type and collection of FieldParsers, constructs an instance of the type from a sequence of user prompts."""
+    kwargs: dict[str, Any] = {}
+    for (field, parser) in parsers.items():
+        kwargs[field] = parser.prompt_field()
+    return model_type(**kwargs)
 
 
 ###################
@@ -86,8 +162,8 @@ class BoardInterface(BaseModel):
     def make_new_help_table(self) -> Table:
         """Creates a new 3-column rich table for displaying help menus."""
         grid = Table.grid(expand=True)
-        grid.add_column(style='bold grey0', width=5)
-        grid.add_column(style='bold grey0', width=13)
+        grid.add_column(style='bold grey0')
+        grid.add_column(style='bold grey0')
         grid.add_column()
         return grid
 
@@ -100,6 +176,11 @@ class BoardInterface(BaseModel):
         grid.add_row('', '\[s]how', 'show current board, can provide extra filters like:')
         grid.add_row('', '', '  status:\[STATUSES] project:\[PROJECT_IDS] tags:\[TAGS] limit:\[SIZE]')
 
+    def add_project_help(self, grid: Table) -> None:
+        """Adds entries to help menu related to projects."""
+        grid.add_row('\[p]roject', '\[d]elete [not bold]\[ID][/]', 'delete a project')
+        grid.add_row('', '\[n]ew', 'create new project')
+
     def show_help(self) -> None:
         """Displays the main help menu listing various commands."""
         grid = self.make_new_help_table()
@@ -108,28 +189,58 @@ class BoardInterface(BaseModel):
         # TODO: global settings?
         # grid.add_row('settings', 'view/edit the settings')
         self.add_board_help(grid)
+        self.add_project_help(grid)
         # TODO: board config?
         print('[bold underline]User options[/]')
         print(grid)
 
+    def _show_subgroup_help(self, subgroup: str) -> None:
+        grid = self.make_new_help_table()
+        meth = f'add_{subgroup}_help'
+        getattr(self, meth)(grid)
+        print(f'[bold underline]{subgroup.capitalize()} options[/]')
+        print(grid)
+
     def show_board_help(self) -> None:
         """Displays the board-specific help menu."""
-        grid = self.make_new_help_table()
-        self.add_board_help(grid)
-        print('[bold underline]Board options[/]')
-        print(grid)
+        self._show_subgroup_help('board')
+
+    def show_project_help(self) -> None:
+        """Displays the project-specific help menu."""
+        self._show_subgroup_help('project')
 
     @staticmethod
     def show_schema(cls: type[BaseModel], indent: int = 2) -> None:
         """Prints out the JSON schema of the given type."""
         print(json.dumps(cls.model_json_schema(mode='serialization'), indent=indent))
 
+    # PROJECT
+
+    @require_board
+    def new_project(self) -> None:
+        """Createas a new project."""
+        assert self.board is not None
+        params: dict[str, dict[str, Any]] = {
+            'name': {
+                'prompt': 'Project name'
+            },
+            'description': {},
+            'links': {
+                'prompt': 'Links (optional, comma-separated)',
+                'parse': lambda s: [url for tok in s.split(',') if (url := tok.strip())]
+            }
+        }
+        parsers: dict[str, FieldParser] = {field: FieldParser(Project, field, **kwargs) for (field, kwargs) in params.items()}
+        proj = model_from_prompt(Project, parsers)
+        id_ = self.board.create_project(proj)
+        print(f'Created new project with ID {id_}')
+
     # BOARD
 
+    @require_board
     def delete_board(self) -> None:
         """Deletes the currently loaded board."""
-        if self.board_path is None:
-            raise BoardNotLoadedError("No board has been loaded.\nRun 'board load' to load a board.")
+        assert self.board_path is not None
         path = path_style(self.board_path)
         if not self.board_path.exists():
             raise BoardFileError(f'Board file {path} does not exist.')
@@ -153,6 +264,17 @@ class BoardInterface(BaseModel):
         self.board_path = Path(board_path)
         print(f'Loaded board from {path_style(self.board_path)}.')
 
+    def save_board(self) -> None:
+        """Saves the state of the current board to its JSON file."""
+        if self.board is not None:
+            assert self.board_path is not None
+            # TODO: save in background if file size starts to get large?
+            try:
+                with open(self.board_path, 'w') as f:
+                    f.write(self.board.model_dump_json(indent=self.config.json_indent))
+            except OSError as e:
+                raise BoardFileError(str(e)) from None
+
     def new_board(self) -> None:
         """Interactively creates a new DaiKanban board.
         Implicitly loads that board afterward."""
@@ -165,15 +287,10 @@ class BoardInterface(BaseModel):
         create = (not board_path.exists()) or Confirm.ask(f'A file named {path_style(path)} already exists.\n\tOverwrite?')
         if create:
             description = simple_input('Board description').strip() or None
-            board = Board(name=name, description=description)
-            try:
-                with open(path, 'w') as f:
-                    f.write(board.model_dump_json(indent=2))
-            except OSError as e:
-                raise BoardFileError(str(e)) from None
-            print(f'Saved DaiKanban board {name!r} to {path_style(path)}')
+            self.board = Board(name=name, description=description)
             self.board_path = board_path
-            self.board = board
+            self.save_board()
+            print(f'Saved DaiKanban board {name!r} to {path_style(path)}')
 
     def show_board(self) -> None:
         """Displays the board to the screen using the current configurations."""
@@ -194,11 +311,9 @@ class BoardInterface(BaseModel):
         ntokens = len(tokens)
         tok0 = tokens[0]
         if prefix_match(tok0, 'board'):
-            if ntokens == 1:
+            if (ntokens == 1) or prefix_match(tokens[1], 'help'):
                 return self.show_board_help()
             tok1 = tokens[1]
-            if prefix_match(tok1, 'help'):
-                return self.show_board_help()
             if prefix_match(tok1, 'delete'):
                 return self.delete_board()
             if prefix_match(tok1, 'load'):
@@ -212,6 +327,12 @@ class BoardInterface(BaseModel):
                 return self.show_schema(Board)
         elif prefix_match(tok0, 'help'):
             return self.show_help()
+        elif prefix_match(tok0, 'project'):
+            if (ntokens == 1) or prefix_match(tokens[1], 'help'):
+                return self.show_project_help()
+            tok1 = tokens[1]
+            if prefix_match(tok1, 'new'):
+                return self.new_project()
         elif prefix_match(tok0, 'quit'):
             return self.quit_shell()
         raise UserInputError('Invalid input')
@@ -237,7 +358,7 @@ class BoardInterface(BaseModel):
                     prompt = input('🚀 ')
                     self.evaluate_prompt(prompt)
                 except KanbanError as e:
-                    print(f'[red]{e}[/]')
+                    print(err_style(e))
         except KeyboardInterrupt:
             print('')
             self.quit_shell()
