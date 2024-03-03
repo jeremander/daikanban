@@ -5,6 +5,7 @@ from functools import cache, wraps
 import json
 from pathlib import Path
 import re
+import shlex
 import sys
 from typing import Any, Callable, Generic, Optional, TypeVar
 
@@ -52,6 +53,10 @@ def get_billboard_art() -> str:
     """Loads billboard ASCII art from a file."""
     with open(BILLBOARD_ART_PATH) as f:
         return f.read()
+
+def id_style(id_: Id) -> str:
+    """Renders an Id as a rich-styled string."""
+    return f'[purple4]{id_}[/]'
 
 def path_style(path: str | Path) -> str:
     """Renders a path as a rich-styled string."""
@@ -202,23 +207,28 @@ class BoardInterface(BaseModel):
         description='board configurations'
     )
 
-    def _parse_project(self, s: str) -> Optional[Id]:
-        """Parses a project ID or name.
-        If it is in the current board, returns the Id; otherwise, raise a UserInputError.
-        Returs None if the string is vacuous."""
+    def _parse_id_or_name(self, item_type: str, s: str) -> Optional[Id]:
         assert self.board is not None
         s = s.strip()
         if not s:
             return None
+        d = getattr(self.board, f'{item_type}s')
         if s.isdigit():
             id_ = int(s)
-            if (id_ in self.board.projects):
+            if (id_ in d):
                 return id_
-            raise UserInputError('Invalid project ID.')
-        for (id_, proj) in self.board.projects.items():
+            raise UserInputError(f'Invalid {item_type} ID.')
+        for (id_, proj) in d.items():
             if (proj.name.lower() == s.lower()):
                 return id_
-        raise UserInputError('Invalid project name.')
+        raise UserInputError(f'Invalid {item_type} name.')
+
+    def _parse_project(self, s: str) -> Optional[Id]:
+        return self._parse_id_or_name('project', s)
+
+    def _parse_task(self, s: str) -> Optional[Id]:
+        return self._parse_id_or_name('task', s)
+
 
     # HELP/INFO
 
@@ -290,8 +300,21 @@ class BoardInterface(BaseModel):
     # PROJECT
 
     @require_board
+    def delete_project(self, id_or_name: Optional[str] = None) -> None:
+        """Deletes a project with the given ID or name."""
+        assert self.board is not None
+        if id_or_name is None:
+            id_or_name = simple_input('Project ID or name', match='.+')
+        id_ = self._parse_project(id_or_name)
+        assert id_ is not None
+        proj = self.board.get_project(id_)
+        self.board.delete_project(id_)
+        self.save_board()
+        print(f'Deleted project {proj.name!r} with ID {id_style(id_)}')
+
+    @require_board
     def new_project(self) -> None:
-        """Createas a new project."""
+        """Creates a new project."""
         assert self.board is not None
         params: dict[str, dict[str, Any]] = {
             'name': {
@@ -307,9 +330,22 @@ class BoardInterface(BaseModel):
         proj = model_from_prompt(Project, parsers)
         id_ = self.board.create_project(proj)
         self.save_board()
-        print(f'Created new project with ID {id_}')
+        print(f'Created new project with ID {id_style(id_)}')
 
     # TASK
+
+    @require_board
+    def delete_task(self, id_or_name: Optional[str] = None) -> None:
+        """Deletes a task with the given ID or name."""
+        assert self.board is not None
+        if id_or_name is None:
+            id_or_name = simple_input('Project ID or name', match='.+')
+        id_ = self._parse_task(id_or_name)
+        assert id_ is not None
+        task = self.board.get_task(id_)
+        self.board.delete_task(id_)
+        self.save_board()
+        print(f'Deleted task {task.name!r} with ID {id_style(id_)}')
 
     @require_board
     def new_task(self) -> None:
@@ -353,7 +389,7 @@ class BoardInterface(BaseModel):
         task = model_from_prompt(Task, parsers)
         id_ = self.board.create_task(task)
         self.save_board()
-        print(f'Created new task with ID {id_}')
+        print(f'Created new task with ID {id_style(id_)}')
 
     # BOARD
 
@@ -427,7 +463,7 @@ class BoardInterface(BaseModel):
         prompt = prompt.strip()
         if not prompt:
             return None
-        tokens = prompt.split()
+        tokens = shlex.split(prompt)
         ntokens = len(tokens)
         tok0 = tokens[0]
         if prefix_match(tok0, 'board'):
@@ -453,12 +489,16 @@ class BoardInterface(BaseModel):
             tok1 = tokens[1]
             if prefix_match(tok1, 'new'):
                 return self.new_project()
+            if prefix_match(tok1, 'delete'):
+                return self.delete_project(None if (ntokens == 2) else tokens[2])
         elif prefix_match(tok0, 'quit'):
             return self.quit_shell()
         elif prefix_match(tok0, 'task'):
             if (ntokens == 1) or prefix_match(tokens[1], 'help'):
                 return self.show_task_help()
             tok1 = tokens[1]
+            if prefix_match(tok1, 'delete'):
+                return self.delete_task(None if (ntokens == 2) else tokens[2])
             if prefix_match(tok1, 'new'):
                 return self.new_task()
         raise UserInputError('Invalid input')
