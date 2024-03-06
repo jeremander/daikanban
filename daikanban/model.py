@@ -5,6 +5,7 @@ from enum import Enum
 from typing import Annotated, Any, ClassVar, Iterator, Literal, Optional, TypeVar
 
 from pydantic import AfterValidator, AnyUrl, BaseModel, BeforeValidator, Field, PlainSerializer, computed_field, model_validator
+from typing_extensions import Doc
 
 from daikanban.utils import get_current_time, get_duration_between
 
@@ -32,10 +33,8 @@ Datetime = Annotated[
     BeforeValidator(lambda s: datetime.strptime(s, TIME_FORMAT)),
     PlainSerializer(lambda dt: dt.strftime(TIME_FORMAT), return_type=str)
 ]
-# duration (in days)
-Duration = Annotated[float, Field(ge=0.0)]
-# a score between 0 and 10
-Score = Annotated[float, Field(ge=0.0, le=10.0)]
+Duration = Annotated[float, Field(ge=0.0), Doc('duration (in days)')]
+Score = Annotated[float, Field(ge=0.0), Doc('a score (positive number)')]
 
 
 ##################
@@ -371,7 +370,7 @@ class Board(Model):
 
     @catch_key_error(TaskNotFoundError)
     def add_blocking_task(self, blocking_task_id: Id, blocked_task_id: Id) -> None:
-        """Adds a task ID to the list of blacking tasks for another."""
+        """Adds a task ID to the list of blocking tasks for another."""
         _ = self.get_task(blocking_task_id)  # ensure blocking task exists
         blocked_task = self.get_task(blocked_task_id)
         blocked_by = set(blocked_task.blocked_by) if blocked_task.blocked_by else set()

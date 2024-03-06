@@ -9,7 +9,11 @@
     - Global config file?
     - Store board-specific settings in file itself?
     - Size limit, set of statuses to show
-- XDG directory?
+    - XDG directory?
+- Kanban metrics
+    - Lead time (todo to complete) & cycle time (active to complete)
+        - Per task, and averaged across tasks historically
+        - Distributional estimates of these quantities, for forecasting purposes
 - If task progresses todo->complete/paused or paused->complete, prompt for what time it was started, ex post facto.
 - Blocking logic
     - Prevent cyclic blocking?

@@ -5,6 +5,7 @@ from functools import cache, wraps
 import json
 from pathlib import Path
 import re
+import readline  # improves shell interactivity  # noqa: F401
 import shlex
 import sys
 from typing import Any, Callable, Generic, Optional, TypeVar
@@ -18,13 +19,12 @@ from rich import print
 from rich.prompt import Confirm, Prompt
 from rich.table import Table
 
-from daikanban.model import TIME_FORMAT, Board, BoardConfig, Datetime, Duration, Id, KanbanError, Project, Task
+from daikanban.model import TIME_FORMAT, Board, BoardConfig, Duration, Id, KanbanError, Project, Task
 from daikanban.utils import SECS_PER_DAY, get_current_time, handle_error, prefix_match, to_snake_case
 
 
 M = TypeVar('M', bound=BaseModel)
 T = TypeVar('T')
-
 
 PKG_DIR = Path(__file__).parent
 BILLBOARD_ART_PATH = PKG_DIR / 'billboard_art.txt'
@@ -76,20 +76,23 @@ def parse_string_set(s: str) -> set[str]:
     Allows for quote delimiting so that commas can be escaped."""
     return set(list(csv.reader([s]))[0])
 
-def parse_duration(s: str) -> Duration:
+def parse_duration(s: str) -> Optional[Duration]:
     """Parses a string into a time duration (number of days)."""
+    if not s.strip():
+        return None
     secs = pytimeparse.parse(s)
     if (secs is None):
         raise UserInputError('Invalid time duration.')
     return secs / SECS_PER_DAY
 
-def parse_date(s: str) -> Datetime:
-    """Parses a string into a datetime.
-    The string can either specify a datetime directly, or a time duration from the present moment."""
+def parse_date(s: str) -> Optional[str]:
+    """Parses a string into a timestamp string.
+    The input string can either specify a datetime directly, or a time duration from the present moment."""
+    if not s.strip():
+        return None
     try:
-        dt = pendulum.parse(s, strict=False)
+        dt: datetime = pendulum.parse(s, strict=False)  # type: ignore
         assert isinstance(dt, datetime)
-        return dt
     except (AssertionError, pendulum.parsing.ParserError):
         # parse as a duration from now
         s = s.strip()
@@ -99,7 +102,8 @@ def parse_date(s: str) -> Datetime:
         if secs is None:
             raise UserInputError('Invalid date') from None
         td = timedelta(seconds=secs)
-        return get_current_time() + (-td if is_past else td)
+        dt = get_current_time() + (-td if is_past else td)
+    return dt.strftime(TIME_FORMAT)
 
 
 #############
@@ -223,12 +227,14 @@ class BoardInterface(BaseModel):
                 return id_
         raise UserInputError(f'Invalid {item_type} name.')
 
-    def _parse_project(self, s: str) -> Optional[Id]:
-        return self._parse_id_or_name('project', s)
+    def _parse_project(self, id_or_name: str) -> Optional[Id]:
+        return self._parse_id_or_name('project', id_or_name)
 
-    def _parse_task(self, s: str) -> Optional[Id]:
-        return self._parse_id_or_name('task', s)
+    def _parse_task(self, id_or_name: str) -> Optional[Id]:
+        return self._parse_id_or_name('task', id_or_name)
 
+    def _model_json(self, model: BaseModel) -> str:
+        return model.model_dump_json(indent=self.config.json_indent)
 
     # HELP/INFO
 
@@ -244,20 +250,24 @@ class BoardInterface(BaseModel):
         """Adds entries to help menu related to boards."""
         grid.add_row('\[b]oard', '\[d]elete', 'delete current board')
         grid.add_row('', '\[n]ew', 'create new board')
-        grid.add_row('', '\[l]oad [not bold]\[FILENAME][/]', 'load existing board')
+        grid.add_row('', '\[l]oad [not bold]\[FILENAME][/]', 'load board from file')
         grid.add_row('', 'schema', 'show board JSON schema')
         grid.add_row('', '\[s]how', 'show current board, can provide extra filters like:')
         grid.add_row('', '', '  status:\[STATUSES] project:\[PROJECT_IDS] tags:\[TAGS] limit:\[SIZE]')
 
     def add_project_help(self, grid: Table) -> None:
         """Adds entries to help menu related to projects."""
-        grid.add_row('\[p]roject', '\[d]elete [not bold]\[ID][/]', 'delete a project')
+        grid.add_row('\[p]roject', '\[d]elete [not bold]\[ID/NAME][/]', 'delete a project')
         grid.add_row('', '\[n]ew', 'create new project')
+        grid.add_row('', '\[s]how', 'show project list')
+        grid.add_row('', '\[s]how [not bold]\[ID/NAME][/]', 'show project info')
 
     def add_task_help(self, grid: Table) -> None:
         """Adds entries to help menu related to tasks."""
-        grid.add_row('\[t]ask', '\[d]elete [not bold]\[ID][/]', 'delete a task')
+        grid.add_row('\[t]ask', '\[d]elete [not bold]\[ID/NAME][/]', 'delete a task')
         grid.add_row('', '\[n]ew', 'create new task')
+        grid.add_row('', '\[s]how', 'show task list')
+        grid.add_row('', '\[s]how [not bold]\[ID/NAME][/]', 'show task info')
 
     def show_help(self) -> None:
         """Displays the main help menu listing various commands."""
@@ -332,6 +342,22 @@ class BoardInterface(BaseModel):
         self.save_board()
         print(f'Created new project with ID {id_style(id_)}')
 
+    @require_board
+    def show_projects(self) -> None:
+        """Shows project list."""
+        assert self.board is not None
+        print('PROJECT LIST')
+
+    @require_board
+    def show_project(self, id_or_name: str) -> None:
+        """Shows project info."""
+        assert self.board is not None
+        id_ = self._parse_project(id_or_name)
+        if id_ is None:
+            raise UserInputError('Invalid project.')
+        proj = self.board.get_project(id_)
+        print(self._model_json(proj))
+
     # TASK
 
     @require_board
@@ -368,7 +394,7 @@ class BoardInterface(BaseModel):
             },
             'due_date': {
                 'prompt': 'Due date [not bold]\[optional][/]',
-                'parse': lambda s: parse_date(s).strftime(TIME_FORMAT)
+                'parse': parse_date
             },
             'project_id': {
                 'prompt': 'Project ID or name [not bold]\[optional][/]',
@@ -390,6 +416,22 @@ class BoardInterface(BaseModel):
         id_ = self.board.create_task(task)
         self.save_board()
         print(f'Created new task with ID {id_style(id_)}')
+
+    @require_board
+    def show_tasks(self) -> None:
+        """Shows task list."""
+        assert self.board is not None
+        print('TASK LIST')
+
+    @require_board
+    def show_task(self, id_or_name: str) -> None:
+        """Shows task info."""
+        assert self.board is not None
+        id_ = self._parse_task(id_or_name)
+        if id_ is None:
+            raise UserInputError('Invalid task.')
+        task = self.board.get_task(id_)
+        print(self._model_json(task))
 
     # BOARD
 
@@ -427,7 +469,7 @@ class BoardInterface(BaseModel):
             # TODO: save in background if file size starts to get large?
             try:
                 with open(self.board_path, 'w') as f:
-                    f.write(self.board.model_dump_json(indent=self.config.json_indent))
+                    f.write(self._model_json(self.board))
             except OSError as e:
                 raise BoardFileError(str(e)) from None
 
@@ -454,7 +496,7 @@ class BoardInterface(BaseModel):
         # TODO: display pretty board rather than JSON
         if self.board is None:
             raise BoardNotLoadedError("No board has been loaded.\nRun 'board new' to create a new board or 'board load' to load an existing one.")
-        print(self.board.model_dump_json(indent=self.config.json_indent))
+        print(self._model_json(self.board))
 
     # SHELL
 
@@ -491,6 +533,10 @@ class BoardInterface(BaseModel):
                 return self.new_project()
             if prefix_match(tok1, 'delete'):
                 return self.delete_project(None if (ntokens == 2) else tokens[2])
+            if prefix_match(tok1, 'show'):
+                if ntokens == 2:
+                    return self.show_projects()
+                return self.show_project(tokens[2])
         elif prefix_match(tok0, 'quit'):
             return self.quit_shell()
         elif prefix_match(tok0, 'task'):
@@ -501,6 +547,10 @@ class BoardInterface(BaseModel):
                 return self.delete_task(None if (ntokens == 2) else tokens[2])
             if prefix_match(tok1, 'new'):
                 return self.new_task()
+            if prefix_match(tok1, 'show'):
+                if ntokens == 2:
+                    return self.show_tasks()
+                return self.show_task(tokens[2])
         raise UserInputError('Invalid input')
 
     @staticmethod
@@ -513,7 +563,7 @@ class BoardInterface(BaseModel):
         """Launches an interactive shell to interact with a board.
         Optionally a board path may be provided, which will be loaded after the shell launches."""
         print(get_billboard_art())
-        print('[italic cyan]Welcome to DaiKanban![/]')
+        print('[bold italic cyan]Welcome to DaiKanban![/]')
         # TODO: load default board from global config
         if board_path is not None:
             with handle_error(BoardFileError):
