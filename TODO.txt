@@ -1,14 +1,21 @@
-- Name uniqueness on projects/tasks
-- Small QoL improvements
-    - Catch Ctrl-C within sequential prompts to go back to main loop
-    - Set widths for each help menu separately...
-    - Accept today/tomorrow/yesterday as valid due dates
-    - Relax URL parsing to infer scheme if missing (https?)
+- Task scoring (and sorting)
+- Bugfixes
+    - Let log list be null
+    - Better error messages in place of assertion errors
+    - For never-paused task, no need to store both first and last started timestamps
+    - Name uniqueness on projects/tasks
+    - Default due date (and any datetime) should be in local time, not UTC
 - CLI app via rich
     - Subcommands
         - settings: interact with settings (once there are some)
         - shell: launch shell
         - web: launch web app
+- Small QoL improvements
+    - Catch Ctrl-C within sequential prompts to go back to main loop
+    - Set widths for each help menu separately...
+    - Accept today/tomorrow/yesterday as valid due dates
+    - Relax URL parsing to infer scheme if missing (https?)
+    - Table date format in config
 - Settings
     - Global config file?
     - Store board-specific settings in file itself?

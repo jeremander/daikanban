@@ -19,8 +19,8 @@ from rich import print
 from rich.prompt import Confirm, Prompt
 from rich.table import Table
 
-from daikanban.model import TIME_FORMAT, Board, BoardConfig, Duration, Id, KanbanError, Project, Task
-from daikanban.utils import SECS_PER_DAY, get_current_time, handle_error, prefix_match, to_snake_case
+from daikanban.model import Board, BoardConfig, Duration, Id, KanbanError, Project, Task
+from daikanban.utils import DATE_FORMAT, SECS_PER_DAY, TIME_FORMAT, get_current_time, handle_error, prefix_match, to_snake_case
 
 
 M = TypeVar('M', bound=BaseModel)
@@ -187,6 +187,13 @@ def model_from_prompt(model_type: type[M], parsers: dict[str, FieldParser] = {})
 # PRETTY PRINTING #
 ###################
 
+def _render_cell(val: Any) -> str:
+    if val is None:
+        return '-'
+    if isinstance(val, float):
+        return str(int(val)) if (int(val) == val) else str(val)
+    return str(val)
+
 def make_table(tp: type[M], rows: Iterable[M], **kwargs: Any) -> Table:
     """Given a list of rows, creates a new Table."""
     table = Table(**kwargs)
@@ -195,15 +202,29 @@ def make_table(tp: type[M], rows: Iterable[M], **kwargs: Any) -> Table:
         kw = cast(dict, info.json_schema_extra) or {}
         table.add_column(title, **kw)
     for row in rows:
-        table.add_row(*(str(val) for (_, val) in row))
+        table.add_row(*(_render_cell(val) for (_, val) in row))
     return table
 
 class ProjectRow(BaseModel):
     """A display table row associated with a project."""
-    id: Id = Field(justify='right')  # type: ignore[call-arg]
+    id: str = Field(justify='right')  # type: ignore[call-arg]
     name: str
     created: str
     num_tasks: int = Field(title='# tasks', justify='right')  # type: ignore[call-arg]
+
+class TaskRow(BaseModel):
+    """A display table row associated with a task."""
+    id: str = Field(justify='right')    # type: ignore[call-arg]
+    name: str = Field(min_width=15)  # type: ignore[call-arg]
+    project: Optional[str]
+    priority: float = Field(title="pri…ty")
+    difficulty: float = Field(title="diff…ty")
+    duration: Optional[str]
+    create: str
+    start: Optional[str]
+    complete: Optional[str]
+    due: Optional[str]
+    status: str
 
 
 ###################
@@ -372,7 +393,7 @@ class BoardInterface(BaseModel):
         """Shows project list."""
         assert self.board is not None
         num_tasks_by_project = self.board.num_tasks_by_project
-        rows = [ProjectRow(id=id_, name=proj.name, created=proj.created_time.strftime('%Y-%m-%d'), num_tasks=num_tasks_by_project[id_]) for (id_, proj) in self.board.projects.items()]
+        rows = [ProjectRow(id=f'[bold purple]{id_}[/]', name=proj.name, created=proj.created_time.strftime('%Y-%m-%d'), num_tasks=num_tasks_by_project[id_]) for (id_, proj) in self.board.projects.items()]
         table = make_table(ProjectRow, rows)
         print(table)
 
@@ -449,7 +470,19 @@ class BoardInterface(BaseModel):
     def show_tasks(self) -> None:
         """Shows task list."""
         assert self.board is not None
-        print('TASK LIST')
+        def _get_proj(task: Task) -> Optional[str]:
+            if task.project_id is None:
+                return None
+            return f'{self.board.projects[task.project_id].name} \[[purple]{task.project_id}[/]]'  # type: ignore[union-attr]
+        def _get_date(dt: Optional[datetime]) -> Optional[str]:
+            return None if (dt is None) else dt.strftime(DATE_FORMAT)
+        def _make_row(id_: Id, task: Task) -> TaskRow:
+            duration = None if (task.expected_duration is None) else pendulum.duration(days=task.expected_duration).in_words()
+            status = f'[{task.status.color}]{task.status._value_}[/]'
+            return TaskRow(id=f'[bold dark_orange3]{id_}[/]', name=task.name, project=_get_proj(task), priority=task.priority, difficulty=task.expected_difficulty, duration=duration, create=cast(str, _get_date(task.created_time)), start=_get_date(task.first_started_time), complete=_get_date(task.completed_time), due=_get_date(task.due_date), status=status)
+        rows = [_make_row(id_, task) for (id_, task) in self.board.tasks.items()]
+        table = make_table(TaskRow, rows)
+        print(table)
 
     @require_board
     def show_task(self, id_or_name: str) -> None:

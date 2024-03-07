@@ -6,13 +6,10 @@ from typing import Annotated, Any, ClassVar, Counter, Iterator, Literal, Optiona
 
 from pydantic import AfterValidator, AnyUrl, BaseModel, BeforeValidator, Field, PlainSerializer, computed_field, model_validator
 
-from daikanban.utils import get_current_time, get_duration_between
+from daikanban.utils import TIME_FORMAT, get_current_time, get_duration_between
 
 
 T = TypeVar('T')
-
-TIME_FORMAT = '%Y-%m-%dT%H:%M:%SZ%z'
-SECS_PER_DAY = 3600 * 24
 
 
 ################
@@ -76,6 +73,18 @@ class TaskStatus(str, Enum):
     active = 'active'
     paused = 'paused'
     complete = 'complete'
+
+    @property
+    def color(self) -> str:
+        """Gets a rich color to be associated with the status."""
+        if self == TaskStatus.todo:
+            return 'bright_black'
+        if self == TaskStatus.active:
+            return 'bright_red'
+        if self == TaskStatus.paused:
+            return 'orange3'
+        assert self == 'complete'
+        return 'green'
 
 
 class Model(BaseModel):

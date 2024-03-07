@@ -8,6 +8,8 @@ import rich
 
 
 SECS_PER_DAY = 3600 * 24
+DATE_FORMAT = '%m/%d/%y'
+TIME_FORMAT = '%Y-%m-%dT%H:%M:%SZ%z'
 
 
 def exit_with_error(msg: str) -> None:
