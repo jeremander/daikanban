@@ -1,5 +1,9 @@
 - Name uniqueness on projects/tasks
-- Set widths for each help menu separately...
+- Small QoL improvements
+    - Catch Ctrl-C within sequential prompts to go back to main loop
+    - Set widths for each help menu separately...
+    - Accept today/tomorrow/yesterday as valid due dates
+    - Relax URL parsing to infer scheme if missing (https?)
 - CLI app via rich
     - Subcommands
         - settings: interact with settings (once there are some)
@@ -9,6 +13,7 @@
     - Global config file?
     - Store board-specific settings in file itself?
     - Size limit, set of statuses to show
+    - Show dates as timestamps or human-readable relative times
     - XDG directory?
 - Kanban metrics
     - Lead time (todo to complete) & cycle time (active to complete)

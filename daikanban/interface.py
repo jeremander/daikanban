@@ -8,7 +8,7 @@ import re
 import readline  # improves shell interactivity  # noqa: F401
 import shlex
 import sys
-from typing import Any, Callable, Generic, Optional, TypeVar
+from typing import Any, Callable, Generic, Iterable, Optional, TypeVar, cast
 
 import pendulum
 import pendulum.parsing
@@ -71,10 +71,11 @@ def err_style(obj: object) -> str:
 # PARSING #
 ###########
 
-def parse_string_set(s: str) -> set[str]:
+def parse_string_set(s: str) -> Optional[set[str]]:
     """Parses a comma-separated string into a set of strings.
     Allows for quote delimiting so that commas can be escaped."""
-    return set(list(csv.reader([s]))[0])
+    strings = set(list(csv.reader([s]))[0])
+    return strings or None
 
 def parse_duration(s: str) -> Optional[Duration]:
     """Parses a string into a time duration (number of days)."""
@@ -183,10 +184,34 @@ def model_from_prompt(model_type: type[M], parsers: dict[str, FieldParser] = {})
 
 
 ###################
+# PRETTY PRINTING #
+###################
+
+def make_table(tp: type[M], rows: Iterable[M], **kwargs: Any) -> Table:
+    """Given a list of rows, creates a new Table."""
+    table = Table(**kwargs)
+    for (name, info) in tp.model_fields.items():
+        title = info.title or name
+        kw = cast(dict, info.json_schema_extra) or {}
+        table.add_column(title, **kw)
+    for row in rows:
+        table.add_row(*(str(val) for (_, val) in row))
+    return table
+
+class ProjectRow(BaseModel):
+    """A display table row associated with a project."""
+    id: Id = Field(justify='right')  # type: ignore[call-arg]
+    name: str
+    created: str
+    num_tasks: int = Field(title='# tasks', justify='right')  # type: ignore[call-arg]
+
+
+###################
 # BOARD INTERFACE #
 ###################
 
 def require_board(func):  # noqa
+    """Decorator for a method which makes it raise a BoardNotLoadedError if a board path is not set."""
     @wraps(func)
     def wrapped(self, *args, **kwargs):  # noqa
         if self.board_path is None:
@@ -234,7 +259,7 @@ class BoardInterface(BaseModel):
         return self._parse_id_or_name('task', id_or_name)
 
     def _model_json(self, model: BaseModel) -> str:
-        return model.model_dump_json(indent=self.config.json_indent)
+        return model.model_dump_json(indent=self.config.json_indent, exclude_none=True)
 
     # HELP/INFO
 
@@ -346,7 +371,10 @@ class BoardInterface(BaseModel):
     def show_projects(self) -> None:
         """Shows project list."""
         assert self.board is not None
-        print('PROJECT LIST')
+        num_tasks_by_project = self.board.num_tasks_by_project
+        rows = [ProjectRow(id=id_, name=proj.name, created=proj.created_time.strftime('%Y-%m-%d'), num_tasks=num_tasks_by_project[id_]) for (id_, proj) in self.board.projects.items()]
+        table = make_table(ProjectRow, rows)
+        print(table)
 
     @require_board
     def show_project(self, id_or_name: str) -> None:
@@ -523,7 +551,7 @@ class BoardInterface(BaseModel):
                 return self.show_board()
             if prefix_match(tok1, 'schema', minlen=2):
                 return self.show_schema(Board)
-        elif prefix_match(tok0, 'help'):
+        elif prefix_match(tok0, 'help') or (tok0 == 'info'):
             return self.show_help()
         elif prefix_match(tok0, 'project'):
             if (ntokens == 1) or prefix_match(tokens[1], 'help'):
@@ -537,7 +565,7 @@ class BoardInterface(BaseModel):
                 if ntokens == 2:
                     return self.show_projects()
                 return self.show_project(tokens[2])
-        elif prefix_match(tok0, 'quit'):
+        elif prefix_match(tok0, 'quit') or (tok0 == 'exit'):
             return self.quit_shell()
         elif prefix_match(tok0, 'task'):
             if (ntokens == 1) or prefix_match(tokens[1], 'help'):

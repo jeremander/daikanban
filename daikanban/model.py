@@ -2,10 +2,9 @@ from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from datetime import datetime
 from enum import Enum
-from typing import Annotated, Any, ClassVar, Iterator, Literal, Optional, TypeVar
+from typing import Annotated, Any, ClassVar, Counter, Iterator, Literal, Optional, TypeVar
 
 from pydantic import AfterValidator, AnyUrl, BaseModel, BeforeValidator, Field, PlainSerializer, computed_field, model_validator
-from typing_extensions import Doc
 
 from daikanban.utils import get_current_time, get_duration_between
 
@@ -33,8 +32,8 @@ Datetime = Annotated[
     BeforeValidator(lambda s: datetime.strptime(s, TIME_FORMAT)),
     PlainSerializer(lambda dt: dt.strftime(TIME_FORMAT), return_type=str)
 ]
-Duration = Annotated[float, Field(ge=0.0), Doc('duration (in days)')]
-Score = Annotated[float, Field(ge=0.0), Doc('a score (positive number)')]
+Duration = Annotated[float, Field(description='duration (days)', ge=0.0)]
+Score = Annotated[float, Field(description='a score (positive number)', ge=0.0)]
 
 
 ##################
@@ -131,11 +130,11 @@ class Task(Model):
     )
     priority: Score = Field(
         default=3.0,
-        description='Priority of task on a 0-10 scale'
+        description='Priority of task'
     )
     expected_difficulty: Score = Field(
         default=3.0,
-        description='Estimated difficulty of task on a 0-10 scale'
+        description='Estimated difficulty of task'
     )
     expected_duration: Optional[float] = Field(
         default=None,
@@ -376,6 +375,11 @@ class Board(Model):
         blocked_by = set(blocked_task.blocked_by) if blocked_task.blocked_by else set()
         blocked_by.add(blocking_task_id)
         self.tasks[blocked_task_id] = blocked_task.model_copy(update={'blocked_by': blocked_by})
+
+    @property
+    def num_tasks_by_project(self) -> Counter[Id]:
+        """Gets a map from project IDs to the number of tasks associated with it."""
+        return Counter(task.project_id for task in self.tasks.values() if task.project_id is not None)
 
 
 class TaskScorer(ABC):
