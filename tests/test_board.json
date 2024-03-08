@@ -29,7 +29,7 @@
       "priority": 5.0,
       "expected_difficulty": 5.0,
       "expected_duration": 7.0,
-      "due_date": "2024-05-01T00:00:00Z-5000",
+      "due_date": "2024-05-01T00:00:00Z-0500",
       "project_id": 0,
       "tags": [
         "home-improvement"
@@ -95,7 +95,7 @@
       "priority": 7.0,
       "expected_difficulty": 4.0,
       "expected_duration": 3.0,
-      "due_date": "2024-03-14T00:00:00Z-5000",
+      "due_date": "2024-03-14T00:00:00Z-0500",
       "project_id": 2,
       "tags": [
         "gui"

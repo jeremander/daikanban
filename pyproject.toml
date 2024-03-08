@@ -19,6 +19,7 @@ typer = {extras = ["all"], version = "^0.9.0"}
 bullet = "^2.2.0"
 pytimeparse = "^1.1.8"
 pendulum = "^3.0.0"
+typing-extensions = "^4.10.0"
 
 [tool.poetry.group.test.dependencies]
 pytest = "^8.0.2"

@@ -19,7 +19,8 @@ from rich import print
 from rich.prompt import Confirm, Prompt
 from rich.table import Table
 
-from daikanban.model import Board, BoardConfig, Duration, Id, KanbanError, Project, Task
+from daikanban.model import Board, Duration, Id, KanbanError, Project, Task
+from daikanban.settings import BoardSettings
 from daikanban.utils import DATE_FORMAT, SECS_PER_DAY, TIME_FORMAT, get_current_time, handle_error, prefix_match, to_snake_case
 
 
@@ -252,9 +253,9 @@ class BoardInterface(BaseModel):
         default=None,
         description='current DaiKanban board'
     )
-    config: BoardConfig = Field(
-        default_factory=BoardConfig,
-        description='board configurations'
+    settings: BoardSettings = Field(
+        default_factory=BoardSettings,
+        description='board settings'
     )
 
     def _parse_id_or_name(self, item_type: str, s: str) -> Optional[Id]:
@@ -280,7 +281,7 @@ class BoardInterface(BaseModel):
         return self._parse_id_or_name('task', id_or_name)
 
     def _model_json(self, model: BaseModel) -> str:
-        return model.model_dump_json(indent=self.config.json_indent, exclude_none=True)
+        return model.model_dump_json(indent=self.settings.json_indent, exclude_none=True)
 
     # HELP/INFO
 

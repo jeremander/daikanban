@@ -1,8 +1,7 @@
-from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from datetime import datetime
 from enum import Enum
-from typing import Annotated, Any, ClassVar, Counter, Iterator, Literal, Optional, TypeVar
+from typing import Annotated, Any, Counter, Iterator, Literal, Optional, TypeVar
 
 from pydantic import AfterValidator, AnyUrl, BaseModel, BeforeValidator, Field, PlainSerializer, computed_field, model_validator
 
@@ -145,10 +144,9 @@ class Task(Model):
         default=3.0,
         description='Estimated difficulty of task'
     )
-    expected_duration: Optional[float] = Field(
+    expected_duration: Optional[Duration] = Field(
         default=None,
-        description='Expected number of days to complete task',
-        ge=0.0
+        description='Expected number of days to complete task'
     )
     due_date: Optional[Datetime] = Field(
         default=None,
@@ -239,19 +237,26 @@ class Task(Model):
         return eval_date > self.due_date
 
     @model_validator(mode='after')
-    def check_consistent_times(self) -> 'Task':
+    def check_consistent_times(self) -> 'Task':  # noqa: C901
         """Checks that created_time <= first_started_time <= last_started_time <= completed_time."""
+        def _invalid(msg: str) -> ValueError:
+            return ValueError(f'{msg}\n\t{self}')
         if self.first_started_time is not None:
-            assert self.first_started_time >= self.created_time
+            if self.first_started_time < self.created_time:
+                raise _invalid('task start time cannot precede created time')
         if self.last_started_time is not None:
-            assert self.first_started_time is not None
-            assert self.last_started_time >= self.first_started_time
+            if self.first_started_time is None:
+                raise _invalid('task missing first started time')
+            if self.last_started_time < self.first_started_time:
+                raise _invalid('task last started time cannot precede first started time')
         if self.completed_time is not None:
-            assert self.last_started_time is not None
-            assert self.completed_time >= self.last_started_time
+            if self.last_started_time is None:
+                raise _invalid('task missing last started time')
+            if self.completed_time < self.last_started_time:
+                raise _invalid('task completed time cannot precede last started time')
         # task is paused or completed => task has prior time worked
-        if self.status in [TaskStatus.paused, TaskStatus.complete]:
-            assert self.prior_time_worked is not None
+        if (self.status == TaskStatus.paused) and (self.prior_time_worked is None):
+            raise _invalid('task in paused or completed status must set prior time worked')
         return self
 
     def started(self) -> 'Task':
@@ -283,23 +288,6 @@ class Task(Model):
         if self.status == TaskStatus.paused:
             return self.model_copy(update={'last_started_time': get_current_time()})
         raise TaskStatusError(f'cannot restart Task with status {self.status!r}')
-
-
-class BoardConfig(Model):
-    """Configurations for a DaiKanban board."""
-    limit: Optional[int] = Field(
-        default=None,
-        description='max number of tasks to display',
-        ge=0
-    )
-    statuses: set[TaskStatus] = Field(
-        default_factory=lambda: {TaskStatus.todo, TaskStatus.active, TaskStatus.complete},
-        description='set of task statuses to display'
-    )
-    json_indent: Optional[int] = Field(
-        default=2,
-        description='indentation level for displaying JSON'
-    )
 
 
 class Board(Model):
@@ -389,15 +377,3 @@ class Board(Model):
     def num_tasks_by_project(self) -> Counter[Id]:
         """Gets a map from project IDs to the number of tasks associated with it."""
         return Counter(task.project_id for task in self.tasks.values() if task.project_id is not None)
-
-
-class TaskScorer(ABC):
-    """Interface for a class which scores tasks.
-    Higher scores represent tasks more deserving of work."""
-
-    name: ClassVar[str]  # name of the scorer
-    units: ClassVar[Optional[str]] = None  # unit of measurement for the scorer
-
-    @abstractmethod
-    def __call__(self, task: Task) -> float:
-        """Override this to implement task scoring."""

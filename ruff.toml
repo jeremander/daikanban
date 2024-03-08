@@ -28,6 +28,7 @@ lint.ignore = [
     "ANN401",  # use of the 'Any' type
     "B027",  # empty method not marked with abstractmethod
     "B905",  # zip without explicit 'strict' parameter
+    # "C901",  # complexity
     "D100",  # module-level docstring
     "D104",  # package-level docstring
     "D105",  # magic method docstring
