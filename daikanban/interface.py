@@ -92,7 +92,7 @@ def parse_date(s: str) -> Optional[str]:
     if not s.strip():
         return None
     try:
-        dt: datetime = pendulum.parse(s, strict=False)  # type: ignore
+        dt: datetime = pendulum.parse(s, strict=False, tz=pendulum.local_timezone())  # type: ignore
         assert isinstance(dt, datetime)
     except (AssertionError, pendulum.parsing.ParserError):
         # parse as a duration from now
