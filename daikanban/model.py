@@ -190,8 +190,8 @@ class Task(Model):
         default=None,
         description='IDs of other tasks that block the completion of this one'
     )
-    logs: list[Log] = Field(
-        default_factory=list,
+    logs: Optional[list[Log]] = Field(
+        default=None,
         description='List of dated logs related to the task'
     )
 
