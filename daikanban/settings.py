@@ -6,6 +6,13 @@ from daikanban.model import Model, TaskStatus
 from daikanban.score import PriorityRate, TaskScorer
 
 
+DEFAULT_STATUS_GROUPS = {
+    'todo': [TaskStatus.todo],
+    'active': [TaskStatus.active, TaskStatus.paused],
+    'complete': [TaskStatus.complete]
+}
+
+
 class BoardSettings(Model):
     """Settings for a DaiKanban board."""
     limit: Optional[int] = Field(
@@ -13,9 +20,9 @@ class BoardSettings(Model):
         description='max number of tasks to display',
         ge=0
     )
-    statuses: set[TaskStatus] = Field(
-        default_factory=lambda: {TaskStatus.todo, TaskStatus.active, TaskStatus.complete},
-        description='set of task statuses to display'
+    status_groups: dict[str, list[str]] = Field(
+        default=DEFAULT_STATUS_GROUPS,
+        description='map from board columns (groups) to task statuses'
     )
     json_indent: Optional[int] = Field(
         default=2,

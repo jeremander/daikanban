@@ -1,11 +1,10 @@
 from contextlib import contextmanager
 from datetime import datetime
-from enum import Enum
 from typing import Annotated, Any, Counter, Iterator, Literal, Optional, TypeVar
 
 from pydantic import AfterValidator, AnyUrl, BaseModel, BeforeValidator, Field, PlainSerializer, computed_field, model_validator
 
-from daikanban.utils import TIME_FORMAT, get_current_time, get_duration_between
+from daikanban.utils import TIME_FORMAT, StrEnum, get_current_time, get_duration_between
 
 
 T = TypeVar('T')
@@ -66,7 +65,7 @@ def catch_key_error(cls: type[Exception]) -> Iterator[None]:
 # MODEL #
 #########
 
-class TaskStatus(str, Enum):
+class TaskStatus(StrEnum):
     """Possible status a task can have."""
     todo = 'todo'
     active = 'active'

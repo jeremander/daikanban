@@ -61,7 +61,7 @@ cov = [
 
 [tool.hatch.envs.types]
 dependencies = [
-  "mypy>=1.0.0",
+  "mypy>=1.0",
 ]
 [tool.hatch.envs.types.scripts]
 check = "mypy --install-types --non-interactive {args:daikanban tests}"
@@ -81,15 +81,8 @@ exclude_lines = [
   "if TYPE_CHECKING:",
 ]
 
-[tool.poetry.group.test.dependencies]
-pytest = "^8.0.2"
-pytest-cov = "^4.1.0"
-
 [tool.commitizen]
 tag_format = "v$major.$minor.$patch"
-version_files = [
-  "pyproject.toml:tool.poetry.version"
-]
 
 [tool.pytest.ini_options]
 addopts = "--verbose --cov=daikanban"

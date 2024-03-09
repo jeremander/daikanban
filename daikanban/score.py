@@ -52,7 +52,7 @@ class PriorityRate(TaskScorer):
     name = 'priority-rate'
     units = 'pri/day'
 
-    default_duration: Duration = 3.0
+    default_duration: Duration = 4.0
 
     @override
     def __call__(self, task: Task) -> float:

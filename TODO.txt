@@ -1,8 +1,19 @@
-- Task scoring (and sorting)
+- Icon for paused/due/overdue tasks in board view
+    - Include paused task in test file
+- Implement arguments for 'board show'
+- Refactor colors into color dict (perhaps configurable)
 - Bugfixes
     - Better error messages in place of assertion errors
     - For never-paused task, no need to store both first and last started timestamps
     - Name uniqueness on projects/tasks
+        - Completed projects maybe should be allowed to have duplicate names? Esp. if tasks can recur.
+- Data model
+    - Allow custom task status labels
+        - todo/active/paused/complete are still the primary ones; extras would presumably be "sub-statuses" of active
+        - What should be the name of this field? "status" would conflict with the existing one. Options:
+            1) Use "status", rename the old one to "stage"
+            2) Use "active_status", keep the old one the same
+- Test appearance on both light and dark terminals
 - CLI app via rich
     - Subcommands
         - settings: interact with settings (once there are some)
@@ -16,10 +27,19 @@
     - Table date format in config
 - Settings
     - Global config file?
+    - Which items to include when making new tasks (priority/difficulty/duration can be omitted, with default)
+    - Priority/difficulty upper bounds
     - Store board-specific settings in file itself?
     - Size limit, set of statuses to show
+    - Float format for things like scores (rounding, precision)
     - Show dates as timestamps or human-readable relative times
     - XDG directory?
+- Write more tests
+    - Want high coverage of data model, board manipulations
+    - Some UI tests (input command -> terminal output), though these can be brittle if output format changes
+- Github/Gitlab/Jira integration
+    - Query APIs
+    - Interface to map between external task metadata and DaiKanban Tasks
 - Analytics
     - Kanban metrics
         - Lead time (todo to complete) & cycle time (active to complete)
@@ -31,7 +51,6 @@
 - If task progresses todo->complete/paused or paused->complete, prompt for what time it was started, ex post facto.
 - Recurring tasks? A la Pianote.
     - Library of tasks, with simple command to queue them into backlog
-- Github/Gitlab integration
 - Blocking logic
     - Prevent cyclic blocking?
     - Prevent completion of a blocked task without its precursors

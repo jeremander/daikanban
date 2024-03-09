@@ -1,5 +1,6 @@
 from contextlib import contextmanager
 from datetime import datetime, timezone
+from enum import Enum
 import re
 import sys
 from typing import Iterator, Optional
@@ -10,6 +11,14 @@ import rich
 SECS_PER_DAY = 3600 * 24
 DATE_FORMAT = '%m/%d/%y'
 TIME_FORMAT = '%Y-%m-%dT%H:%M:%SZ%z'
+
+
+class StrEnum(str, Enum):
+    """Enum class whose __str__ representation is just a plain string value.
+    NOTE: this class exists in the standard library in Python >= 3.11."""
+
+    def __str__(self) -> str:
+        return self.value
 
 
 def exit_with_error(msg: str) -> None:

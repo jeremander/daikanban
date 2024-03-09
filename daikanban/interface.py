@@ -1,8 +1,10 @@
+from collections import defaultdict
 import csv
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from functools import cache, wraps
 import json
+from operator import attrgetter
 from pathlib import Path
 import re
 import readline  # improves shell interactivity  # noqa: F401
@@ -12,7 +14,7 @@ from typing import Any, Callable, Generic, Iterable, Optional, TypeVar, cast
 
 import pendulum
 import pendulum.parsing
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field, ValidationError, create_model
 from pydantic_core import PydanticUndefined
 import pytimeparse
 from rich import print
@@ -21,7 +23,7 @@ from rich.table import Table
 
 from daikanban.model import Board, Duration, Id, KanbanError, Project, Task
 from daikanban.settings import BoardSettings
-from daikanban.utils import DATE_FORMAT, SECS_PER_DAY, TIME_FORMAT, get_current_time, handle_error, prefix_match, to_snake_case
+from daikanban.utils import DATE_FORMAT, SECS_PER_DAY, TIME_FORMAT, StrEnum, get_current_time, handle_error, prefix_match, to_snake_case
 
 
 M = TypeVar('M', bound=BaseModel)
@@ -55,17 +57,41 @@ def get_billboard_art() -> str:
     with open(BILLBOARD_ART_PATH) as f:
         return f.read()
 
-def id_style(id_: Id) -> str:
-    """Renders an Id as a rich-styled string."""
-    return f'[purple4]{id_}[/]'
 
-def path_style(path: str | Path) -> str:
+##########
+# STYLES #
+##########
+
+class DefaultColor(StrEnum):
+    """Enum for default color map."""
+    proj_id = 'purple4'
+    task_id = 'dark_orange3'
+    path = 'dodger_blue2'
+    error = 'red'
+    faint = 'grey0'
+
+
+def style_str(val: Any, color: str, bold: bool = False) -> str:
+    """Renders a value as a string with a given color.
+    If bold=True, make it bold."""
+    tag = ('bold ' if bold else '') + color
+    return f'[{tag}]{val}[/]'
+
+def proj_id_style(id_: Id, bold: bool = False) -> str:
+    """Renders a project ID as a rich-styled string."""
+    return style_str(id_, DefaultColor.proj_id, bold=bold)
+
+def task_id_style(id_: Id, bold: bool = False) -> str:
+    """Renders a task ID as a rich-styled string."""
+    return style_str(id_, DefaultColor.task_id, bold=bold)
+
+def path_style(path: str | Path, bold: bool = False) -> str:
     """Renders a path as a rich-styled string."""
-    return f'[dodger_blue2]{path}[/]'
+    return style_str(path, DefaultColor.path, bold=bold)
 
 def err_style(obj: object) -> str:
     """Renders an error as a rich-styled string."""
-    return f'[red]{obj}[/]'
+    return style_str(obj, DefaultColor.error)
 
 
 ###########
@@ -192,11 +218,11 @@ def _render_cell(val: Any) -> str:
     if val is None:
         return '-'
     if isinstance(val, float):
-        return str(int(val)) if (int(val) == val) else str(val)
+        return str(int(val)) if (int(val) == val) else f'{val:.3g}'
     return str(val)
 
 def make_table(tp: type[M], rows: Iterable[M], **kwargs: Any) -> Table:
-    """Given a list of rows, creates a new Table."""
+    """Given a BaseModel type and a list of elements of that type, creates a Table displaying the data."""
     table = Table(**kwargs)
     for (name, info) in tp.model_fields.items():
         title = info.title or name
@@ -207,14 +233,16 @@ def make_table(tp: type[M], rows: Iterable[M], **kwargs: Any) -> Table:
     return table
 
 class ProjectRow(BaseModel):
-    """A display table row associated with a project."""
+    """A display table row associated with a project.
+    These rows are presented in the project list view."""
     id: str = Field(justify='right')  # type: ignore[call-arg]
     name: str
     created: str
     num_tasks: int = Field(title='# tasks', justify='right')  # type: ignore[call-arg]
 
 class TaskRow(BaseModel):
-    """A display table row associated with a task."""
+    """A display table row associated with a task.
+    These rows are presented in the task list view."""
     id: str = Field(justify='right')    # type: ignore[call-arg]
     name: str = Field(min_width=15)  # type: ignore[call-arg]
     project: Optional[str]
@@ -226,6 +254,29 @@ class TaskRow(BaseModel):
     complete: Optional[str]
     due: Optional[str]
     status: str
+
+def simple_task_row_type(*fields: str) -> type[BaseModel]:
+    """Given a list of fields associated with a task, creates a BaseModel subclass that will be used to display a simplified row for each task.
+    These rows are presented in the DaiKanban board view."""
+    kwargs: dict[str, Any] = {}
+    for field in fields:
+        if field == 'id':
+            val: tuple[type, Any] = (str, Field(justify='right'))  # type: ignore[call-arg]
+        elif field == 'name':
+            val = (str, ...)
+        elif field == 'project':
+            val = (Optional[str], ...)  # type: ignore
+        elif field == 'priority':
+            val = (float, Field(title="pri…ty"))
+        elif field == 'difficulty':
+            val = (float, Field(title="diff…ty"))
+        elif field == 'score':
+            val = (float, Field(justify='right'))  # type: ignore[call-arg]
+        # TODO: add more fields
+        else:
+            raise ValueError(f'unrecognized Task field {field}')
+        kwargs[field] = val
+    return create_model('SimpleTaskRow', **kwargs)
 
 
 ###################
@@ -288,8 +339,8 @@ class BoardInterface(BaseModel):
     def make_new_help_table(self) -> Table:
         """Creates a new 3-column rich table for displaying help menus."""
         grid = Table.grid(expand=True)
-        grid.add_column(style='bold grey0')
-        grid.add_column(style='bold grey0')
+        grid.add_column(style=f'bold {DefaultColor.faint}')
+        grid.add_column(style=f'bold {DefaultColor.faint}')
         grid.add_column()
         return grid
 
@@ -367,7 +418,7 @@ class BoardInterface(BaseModel):
         proj = self.board.get_project(id_)
         self.board.delete_project(id_)
         self.save_board()
-        print(f'Deleted project {proj.name!r} with ID {id_style(id_)}')
+        print(f'Deleted project {proj.name!r} with ID {proj_id_style(id_)}')
 
     @require_board
     def new_project(self) -> None:
@@ -387,14 +438,14 @@ class BoardInterface(BaseModel):
         proj = model_from_prompt(Project, parsers)
         id_ = self.board.create_project(proj)
         self.save_board()
-        print(f'Created new project with ID {id_style(id_)}')
+        print(f'Created new project with ID {proj_id_style(id_)}')
 
     @require_board
     def show_projects(self) -> None:
         """Shows project list."""
         assert self.board is not None
         num_tasks_by_project = self.board.num_tasks_by_project
-        rows = [ProjectRow(id=f'[bold purple]{id_}[/]', name=proj.name, created=proj.created_time.strftime('%Y-%m-%d'), num_tasks=num_tasks_by_project[id_]) for (id_, proj) in self.board.projects.items()]
+        rows = [ProjectRow(id=proj_id_style(id_, bold=True), name=proj.name, created=proj.created_time.strftime('%Y-%m-%d'), num_tasks=num_tasks_by_project[id_]) for (id_, proj) in self.board.projects.items()]
         table = make_table(ProjectRow, rows)
         print(table)
 
@@ -421,7 +472,7 @@ class BoardInterface(BaseModel):
         task = self.board.get_task(id_)
         self.board.delete_task(id_)
         self.save_board()
-        print(f'Deleted task {task.name!r} with ID {id_style(id_)}')
+        print(f'Deleted task {task.name!r} with ID {task_id_style(id_)}')
 
     @require_board
     def new_task(self) -> None:
@@ -465,23 +516,41 @@ class BoardInterface(BaseModel):
         task = model_from_prompt(Task, parsers)
         id_ = self.board.create_task(task)
         self.save_board()
-        print(f'Created new task with ID {id_style(id_)}')
+        print(f'Created new task with ID {task_id_style(id_)}')
+
+    def _project_str_from_id(self, id_: Id) -> str:
+        """Given a project ID, gets a string displaying both the project name and ID."""
+        assert self.board is not None
+        return f'\[{proj_id_style(id_)}] {self.board.projects[id_].name}'
+
+    def _make_task_row(self, id_: Id, task: Task) -> TaskRow:
+        """Given a Task ID and object, gets a TaskRow object used for displaying the task in the task list."""
+        assert self.board is not None
+        def _get_proj(task: Task) -> Optional[str]:
+            return None if (task.project_id is None) else self._project_str_from_id(task.project_id)
+        def _get_date(dt: Optional[datetime]) -> Optional[str]:
+            return None if (dt is None) else dt.strftime(DATE_FORMAT)
+        duration = None if (task.expected_duration is None) else pendulum.duration(days=task.expected_duration).in_words()
+        status = f'[{task.status.color}]{task.status._value_}[/]'
+        return TaskRow(
+            id=task_id_style(id_, bold=True),
+            name=task.name,
+            project=_get_proj(task),
+            priority=task.priority,
+            difficulty=task.expected_difficulty,
+            duration=duration,
+            create=cast(str, _get_date(task.created_time)),
+            start=_get_date(task.first_started_time),
+            complete=_get_date(task.completed_time),
+            due=_get_date(task.due_date),
+            status=status
+        )
 
     @require_board
     def show_tasks(self) -> None:
         """Shows task list."""
         assert self.board is not None
-        def _get_proj(task: Task) -> Optional[str]:
-            if task.project_id is None:
-                return None
-            return f'{self.board.projects[task.project_id].name} \[[purple]{task.project_id}[/]]'  # type: ignore[union-attr]
-        def _get_date(dt: Optional[datetime]) -> Optional[str]:
-            return None if (dt is None) else dt.strftime(DATE_FORMAT)
-        def _make_row(id_: Id, task: Task) -> TaskRow:
-            duration = None if (task.expected_duration is None) else pendulum.duration(days=task.expected_duration).in_words()
-            status = f'[{task.status.color}]{task.status._value_}[/]'
-            return TaskRow(id=f'[bold dark_orange3]{id_}[/]', name=task.name, project=_get_proj(task), priority=task.priority, difficulty=task.expected_difficulty, duration=duration, create=cast(str, _get_date(task.created_time)), start=_get_date(task.first_started_time), complete=_get_date(task.completed_time), due=_get_date(task.due_date), status=status)
-        rows = [_make_row(id_, task) for (id_, task) in self.board.tasks.items()]
+        rows = [self._make_task_row(id_, task) for (id_, task) in self.board.tasks.items()]
         table = make_table(TaskRow, rows)
         print(table)
 
@@ -552,13 +621,56 @@ class BoardInterface(BaseModel):
             self.save_board()
             print(f'Saved DaiKanban board {name!r} to {path_style(path)}')
 
-    def show_board(self) -> None:
+    def show_board(self,
+        statuses: Optional[list[str]] = None,
+        projects: Optional[list[str]] = None,
+        tags: Optional[list[str]] = None,
+        limit: Optional[int] = None
+    ) -> None:
         """Displays the board to the screen using the current configurations."""
         # TODO: take kwargs to filter board contents
         # TODO: display pretty board rather than JSON
         if self.board is None:
             raise BoardNotLoadedError("No board has been loaded.\nRun 'board new' to create a new board or 'board load' to load an existing one.")
-        print(self._model_json(self.board))
+        if projects or tags:
+            raise NotImplementedError
+        # each status group is a main table column
+        status_groups = self.settings.status_groups
+        if statuses:
+            status_set = set(statuses)
+            status_groups = {group: [status for status in group_statuses if (status in status_set)] for (group, group_statuses) in status_groups.items()}
+        group_by_status = {}  # map from status to group
+        group_colors = {}  # map from group to color
+        for (group, group_statuses) in status_groups.items():
+            if group_statuses:
+                # use the first listed status to define the group color
+                group_colors[group] = getattr(group_statuses[0], 'color', None)
+            for status in group_statuses:
+                group_by_status[status] = group
+        # create BaseModel corresponding to a table row summarizing a Task
+        # TODO: this class may be customized based on settings
+        TaskInfo = simple_task_row_type('id', 'name', 'project', 'score')
+        scorer = self.settings.task_scorer
+        grouped_task_info = defaultdict(list)
+        for (id_, task) in self.board.tasks.items():
+            proj_str = None if (task.project_id is None) else self._project_str_from_id(task.project_id)
+            task_info = TaskInfo(id=task_id_style(id_), name=task.name, project=proj_str, score=scorer(task))
+            grouped_task_info[group_by_status[task.status]].append(task_info)
+        # sort by the scoring criterion, in reverse score order
+        for task_infos in grouped_task_info.values():
+            task_infos.sort(key=attrgetter('score'), reverse=True)
+        # build table
+        caption = f'Score: {self.settings.task_scorer.name}'
+        table = Table(title=self.board.name, title_style='bold italic blue', caption=caption)
+        subtables = []
+        for (group, color) in group_colors.items():
+            table.add_column(group, header_style=color, justify='center')
+            task_infos = grouped_task_info[group]
+            subtable: Table | str = make_table(TaskInfo, task_infos) if task_infos else ''
+            subtables.append(subtable)
+        table.add_row(*subtables)
+        # TODO: status icons, etc.
+        print(table)
 
     # SHELL
 
@@ -626,6 +738,7 @@ class BoardInterface(BaseModel):
         Optionally a board path may be provided, which will be loaded after the shell launches."""
         print(get_billboard_art())
         print('[bold italic cyan]Welcome to DaiKanban![/]')
+        print("[bright_black]Type 'h' for help.[/]")
         # TODO: load default board from global config
         if board_path is not None:
             with handle_error(BoardFileError):
