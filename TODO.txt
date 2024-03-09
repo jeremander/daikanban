@@ -20,22 +20,28 @@
     - Size limit, set of statuses to show
     - Show dates as timestamps or human-readable relative times
     - XDG directory?
-- Kanban metrics
-    - Lead time (todo to complete) & cycle time (active to complete)
-        - Per task, and averaged across tasks historically
-        - Distributional estimates of these quantities, for forecasting purposes
+- Analytics
+    - Kanban metrics
+        - Lead time (todo to complete) & cycle time (active to complete)
+            - Per task, and averaged across tasks historically
+            - Distributional estimates of these quantities, for forecasting purposes
+    - Various throughput metrics
+        - number of tasks per time
+        - total priority, priority * difficulty, priority * duration, per time
 - If task progresses todo->complete/paused or paused->complete, prompt for what time it was started, ex post facto.
+- Recurring tasks? A la Pianote.
+    - Library of tasks, with simple command to queue them into backlog
+- Github/Gitlab integration
 - Blocking logic
     - Prevent cyclic blocking?
     - Prevent completion of a blocked task without its precursors
         - Prompt user to complete all of them at once
-- Recurring tasks? A la Pianote.
 - Web app (streamlit? FastUI?)
 - I/O
     - Pretty output: markdown checklist/table
-    - "Scanner": Input task list (grab preceding regex like "TODO:") and update board
+    - (see kanban-python) "Scanner": Input task list (grab preceding regex like "TODO:") and update board
         config["settings.scanner"] = {
             "Files": ".py .md",
             "Patterns": "# TODO,#TODO,# BUG",
         }
-- Fuzzy search
+- Fuzzy matching of names

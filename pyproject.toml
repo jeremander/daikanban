@@ -24,6 +24,9 @@ dependencies = [
   "typing-extensions >= 4.10"
 ]
 
+[project.scripts]
+daikanban = "daikanban.main:APP"
+
 [project.urls]
 Documentation = "https://github.com/jeremander/daikanban#readme"
 Issues = "https://github.com/jeremander/daikanban/issues"

@@ -24,6 +24,17 @@ class TaskScorer(ABC, BaseModel):
         return {'name': self.name, 'units': self.units, **BaseModel.model_dump(self)}
 
 
+class PriorityScorer(TaskScorer):
+    """Scores tasks by their priority only."""
+
+    name = 'priority'
+    units = 'pri'
+
+    @override
+    def __call__(self, task: Task) -> float:
+        return task.priority
+
+
 class PriorityDifficultyScorer(TaskScorer):
     """Scores tasks by multiplying priority by difficulty."""
 

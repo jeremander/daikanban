@@ -36,6 +36,7 @@ def get_duration_between(dt1: datetime, dt2: datetime) -> float:
 
 def to_snake_case(name: str) -> str:
     """Converts an arbitrary string to snake case."""
+    name = name.replace('"', '').replace("'", '')
     return re.sub(r'[^\w]+', '_', name.strip()).lower()
 
 def prefix_match(token: str, match: str, minlen: int = 1) -> bool:
