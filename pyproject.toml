@@ -1,46 +1,92 @@
-[tool.poetry]
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
 name = "daikanban"
-# poetry-version-plugin will set this to correct value
-version = "0"
+dynamic = ["version"]
 description = "A kanban-style project task queue."
-authors = ["Jeremy Silver <jeremys@nessiness.com>"]
 readme = "README.md"
+requires-python = ">=3.9"
+license = "MIT"
+keywords = []
+authors = [
+  { name = "Jeremy Silver", email = "jeremys@nessiness.com" }
+]
+classifiers = [
+  "Programming Language :: Python"
+]
+dependencies = [
+  "pendulum >= 3.0",
+  "pydantic >= 2.6",
+  "pytimeparse >= 1.1",
+  "typer[all] >= 0.9",
+  "typing-extensions >= 4.10"
+]
 
-[tool.setuptools.dynamic]
-version = {attr = "daikanban.__version__"}
+[project.urls]
+Documentation = "https://github.com/jeremander/daikanban#readme"
+Issues = "https://github.com/jeremander/daikanban/issues"
+Source = "https://github.com/jeremander/daikanban"
 
-[tool.poetry-version-plugin]
-source = "init"
+[tool.hatch.build.targets.sdist]
+exclude = ["TODO.txt"]
 
-[tool.poetry.dependencies]
-python = "^3.9"
-pydantic = "^2.6.3"
-typer = {extras = ["all"], version = "^0.9.0"}
-bullet = "^2.2.0"
-pytimeparse = "^1.1.8"
-pendulum = "^3.0.0"
-typing-extensions = "^4.10.0"
+[tool.hatch.version]
+path = "daikanban/__init__.py"
+
+[tool.hatch.envs.default]
+dependencies = [
+  "pytest",
+  "pytest-cov"
+]
+
+[tool.hatch.envs.default.scripts]
+test = "pytest {args:tests}"
+test-cov = "coverage run -m pytest {args:tests}"
+cov-report = [
+  "- coverage combine",
+  "coverage report",
+]
+cov = [
+  "test-cov",
+  "cov-report",
+]
+
+# [[tool.hatch.envs.all.matrix]]
+# python = ["3.9", "3.10", "3.11", "3.12"]
+
+[tool.hatch.envs.types]
+dependencies = [
+  "mypy>=1.0.0",
+]
+[tool.hatch.envs.types.scripts]
+check = "mypy --install-types --non-interactive {args:daikanban tests}"
+
+[tool.coverage.run]
+source_pkgs = ["daikanban", "tests"]
+branch = true
+parallel = true
+omit = ["venv/*"]
+
+[tool.coverage.report]
+skip_covered = true
+show_missing = true
+exclude_lines = [
+  "no cov",
+  "if __name__ == .__main__.:",
+  "if TYPE_CHECKING:",
+]
 
 [tool.poetry.group.test.dependencies]
 pytest = "^8.0.2"
 pytest-cov = "^4.1.0"
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
 
 [tool.commitizen]
 tag_format = "v$major.$minor.$patch"
 version_files = [
   "pyproject.toml:tool.poetry.version"
 ]
-
-[tool.coverage.run]
-omit = ["venv/*"]
-
-[tool.coverage.report]
-skip_covered = true
-show_missing = true
 
 [tool.pytest.ini_options]
 addopts = "--verbose --cov=daikanban"

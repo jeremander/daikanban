@@ -1,5 +1,3 @@
-target-version = "py310"
-
 # rules to include
 
 lint.select = ["E", "F"]
@@ -34,7 +32,6 @@ lint.ignore = [
     "D105",  # magic method docstring
     "D107",  # __init__ docstring
     "D203",  # blank line before class docstring
-    # "D204",  # blank line after class docstring
     "D205",  # blank line between summary and description
     "D208",  # extra indentation in docstring
     "D209",  # newline before closing quotes
@@ -42,9 +39,6 @@ lint.ignore = [
     "D400",  # first line ending with period
     "D401",  # docstrings in imperative mood
     "D404",  # first word of docstring is "this"
-    "D406",
-    "D407",
-    "D413",  # blank line after last section
     "D415",  # first line ending with punctuation
     "E501",  # line length
     "E731",  # assign to lambda expression
@@ -56,7 +50,6 @@ lint.ignore = [
     "UP007",  # | instead of Union
     "UP035"  # import replacements (collections.abc)
 ]
-# ignore = ["B019", "E203", "E251", "E301", "E302", "E305", "E306", "E501", "E722", "E731", "E741", "W292", "W391"]
 
 # paths to exclude
 lint.exclude = [
@@ -73,7 +66,6 @@ line-length = 10000
 # src = ["src", "test"]
 
 [lint.per-file-ignores]
-"setup.py" = ["ANN", "D"]
 "tests/*" = ["ANN", "D"]
 
 [lint.flake8-pytest-style]
@@ -83,7 +75,7 @@ parametrize-names-type = "list"
 # don't separate straight-style and 'from' imports for the same module
 force-sort-within-sections = true
 # force imports to the top of their section
-force-to-top = ["package.utils"]
+# force-to-top = ["package.utils"]
 # patterns to separate into auxiliary blocks, in the order specified
 # forced-separate = ["tests"]
 # modules to consider first-party
