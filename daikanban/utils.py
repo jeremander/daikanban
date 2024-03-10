@@ -49,6 +49,6 @@ def to_snake_case(name: str) -> str:
     return re.sub(r'[^\w]+', '_', name.strip()).lower()
 
 def prefix_match(token: str, match: str, minlen: int = 1) -> bool:
-    """Returns true if token is a prefix of match and has length at least minlen."""
+    """Returns True if token is a prefix of match and has length at least minlen."""
     n = len(token)
     return (n >= minlen) and (match[:n] == token)

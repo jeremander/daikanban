@@ -12,6 +12,7 @@
   - Advance task status
     - `task start/pause/resume/complete [TASK_ID]`
     - If task "skips a step" (progresses todo->complete/paused or paused->complete), prompt for what time it was started/resumed, *ex post facto*.
+  - Task reset (keep all data, but reset time worked to 0, status to `todo`)
   - Make project/task display as a pretty table rather than raw JSON
     - `proj/task show [ID]`
   - Set project/task attributes
@@ -20,10 +21,12 @@
   - For never-paused task, no need to store both first and last started timestamps
   - Name uniqueness on projects/tasks
     - Completed projects maybe should be allowed to have duplicate names? Esp. if tasks can recur.
+  - Deal with Mac terminal backspace issues (if possible; otherwise mark it for later)
 - Small QoL improvements
+  - Remove links from task prompt in default settings
   - Catch Ctrl-C within sequential prompts to go back to main loop
   - Set widths for each help menu separately
-  - Accept today/tomorrow/yesterday as valid due dates
+  - Accept now/today/tomorrow/yesterday as valid due dates
   - Relax URL parsing to infer scheme if missing (default https?)
   - Fuzzy matching of names in prompts
 - Create a `README` and `CHANGELOG`
@@ -34,6 +37,8 @@
 - Shell features
   - Scrollable TUI-type thing for editing project/task fields
     - `proj/task edit [ID]`
+  - For advancing status, provide optional time saying when it occurred
+    - Or could take it positionally and prompt if absent, with "now" as default
 - Settings
   - `settings` subcommand of main CLI to interact with settings
     - Also an option within the shell

@@ -1,8 +1,9 @@
 from contextlib import contextmanager
 from datetime import datetime
-from typing import Annotated, Any, Counter, Iterator, Literal, Optional, TypeVar
+from typing import Annotated, Any, Counter, Iterator, Literal, Optional, TypeVar, cast
 
 from pydantic import AfterValidator, AnyUrl, BaseModel, BeforeValidator, Field, PlainSerializer, computed_field, model_validator
+from typing_extensions import TypeAlias
 
 from daikanban.utils import TIME_FORMAT, StrEnum, get_current_time, get_duration_between
 
@@ -14,21 +15,21 @@ T = TypeVar('T')
 # TYPE ALIASES #
 ################
 
-Id = Annotated[int, Field(ge=0)]
+Id: TypeAlias = Annotated[int, Field(ge=0)]
 
 def _check_name(name: str) -> str:
     if not any(c.isalpha() for c in name):
         raise ValueError('name must have at least one letter')
     return name
 
-Name = Annotated[str, AfterValidator(_check_name)]
-Datetime = Annotated[
+Name: TypeAlias = Annotated[str, AfterValidator(_check_name)]
+Datetime: TypeAlias = Annotated[
     datetime,
     BeforeValidator(lambda s: datetime.strptime(s, TIME_FORMAT)),
     PlainSerializer(lambda dt: dt.strftime(TIME_FORMAT), return_type=str)
 ]
-Duration = Annotated[float, Field(description='duration (days)', ge=0.0)]
-Score = Annotated[float, Field(description='a score (positive number)', ge=0.0)]
+Duration: TypeAlias = Annotated[float, Field(description='duration (days)', ge=0.0)]
+Score: TypeAlias = Annotated[float, Field(description='a score (positive number)', ge=0.0)]
 
 
 ##################
@@ -37,6 +38,9 @@ Score = Annotated[float, Field(description='a score (positive number)', ge=0.0)]
 
 class KanbanError(ValueError):
     """Custom error type for Kanban errors."""
+
+class InconsistentTimestampError(KanbanError):
+    """Error that occurs if a timestamp is inconsistent."""
 
 class ProjectNotFoundError(KanbanError):
     """Error that occurs when a project ID is not found."""
@@ -83,6 +87,23 @@ class TaskStatus(StrEnum):
             return 'orange3'
         assert self == 'complete'
         return 'green'
+
+
+class TaskStatusAction(StrEnum):
+    """Actions which can change a task's status."""
+    start = 'start'
+    complete = 'complete'
+    pause = 'pause'
+    resume = 'resume'
+
+
+# mapping from action to resulting status
+STATUS_ACTION_MAP = {
+    'start': TaskStatus.active,
+    'complete': TaskStatus.complete,
+    'pause': TaskStatus.paused,
+    'resume': TaskStatus.active
+}
 
 
 class Model(BaseModel):
@@ -175,6 +196,10 @@ class Task(Model):
         default=None,
         description='Time the task was last started (if not paused)'
     )
+    last_paused_time: Optional[Datetime] = Field(
+        default=None,
+        description='Time the task was last paused'
+    )
     completed_time: Optional[Datetime] = Field(
         default=None,
         description='Time the task was completed'
@@ -198,21 +223,20 @@ class Task(Model):
         """Gets the current status of the task."""
         if self.first_started_time is None:
             return TaskStatus.todo
-        if (self.last_started_time is not None) and (self.completed_time is None):
-            return TaskStatus.active
-        if self.last_started_time is None:
+        if self.last_paused_time is not None:
             return TaskStatus.paused
-        if self.completed_time is None:
-            return TaskStatus.active
-        return TaskStatus.complete
+        if self.completed_time is not None:
+            return TaskStatus.complete
+        return TaskStatus.active
 
     @computed_field  # type: ignore[misc]
     @property
     def total_time_worked(self) -> Duration:
         """Gets the total time (in days) worked on the task."""
         dur = 0.0 if (self.prior_time_worked is None) else self.prior_time_worked
-        if self.last_started_time is not None:
-            dur += get_duration_between(self.last_started_time, get_current_time())
+        last_started_time = self.last_started_time or self.first_started_time
+        if last_started_time is not None:
+            dur += get_duration_between(last_started_time, get_current_time())
         return dur
 
     @computed_field  # type: ignore[misc]
@@ -237,9 +261,10 @@ class Task(Model):
 
     @model_validator(mode='after')
     def check_consistent_times(self) -> 'Task':  # noqa: C901
-        """Checks that created_time <= first_started_time <= last_started_time <= completed_time."""
-        def _invalid(msg: str) -> ValueError:
-            return ValueError(f'{msg}\n\t{self}')
+        """Checks the consistence of various timestamps stored in the Task.
+        If any is invalid, raises an InconsistentTimestampError."""
+        def _invalid(msg: str) -> InconsistentTimestampError:
+            return InconsistentTimestampError(f'{msg}\n\t{self}')
         if self.first_started_time is not None:
             if self.first_started_time < self.created_time:
                 raise _invalid('task start time cannot precede created time')
@@ -248,45 +273,90 @@ class Task(Model):
                 raise _invalid('task missing first started time')
             if self.last_started_time < self.first_started_time:
                 raise _invalid('task last started time cannot precede first started time')
+        if self.last_paused_time is not None:
+            if self.first_started_time is None:
+                raise _invalid('task missing first started time')
+            if self.last_started_time is not None:
+                raise _invalid('task cannot have both a last started and last paused time')
+            if self.last_paused_time < self.first_started_time:
+                raise _invalid('task last paused time cannot precede first started time')
         if self.completed_time is not None:
-            if self.last_started_time is None:
-                raise _invalid('task missing last started time')
-            if self.completed_time < self.last_started_time:
+            if self.first_started_time is None:
+                raise _invalid('task missing first started time')
+            if self.completed_time < self.first_started_time:
+                raise _invalid('task completed time cannot precede first started time')
+            if self.last_started_time and (self.completed_time < self.last_started_time):
                 raise _invalid('task completed time cannot precede last started time')
         # task is paused or completed => task has prior time worked
         if (self.status == TaskStatus.paused) and (self.prior_time_worked is None):
             raise _invalid('task in paused or completed status must set prior time worked')
         return self
 
-    def started(self) -> 'Task':
+    def started(self, dt: Optional[Datetime] = None) -> 'Task':
         """Returns a new started version of the Task, if its status is todo.
         Otherwise raises a TaskStatusError."""
         if self.status == TaskStatus.todo:
-            now = get_current_time()
-            update = {'first_started_time': now, 'last_started_time': now}
-            return self.model_copy(update=update)
-        raise TaskStatusError(f'cannot start Task with status {self.status!r}')
+            dt = dt or get_current_time()
+            if dt < self.created_time:
+                raise TaskStatusError('cannot start a task before its creation time')
+            return self.model_copy(update={'first_started_time': dt})
+        raise TaskStatusError(f"cannot start task with status '{self.status}'")
 
-    def completed(self) -> 'Task':
+    def completed(self, dt: Optional[datetime] = None) -> 'Task':
         """Returns a new completed version of the Task, if its status is active.
         Otherwise raises a TaskStatusError."""
         if self.status == TaskStatus.active:
-            return self.model_copy(update={'completed_time': get_current_time()})
-        raise TaskStatusError(f'cannot complete Task with status {self.status!r}')
+            dt = dt or get_current_time()
+            last_started_time = cast(datetime, self.last_started_time or self.first_started_time)
+            if dt < last_started_time:
+                raise TaskStatusError('cannot complete a task before its last started time')
+            return self.model_copy(update={'completed_time': dt})
+        raise TaskStatusError(f"cannot complete task with status '{self.status}'")
 
-    def paused(self) -> 'Task':
+    def paused(self, dt: Optional[datetime] = None) -> 'Task':
         """Returns a new paused version of the Task, if its status is active.
         Otherwise raises a TaskStatusError."""
         if self.status == TaskStatus.active:
-            return self.model_copy(update={'last_started_time': None, 'prior_time_worked': self.total_time_worked})
-        raise TaskStatusError(f'cannot pause Task with status {self.status!r}')
+            dt = dt or get_current_time()
+            last_started_time = cast(datetime, self.last_started_time or self.first_started_time)
+            if dt < last_started_time:
+                raise TaskStatusError('cannot pause a task before its last started time')
+            dur = 0.0 if (self.prior_time_worked is None) else self.prior_time_worked
+            dur += get_duration_between(last_started_time, dt)
+            return self.model_copy(update={'last_started_time': None, 'last_paused_time': dt, 'prior_time_worked': dur})
+        raise TaskStatusError(f"cannot pause task with status '{self.status}'")
 
-    def resumed(self) -> 'Task':
+    def resumed(self, dt: Optional[datetime] = None) -> 'Task':
         """Returns a new resumed version of the Task, if its status is paused.
         Otherwise raises a TaskStatusError."""
         if self.status == TaskStatus.paused:
-            return self.model_copy(update={'last_started_time': get_current_time()})
-        raise TaskStatusError(f'cannot resume Task with status {self.status!r}')
+            dt = dt or get_current_time()
+            assert self.last_paused_time is not None
+            if dt < self.last_paused_time:
+                raise TaskStatusError('cannot resume a task before its last paused time')
+            return self.model_copy(update={'last_started_time': dt, 'last_paused_time': None})
+        raise TaskStatusError(f"cannot resume task with status '{self.status}'")
+
+    def apply_status_action(self, action: TaskStatusAction, dt: Optional[datetime] = None, first_dt: Optional[datetime] = None) -> 'Task':
+        """Applies a status action to the Task.
+            dt: datetime at which the action occurred (if consisting of two consecutive actions, the latter one)
+            first_dt: if the action consists of two consecutive actions, the datetime at which the first action occurred
+        If the action is invalid for the Task's current state, raises a TaskStatusError."""
+        if action == TaskStatusAction.start:
+            return self.started(dt=dt)
+        if action == TaskStatusAction.complete:
+            if self.status == TaskStatus.todo:
+                return self.started(dt=first_dt).completed(dt=dt)
+            if self.status in [TaskStatus.active, TaskStatus.complete]:
+                return self.completed(dt=dt)
+            assert self.status == TaskStatus.paused
+            return self.resumed(dt=first_dt).completed(dt=dt)
+        if action == TaskStatusAction.pause:
+            if self.status == TaskStatus.todo:
+                return self.started(dt=first_dt).paused(dt=dt)
+            return self.paused(dt=dt)
+        assert action == TaskStatusAction.resume
+        return self.resumed()
 
 
 class Board(Model):

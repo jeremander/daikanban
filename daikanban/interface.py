@@ -21,7 +21,7 @@ from rich import print
 from rich.prompt import Confirm, Prompt
 from rich.table import Table
 
-from daikanban.model import Board, Duration, Id, KanbanError, Project, Task
+from daikanban.model import Board, Duration, Id, KanbanError, Project, Task, TaskStatus, TaskStatusAction
 from daikanban.settings import BoardSettings
 from daikanban.utils import DATE_FORMAT, SECS_PER_DAY, TIME_FORMAT, StrEnum, get_current_time, handle_error, prefix_match, to_snake_case
 
@@ -89,9 +89,13 @@ def path_style(path: str | Path, bold: bool = False) -> str:
     """Renders a path as a rich-styled string."""
     return style_str(path, DefaultColor.path, bold=bold)
 
+def status_style(status: TaskStatus) -> str:
+    """Renders a TaskStatus as a rich-styled string with the appropriate color."""
+    return style_str(status, status.color)
+
 def err_style(obj: object) -> str:
     """Renders an error as a rich-styled string."""
-    return style_str(obj, DefaultColor.error)
+    return style_str(str(obj).capitalize(), DefaultColor.error)
 
 
 ###########
@@ -110,7 +114,7 @@ def parse_duration(s: str) -> Optional[Duration]:
         return None
     secs = pytimeparse.parse(s)
     if (secs is None):
-        raise UserInputError('Invalid time duration.')
+        raise UserInputError('Invalid time duration')
     return secs / SECS_PER_DAY
 
 def parse_date(s: str) -> Optional[str]:
@@ -183,7 +187,7 @@ class FieldParser(Generic[M, T]):
     def validate(self, val: Any) -> None:
         """Validates the field value."""
         if val == PydanticUndefined:
-            raise UserInputError('This field is required.')
+            raise UserInputError('This field is required')
         try:
             self.model_type.__pydantic_validator__.validate_assignment(self.model_type.model_construct(), self.field, val)
         except ValidationError as e:
@@ -324,11 +328,11 @@ class BoardInterface(BaseModel):
             id_ = int(s)
             if (id_ in d):
                 return id_
-            raise UserInputError(f'Invalid {item_type} ID.')
+            raise UserInputError(f'Invalid {item_type} ID')
         for (id_, proj) in d.items():
             if (proj.name.lower() == s.lower()):
                 return id_
-        raise UserInputError(f'Invalid {item_type} name.')
+        raise UserInputError(f'Invalid {item_type} name')
 
     def _parse_project(self, id_or_name: str) -> Optional[Id]:
         return self._parse_id_or_name('project', id_or_name)
@@ -371,6 +375,7 @@ class BoardInterface(BaseModel):
         grid.add_row('', '\[n]ew', 'create new task')
         grid.add_row('', '\[s]how', 'show task list')
         grid.add_row('', '\[s]how [not bold]\[ID/NAME][/]', 'show task info')
+        grid.add_row('', 'start/complete/pause/resume [not bold]\[ID/NAME][/]', 'change task status')
 
     def show_help(self) -> None:
         """Displays the main help menu listing various commands."""
@@ -460,18 +465,32 @@ class BoardInterface(BaseModel):
         assert self.board is not None
         id_ = self._parse_project(id_or_name)
         if id_ is None:
-            raise UserInputError('Invalid project.')
+            raise UserInputError('Invalid project')
         proj = self.board.get_project(id_)
         print(self._model_json(proj))
 
     # TASK
 
     @require_board
+    def change_task_status(self, action: TaskStatusAction, id_or_name: Optional[str] = None) -> None:
+        """Changes a task to a new stage."""
+        assert self.board is not None
+        if id_or_name is None:
+            id_or_name = simple_input('Task ID or name', match='.+')
+        id_ = self._parse_task(id_or_name)
+        assert id_ is not None
+        task = self.board.get_task(id_)
+        task = task.apply_status_action(action)
+        self.board.tasks[id_] = task
+        self.save_board()
+        print(f'Changed task {task.name!r} to {status_style(task.status)} state')
+
+    @require_board
     def delete_task(self, id_or_name: Optional[str] = None) -> None:
         """Deletes a task with the given ID or name."""
         assert self.board is not None
         if id_or_name is None:
-            id_or_name = simple_input('Project ID or name', match='.+')
+            id_or_name = simple_input('Task ID or name', match='.+')
         id_ = self._parse_task(id_or_name)
         assert id_ is not None
         task = self.board.get_task(id_)
@@ -536,7 +555,6 @@ class BoardInterface(BaseModel):
         def _get_date(dt: Optional[datetime]) -> Optional[str]:
             return None if (dt is None) else dt.strftime(DATE_FORMAT)
         duration = None if (task.expected_duration is None) else pendulum.duration(days=task.expected_duration).in_words()
-        status = f'[{task.status.color}]{task.status._value_}[/]'
         return TaskRow(
             id=task_id_style(id_, bold=True),
             name=task.name,
@@ -548,7 +566,7 @@ class BoardInterface(BaseModel):
             start=_get_date(task.first_started_time),
             complete=_get_date(task.completed_time),
             due=_get_date(task.due_date),
-            status=status
+            status=status_style(task.status)
         )
 
     @require_board
@@ -565,7 +583,7 @@ class BoardInterface(BaseModel):
         assert self.board is not None
         id_ = self._parse_task(id_or_name)
         if id_ is None:
-            raise UserInputError('Invalid task.')
+            raise UserInputError('Invalid task')
         task = self.board.get_task(id_)
         print(self._model_json(task))
 
@@ -577,12 +595,12 @@ class BoardInterface(BaseModel):
         assert self.board_path is not None
         path = path_style(self.board_path)
         if not self.board_path.exists():
-            raise BoardFileError(f'Board file {path} does not exist.')
+            raise BoardFileError(f'Board file {path} does not exist')
         delete = Confirm.ask(f'Are you sure you want to delete {path}?')
         if delete:
             self.board_path.unlink()
             assert self.board is not None
-            print(f'Deleted board {self.board.name!r} from {path}.')
+            print(f'Deleted board {self.board.name!r} from {path}')
 
     def load_board(self, board_path: Optional[str | Path] = None) -> None:
         """Loads a board from a JSON file.
@@ -596,7 +614,7 @@ class BoardInterface(BaseModel):
             msg = f'ERROR loading JSON {path_style(board_path)}: {e}'
             raise BoardFileError(msg) from None
         self.board_path = Path(board_path)
-        print(f'Loaded board from {path_style(self.board_path)}.')
+        print(f'Loaded board from {path_style(self.board_path)}')
 
     def save_board(self) -> None:
         """Saves the state of the current board to its JSON file."""
@@ -730,14 +748,21 @@ class BoardInterface(BaseModel):
             if (ntokens == 1) or prefix_match(tokens[1], 'help'):
                 return self.show_task_help()
             tok1 = tokens[1]
-            if prefix_match(tok1, 'delete'):
-                return self.delete_task(None if (ntokens == 2) else tokens[2])
             if prefix_match(tok1, 'new'):
                 return self.new_task()
+            if prefix_match(tok1, 'delete'):
+                return self.delete_task(None if (ntokens == 2) else tokens[2])
             if prefix_match(tok1, 'show'):
                 if ntokens == 2:
                     return self.show_tasks()
                 return self.show_task(tokens[2])
+            action: Optional[TaskStatusAction] = None
+            for (act, minlen) in [(TaskStatusAction.start, 2), (TaskStatusAction.complete, 1), (TaskStatusAction.pause, 1), (TaskStatusAction.resume, 1)]:
+                if prefix_match(tok1, act, minlen=minlen):
+                    action = act
+                    break
+            if action:
+                return self.change_task_status(action, None if (ntokens == 2) else tokens[2])
         raise UserInputError('Invalid input')
 
     @staticmethod

@@ -30,7 +30,7 @@ def schema(
 
 @APP.command(short_help='enter interactive shell')
 def shell(
-    board: Annotated[Optional[Path], typer.Option(help='DaiKanban board JSON file')] = None
+    board: Annotated[Optional[Path], typer.Option('--board', '-b', help='DaiKanban board JSON file')] = None
 ) -> None:
     """Launch the DaiKanban shell."""
     BoardInterface().launch_shell(board_path=board)
