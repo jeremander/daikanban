@@ -224,12 +224,17 @@ def _render_cell(val: Any) -> str:
 def make_table(tp: type[M], rows: Iterable[M], **kwargs: Any) -> Table:
     """Given a BaseModel type and a list of elements of that type, creates a Table displaying the data."""
     table = Table(**kwargs)
+    flags = []  # indicates whether each field has any nontrivial element
     for (name, info) in tp.model_fields.items():
-        title = info.title or name
-        kw = cast(dict, info.json_schema_extra) or {}
-        table.add_column(title, **kw)
+        flag = any(getattr(row, name) is not None for row in rows)
+        flags.append(flag)
+        if flag:  # skip column if all values are trivial
+            title = info.title or name
+            kw = cast(dict, info.json_schema_extra) or {}
+            table.add_column(title, **kw)
     for row in rows:
-        table.add_row(*(_render_cell(val) for (_, val) in row))
+        vals = [_render_cell(val) for (flag, (_, val)) in zip(flags, row) if flag]
+        table.add_row(*vals)
     return table
 
 class ProjectRow(BaseModel):
