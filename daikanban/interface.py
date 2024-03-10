@@ -258,18 +258,23 @@ class BoardInterface(BaseModel):
 
     def add_project_help(self, grid: Table) -> None:
         """Adds entries to help menu related to projects."""
-        grid.add_row('\[p]roject', '\[d]elete [not bold]\[ID/NAME][/]', 'delete a project')
+        id_str = '[not bold]\[ID/NAME][/]'
+        grid.add_row('\[p]roject', f'\[d]elete {id_str}', 'delete a project')
         grid.add_row('', '\[n]ew', 'create new project')
         grid.add_row('', '\[s]how', 'show project list')
-        grid.add_row('', '\[s]how [not bold]\[ID/NAME][/]', 'show project info')
+        grid.add_row('', f'\[s]how {id_str}', 'show project info')
 
     def add_task_help(self, grid: Table) -> None:
         """Adds entries to help menu related to tasks."""
-        grid.add_row('\[t]ask', '\[d]elete [not bold]\[ID/NAME][/]', 'delete a task')
+        id_str = '[not bold]\[ID/NAME][/]'
+        grid.add_row('\[t]ask', f'\[d]elete {id_str}', 'delete a task')
         grid.add_row('', '\[n]ew', 'create new task')
         grid.add_row('', '\[s]how', 'show task list')
-        grid.add_row('', '\[s]how [not bold]\[ID/NAME][/]', 'show task info')
-        grid.add_row('', 'start/complete/pause/resume [not bold]\[ID/NAME][/]', 'change task status')
+        grid.add_row('', f'\[s]how {id_str}', 'show task info')
+        grid.add_row('', f'\[b]egin {id_str}', 'begin a task')
+        grid.add_row('', f'\[c]omplete {id_str}', 'complete a started task')
+        grid.add_row('', f'\[p]ause {id_str}', 'pause a started task')
+        grid.add_row('', f'\[r]esume {id_str}', 'resume a paused task')
 
     def show_help(self) -> None:
         """Displays the main help menu listing various commands."""
@@ -405,7 +410,7 @@ class BoardInterface(BaseModel):
         task = task.apply_status_action(action, dt=dt, first_dt=first_dt)
         self.board.tasks[id_] = task
         self.save_board()
-        print(f'Changed task {task.name!r} \[{task_id_style(id_)}] to {status_style(task.status)} state')
+        print(f'Changed task {task.name!r} [not bold]\[{task_id_style(id_)}][/] to {status_style(task.status)} state')
 
     @require_board
     def delete_task(self, id_or_name: Optional[str] = None) -> None:
@@ -682,10 +687,14 @@ class BoardInterface(BaseModel):
                     return self.show_tasks()
                 return self.show_task(tokens[2])
             action: Optional[TaskStatusAction] = None
-            for (act, minlen) in [(TaskStatusAction.start, 2), (TaskStatusAction.complete, 1), (TaskStatusAction.pause, 1), (TaskStatusAction.resume, 1)]:
-                if prefix_match(tok1, act, minlen=minlen):
-                    action = act
-                    break
+            if prefix_match(tok1, 'begin'):
+                # for convenience, use 'begin' instead of 'start' to avoid prefix collision with 'show'
+                action = TaskStatusAction.start
+            else:
+                for act in [TaskStatusAction.complete, TaskStatusAction.pause, TaskStatusAction.resume]:
+                    if prefix_match(tok1, act):
+                        action = act
+                        break
             if action:
                 return self.change_task_status(action, None if (ntokens == 2) else tokens[2])
         raise UserInputError('Invalid input')
