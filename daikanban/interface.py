@@ -1,29 +1,27 @@
 from collections import defaultdict
 import csv
-from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime
 from functools import cache, wraps
 import json
 from operator import attrgetter
 from pathlib import Path
-import re
 import readline  # improves shell interactivity  # noqa: F401
 import shlex
 import sys
-from typing import Any, Callable, Generic, Iterable, Optional, TypeVar, cast
+from typing import Any, Iterable, Optional, TypeVar, cast
 
 import pendulum
 import pendulum.parsing
-from pydantic import BaseModel, Field, ValidationError, create_model
-from pydantic_core import PydanticUndefined
+from pydantic import BaseModel, Field, create_model
 import pytimeparse
 from rich import print
-from rich.prompt import Confirm, Prompt
+from rich.prompt import Confirm
 from rich.table import Table
 
 from daikanban.model import Board, Duration, Id, KanbanError, Project, Task, TaskStatus, TaskStatusAction
+from daikanban.prompt import FieldPrompter, Prompter, model_from_prompt, simple_input
 from daikanban.settings import BoardSettings
-from daikanban.utils import DATE_FORMAT, SECS_PER_DAY, TIME_FORMAT, StrEnum, get_current_time, handle_error, prefix_match, to_snake_case
+from daikanban.utils import DATE_FORMAT, SECS_PER_DAY, TIME_FORMAT, StrEnum, UserInputError, err_style, get_current_time, handle_error, parse_date, prefix_match, style_str, to_snake_case
 
 
 M = TypeVar('M', bound=BaseModel)
@@ -36,9 +34,6 @@ BILLBOARD_ART_PATH = PKG_DIR / 'billboard_art.txt'
 ##########
 # ERRORS #
 ##########
-
-class UserInputError(KanbanError):
-    """Class for user input errors."""
 
 class BoardFileError(KanbanError):
     """Error reading or writing a board file."""
@@ -70,13 +65,6 @@ class DefaultColor(StrEnum):
     error = 'red'
     faint = 'grey0'
 
-
-def style_str(val: Any, color: str, bold: bool = False) -> str:
-    """Renders a value as a string with a given color.
-    If bold=True, make it bold."""
-    tag = ('bold ' if bold else '') + color
-    return f'[{tag}]{val}[/]'
-
 def proj_id_style(id_: Id, bold: bool = False) -> str:
     """Renders a project ID as a rich-styled string."""
     return style_str(id_, DefaultColor.proj_id, bold=bold)
@@ -92,10 +80,6 @@ def path_style(path: str | Path, bold: bool = False) -> str:
 def status_style(status: TaskStatus) -> str:
     """Renders a TaskStatus as a rich-styled string with the appropriate color."""
     return style_str(status, status.color)
-
-def err_style(obj: object) -> str:
-    """Renders an error as a rich-styled string."""
-    return style_str(str(obj).capitalize(), DefaultColor.error)
 
 
 ###########
@@ -117,101 +101,11 @@ def parse_duration(s: str) -> Optional[Duration]:
         raise UserInputError('Invalid time duration')
     return secs / SECS_PER_DAY
 
-def parse_date(s: str) -> Optional[str]:
+def parse_date_as_string(s: str) -> Optional[str]:
     """Parses a string into a timestamp string.
     The input string can either specify a datetime directly, or a time duration from the present moment."""
-    if not s.strip():
-        return None
-    try:
-        dt: datetime = pendulum.parse(s, strict=False, tz=pendulum.local_timezone())  # type: ignore
-        assert isinstance(dt, datetime)
-    except (AssertionError, pendulum.parsing.ParserError):
-        # parse as a duration from now
-        s = s.strip()
-        is_past = s.endswith(' ago')
-        s = s.removeprefix('in ').removesuffix(' from now').removesuffix(' ago').strip()
-        secs = pytimeparse.parse(s)
-        if secs is None:
-            raise UserInputError('Invalid date') from None
-        td = timedelta(seconds=secs)
-        dt = get_current_time() + (-td if is_past else td)
-    return dt.strftime(TIME_FORMAT)
-
-
-#############
-# PROMPTING #
-#############
-
-def validated_input(prompt: str, validator: Callable[[str], T], default: Any = None) -> T:
-    """Prompts the user with the given string until the user's response passes a validator function with no error."""
-    if default not in (None, PydanticUndefined):
-        if isinstance(default, float) and (int(default) == default):
-            default = int(default)
-        default = str(default)
-    while True:
-        result = Prompt.ask(f'[bold]{prompt}[/]', default=default) or ''
-        try:
-            return validator(result)
-        except Exception as e:
-            print(err_style(e))
-
-def simple_input(prompt: str, default: Optional[str] = None, match: str = '.*') -> str:
-    """Prompts the user with the given string until the user's response matches a certain regex."""
-    regex = re.compile(match)
-    while True:
-        result = Prompt.ask(f'[bold]{prompt}[/]', default=default) or ''
-        if regex.fullmatch(result):
-            break
-    return result
-
-@dataclass
-class FieldParser(Generic[M, T]):
-    """Bundle of parameters for how to parse a field from a string."""
-    model_type: type[M]
-    field: str
-    prompt: Optional[str] = None
-    parse: Optional[Callable[[str], T]] = None
-
-    @property
-    def readable_name(self) -> str:
-        """Gets a readable version of the field name."""
-        return self.field.replace('_', ' ').capitalize()
-
-    @property
-    def default(self) -> T:
-        """Gets the default value for the particular field."""
-        info = self.model_type.model_fields[self.field]
-        # TODO: default_factory?
-        return info.default
-
-    def validate(self, val: Any) -> None:
-        """Validates the field value."""
-        if val == PydanticUndefined:
-            raise UserInputError('This field is required')
-        try:
-            self.model_type.__pydantic_validator__.validate_assignment(self.model_type.model_construct(), self.field, val)
-        except ValidationError as e:
-            msg = '\n'.join(d['msg'] for d in e.errors())
-            raise UserInputError(msg) from None
-
-    def parse_field(self, s: str) -> T:
-        """Given a BaseModel type and string, parses the field value from a string and validates it."""
-        val = s if (self.parse is None) else self.parse(s)
-        self.validate(val)
-        return val  # type: ignore
-
-    def prompt_field(self) -> T:
-        """Given a BaseModel type, prompts the user for the field until a valid one is entered."""
-        prompt = self.prompt or self.readable_name
-        return validated_input(prompt, self.parse_field, default=self.default)
-
-
-def model_from_prompt(model_type: type[M], parsers: dict[str, FieldParser] = {}) -> M:  # noqa: B006
-    """Given a BaseModel type and collection of FieldParsers, constructs an instance of the type from a sequence of user prompts."""
-    kwargs: dict[str, Any] = {}
-    for (field, parser) in parsers.items():
-        kwargs[field] = parser.prompt_field()
-    return model_type(**kwargs)
+    dt = parse_date(s)
+    return None if (dt is None) else dt.strftime(TIME_FORMAT)
 
 
 ###################
@@ -444,8 +338,8 @@ class BoardInterface(BaseModel):
                 'parse': parse_string_set
             }
         }
-        parsers: dict[str, FieldParser] = {field: FieldParser(Project, field, **kwargs) for (field, kwargs) in params.items()}
-        proj = model_from_prompt(Project, parsers)
+        prompters: dict[str, FieldPrompter] = {field: FieldPrompter(Project, field, **kwargs) for (field, kwargs) in params.items()}
+        proj = model_from_prompt(Project, prompters)
         id_ = self.board.create_project(proj)
         self.save_board()
         print(f'Created new project with ID {proj_id_style(id_)}')
@@ -456,8 +350,11 @@ class BoardInterface(BaseModel):
         assert self.board is not None
         num_tasks_by_project = self.board.num_tasks_by_project
         rows = [ProjectRow(id=proj_id_style(id_, bold=True), name=proj.name, created=proj.created_time.strftime('%Y-%m-%d'), num_tasks=num_tasks_by_project[id_]) for (id_, proj) in self.board.projects.items()]
-        table = make_table(ProjectRow, rows)
-        print(table)
+        if rows:
+            table = make_table(ProjectRow, rows)
+            print(table)
+        else:
+            print(style_str('\[No projects]', DefaultColor.faint, bold=True))
 
     @require_board
     def show_project(self, id_or_name: str) -> None:
@@ -480,10 +377,35 @@ class BoardInterface(BaseModel):
         id_ = self._parse_task(id_or_name)
         assert id_ is not None
         task = self.board.get_task(id_)
-        task = task.apply_status_action(action)
+        # fail early if the action is invalid for the status
+        _ = task.apply_status_action(action)
+        # if valid, prompt the user for when the action took place
+        def _parse_date(s: str) -> datetime:
+            return cast(datetime, parse_date(s))
+        # ask for time of intermediate status change, which occurs if:
+        #   todo -> active -> complete
+        #   todo -> active -> paused
+        #   paused -> active -> complete
+        status = task.status
+        intermediate_action_map = {
+            (TaskStatus.todo, TaskStatusAction.complete): TaskStatusAction.start,
+            (TaskStatus.todo, TaskStatusAction.pause): TaskStatusAction.start,
+            (TaskStatus.paused, TaskStatusAction.complete): TaskStatusAction.resume
+        }
+        if (intermediate := intermediate_action_map.get((status, action))):
+            prompt = f'When was the task {intermediate.past_tense()}? [not bold]\[now][/] '
+            prompter = Prompter(prompt, _parse_date, validate=None, default=get_current_time)
+            first_dt = prompter.loop_prompt(use_prompt_suffix=False, show_default=False)
+        else:
+            first_dt = None
+        # prompt user for time of latest status change
+        prompt = f'When was the task {action.past_tense()}? [not bold]\[now][/] '
+        prompter = Prompter(prompt, _parse_date, validate=None, default=get_current_time)
+        dt = prompter.loop_prompt(use_prompt_suffix=False, show_default=False)
+        task = task.apply_status_action(action, dt=dt, first_dt=first_dt)
         self.board.tasks[id_] = task
         self.save_board()
-        print(f'Changed task {task.name!r} to {status_style(task.status)} state')
+        print(f'Changed task {task.name!r} \[{task_id_style(id_)}] to {status_style(task.status)} state')
 
     @require_board
     def delete_task(self, id_or_name: Optional[str] = None) -> None:
@@ -519,7 +441,7 @@ class BoardInterface(BaseModel):
             },
             'due_date': {
                 'prompt': 'Due date [not bold]\[optional][/]',
-                'parse': parse_date
+                'parse': parse_date_as_string
             },
             'project_id': {
                 'prompt': 'Project ID or name [not bold]\[optional][/]',
@@ -534,10 +456,10 @@ class BoardInterface(BaseModel):
                 'parse': parse_string_set
             }
         }
-        parsers: dict[str, FieldParser] = {
-            field: FieldParser(Task, field, **kwargs) for (field, kwargs) in params.items()
+        prompters: dict[str, FieldPrompter] = {
+            field: FieldPrompter(Task, field, **kwargs) for (field, kwargs) in params.items()
         }
-        task = model_from_prompt(Task, parsers)
+        task = model_from_prompt(Task, prompters)
         id_ = self.board.create_task(task)
         self.save_board()
         print(f'Created new task with ID {task_id_style(id_)}')
@@ -574,8 +496,11 @@ class BoardInterface(BaseModel):
         """Shows task list."""
         assert self.board is not None
         rows = [self._make_task_row(id_, task) for (id_, task) in self.board.tasks.items()]
-        table = make_table(TaskRow, rows)
-        print(table)
+        if rows:
+            table = make_table(TaskRow, rows)
+            print(table)
+        else:
+            print(style_str('\[No tasks]', DefaultColor.faint, bold=True))
 
     @require_board
     def show_task(self, id_or_name: str) -> None:
@@ -682,7 +607,7 @@ class BoardInterface(BaseModel):
         grouped_task_info = defaultdict(list)
         for (id_, task) in self.board.tasks.items():
             proj_str = None if (task.project_id is None) else self._project_str_from_id(task.project_id)
-            task_info = TaskInfo(id=task_id_style(id_), name=task.name, project=proj_str, score=scorer(task))
+            task_info = TaskInfo(id=task_id_style(id_, bold=True), name=task.name, project=proj_str, score=scorer(task))
             grouped_task_info[group_by_status[task.status]].append(task_info)
         # sort by the scoring criterion, in reverse score order
         for task_infos in grouped_task_info.values():

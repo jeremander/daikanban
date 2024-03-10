@@ -9,9 +9,7 @@
 - Implement arguments for 'board show'
 - Test appearance on both light and dark terminals
 - Shell features
-  - Advance task status
-    - `task start/pause/resume/complete [TASK_ID]`
-    - If task "skips a step" (progresses todo->complete/paused or paused->complete), prompt for what time it was started/resumed, *ex post facto*.
+  - Allow task resumption to go from complete back to active
   - Task reset (keep all data, but reset time worked to 0, status to `todo`)
   - Make project/task display as a pretty table rather than raw JSON
     - `proj/task show [ID]`
@@ -23,10 +21,10 @@
     - Completed projects maybe should be allowed to have duplicate names? Esp. if tasks can recur.
   - Deal with Mac terminal backspace issues (if possible; otherwise mark it for later)
 - Small QoL improvements
-  - Remove links from task prompt in default settings
+  - Remove difficulty & links from task prompt in default settings
   - Catch Ctrl-C within sequential prompts to go back to main loop
   - Set widths for each help menu separately
-  - Accept now/today/tomorrow/yesterday as valid due dates
+  - Accept now/today/tomorrow/yesterday as valid dates, also month/year durations
   - Relax URL parsing to infer scheme if missing (default https?)
   - Fuzzy matching of names in prompts
 - Create a `README` and `CHANGELOG`

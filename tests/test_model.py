@@ -35,6 +35,7 @@ class TestTask:
         with pytest.raises(TaskStatusError, match='cannot complete'):
             _ = todo.completed()
         started = todo.started()
+        time_worked = started.total_time_worked
         assert started != todo
         assert started.status == TaskStatus.active
         assert isinstance(started.first_started_time, datetime)
@@ -46,11 +47,16 @@ class TestTask:
             _ = started.started()
         with pytest.raises(TaskStatusError, match='cannot resume'):
             _ = started.resumed()
+        # additional time is worked since the task started
+        assert started.total_time_worked > time_worked
         paused = started.paused()
+        time_worked = paused.total_time_worked
         assert paused.status == TaskStatus.paused
         assert paused.last_started_time is None
         assert isinstance(paused.last_paused_time, datetime)
         assert isinstance(paused.prior_time_worked, float)
+        # no additional time is worked since task is paused
+        assert paused.total_time_worked == time_worked
         resumed = paused.resumed()
         assert isinstance(resumed.last_started_time, datetime)
         assert resumed.first_started_time < resumed.last_started_time

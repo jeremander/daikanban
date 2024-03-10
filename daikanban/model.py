@@ -5,7 +5,7 @@ from typing import Annotated, Any, Counter, Iterator, Literal, Optional, TypeVar
 from pydantic import AfterValidator, AnyUrl, BaseModel, BeforeValidator, Field, PlainSerializer, computed_field, model_validator
 from typing_extensions import TypeAlias
 
-from daikanban.utils import TIME_FORMAT, StrEnum, get_current_time, get_duration_between
+from daikanban.utils import TIME_FORMAT, KanbanError, StrEnum, get_current_time, get_duration_between
 
 
 T = TypeVar('T')
@@ -35,9 +35,6 @@ Score: TypeAlias = Annotated[float, Field(description='a score (positive number)
 ##################
 # ERROR HANDLING #
 ##################
-
-class KanbanError(ValueError):
-    """Custom error type for Kanban errors."""
 
 class InconsistentTimestampError(KanbanError):
     """Error that occurs if a timestamp is inconsistent."""
@@ -95,6 +92,12 @@ class TaskStatusAction(StrEnum):
     complete = 'complete'
     pause = 'pause'
     resume = 'resume'
+
+    def past_tense(self) -> str:
+        """Gets the action in the past tense."""
+        if self == TaskStatusAction.start:
+            return 'started'
+        return f'{self}d'
 
 
 # mapping from action to resulting status
@@ -233,10 +236,11 @@ class Task(Model):
     @property
     def total_time_worked(self) -> Duration:
         """Gets the total time (in days) worked on the task."""
-        dur = 0.0 if (self.prior_time_worked is None) else self.prior_time_worked
-        last_started_time = self.last_started_time or self.first_started_time
-        if last_started_time is not None:
-            dur += get_duration_between(last_started_time, get_current_time())
+        dur = self.prior_time_worked or 0.0
+        if self.last_paused_time is None:  # active or complete
+            last_started_time = self.last_started_time or self.first_started_time
+            if last_started_time is not None:
+                dur += get_duration_between(last_started_time, get_current_time())
         return dur
 
     @computed_field  # type: ignore[misc]
