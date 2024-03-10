@@ -8,8 +8,10 @@
 - Test appearance on both light and dark terminals
 - Shell features
   - Advance task status
-    - If task progresses todo->complete/paused or paused->complete, prompt for what time it was started, *ex post facto*.
-- Create a README and CHANGELOG
+    - `task start/pause/resume/complete [TASK_ID]`
+    - If task "skips a step" (progresses todo->complete/paused or paused->complete), prompt for what time it was started/resumed, *ex post facto*.
+  - Set project/task attributes
+    - `proj/task set [ID] [key] [value]`
 - Bugfixes
   - For never-paused task, no need to store both first and last started timestamps
   - Name uniqueness on projects/tasks
@@ -20,6 +22,8 @@
   - Accept today/tomorrow/yesterday as valid due dates
   - Relax URL parsing to infer scheme if missing (default https?)
   - Fuzzy matching of names in prompts
+- Create a `README` and `CHANGELOG`
+- Upload to PyPI
 
 ## Future
 
@@ -35,7 +39,7 @@
   - Float format for things like scores (rounding, precision)
   - Date format in tables
   - Show dates as timestamps or human-readable relative times
-  - XDG directory?
+  - Use system default directory for app-specific configs? XDG?
   - Make colors configurable?
 - Allow custom task status labels?
   - todo/active/paused/complete are still the primary ones; extras would presumably be "sub-statuses" of active
@@ -44,10 +48,9 @@
         2) Use "active_status", keep the old one the same
 - Write more tests
   - Want high coverage of data model, board manipulations
-  - Use hypothesis to generate random data?
+  - Use `hypothesis` to generate random data?
   - Some UI tests (input command -> terminal output), though these can be brittle if output format changes
-- Recurring tasks? A la Pianote.
-  - Library of recurring tasks, with simple command to queue them into backlog
+- Support task logs
 - Github/Gitlab/Jira integration
   - Query APIs
   - Interface to map between external task metadata and DaiKanban Tasks
@@ -59,12 +62,12 @@
   - Various throughput metrics
     - number of tasks per time
     - total priority, priority\*difficulty, priority\*duration, per time
+- Recurring tasks? A la Pianote.
+  - Library of recurring tasks, with simple command to queue them into backlog
 - Task blocking (tasks require other tasks to be finished)
   - Prevent cyclic blocking?
   - Prevent completion of a blocked task without its precursors
     - Prompt user to complete all of them at once
-- Web app (streamlit? FastUI?)
-  - `web` subcommand of main CLI
 - I/O
   - Export pretty output
     - markdown checklist/table
@@ -80,6 +83,10 @@
             }
     ```
 
+- Web app
+  - `web` subcommand of main CLI
+  - `streamlit`? `fastui`?
+  - Some cloud solution for syncing your board file
 - Notifications
   - Could be *chosen tasks for today*, *tasks due soon*, etc.
   - Send reminders via e-mail (smtplib) or text (twilio/pushover/etc.)

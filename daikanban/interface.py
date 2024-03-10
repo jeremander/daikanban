@@ -182,7 +182,7 @@ class FieldParser(Generic[M, T]):
 
     def validate(self, val: Any) -> None:
         """Validates the field value."""
-        if val == PydanticUndefined:  # field is required
+        if val == PydanticUndefined:
             raise UserInputError('This field is required.')
         try:
             self.model_type.__pydantic_validator__.validate_assignment(self.model_type.model_construct(), self.field, val)
@@ -629,7 +629,6 @@ class BoardInterface(BaseModel):
     ) -> None:
         """Displays the board to the screen using the current configurations."""
         # TODO: take kwargs to filter board contents
-        # TODO: display pretty board rather than JSON
         if self.board is None:
             raise BoardNotLoadedError("No board has been loaded.\nRun 'board new' to create a new board or 'board load' to load an existing one.")
         if projects or tags:

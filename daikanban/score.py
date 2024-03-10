@@ -58,13 +58,3 @@ class PriorityRate(TaskScorer):
     def __call__(self, task: Task) -> float:
         duration = self.default_duration if (task.expected_duration is None) else task.expected_duration
         return task.priority / duration
-
-
-# priority
-# expected_difficulty
-# expected_duration
-# due_date
-# created_time
-# first_started_time
-# last_started_time
-# prior_time_worked

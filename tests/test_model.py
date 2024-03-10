@@ -42,20 +42,20 @@ class TestTask:
         assert started.completed_time is None
         with pytest.raises(TaskStatusError, match='cannot start'):
             _ = started.started()
-        with pytest.raises(TaskStatusError, match='cannot restart'):
-            _ = started.restarted()
+        with pytest.raises(TaskStatusError, match='cannot resume'):
+            _ = started.resumed()
         paused = started.paused()
         assert paused.status == TaskStatus.paused
         assert paused.last_started_time is None
         assert isinstance(paused.prior_time_worked, float)
-        restarted = paused.restarted()
-        assert isinstance(restarted.last_started_time, datetime)
-        assert restarted.first_started_time < restarted.last_started_time
-        _ = restarted.paused()
+        resumed = paused.resumed()
+        assert isinstance(resumed.last_started_time, datetime)
+        assert resumed.first_started_time < resumed.last_started_time
+        _ = resumed.paused()
         completed = started.completed()
         assert isinstance(completed.completed_time, datetime)
-        with pytest.raises(TaskStatusError, match='cannot restart'):
-            _ = completed.restarted()
+        with pytest.raises(TaskStatusError, match='cannot resume'):
+            _ = completed.resumed()
 
 
 class TestBoard:

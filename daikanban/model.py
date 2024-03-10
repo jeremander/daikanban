@@ -281,12 +281,12 @@ class Task(Model):
             return self.model_copy(update={'last_started_time': None, 'prior_time_worked': self.total_time_worked})
         raise TaskStatusError(f'cannot pause Task with status {self.status!r}')
 
-    def restarted(self) -> 'Task':
-        """Returns a new restarted version of the Task, if its status is paused.
+    def resumed(self) -> 'Task':
+        """Returns a new resumed version of the Task, if its status is paused.
         Otherwise raises a TaskStatusError."""
         if self.status == TaskStatus.paused:
             return self.model_copy(update={'last_started_time': get_current_time()})
-        raise TaskStatusError(f'cannot restart Task with status {self.status!r}')
+        raise TaskStatusError(f'cannot resume Task with status {self.status!r}')
 
 
 class Board(Model):
