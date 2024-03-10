@@ -12,6 +12,7 @@ class TaskScorer(ABC, BaseModel):
     Higher scores represent tasks more deserving of work."""
 
     name: ClassVar[str]  # name of the scorer
+    description: ClassVar[Optional[str]] = None  # description of scorer
     units: ClassVar[Optional[str]] = None  # unit of measurement for the scorer
 
     @abstractmethod
@@ -28,6 +29,7 @@ class PriorityScorer(TaskScorer):
     """Scores tasks by their priority only."""
 
     name = 'priority'
+    description = None
     units = 'pri'
 
     @override
@@ -39,6 +41,7 @@ class PriorityDifficultyScorer(TaskScorer):
     """Scores tasks by multiplying priority by difficulty."""
 
     name = 'priority-difficulty'
+    description = 'priority times difficulty'
     units = 'pri-diff'
 
     @override
@@ -50,6 +53,7 @@ class PriorityRate(TaskScorer):
     """Scores tasks by dividing priority by the expected duration of the task."""
 
     name = 'priority-rate'
+    description = 'priority divided by expected duration'
     units = 'pri/day'
 
     default_duration: Duration = 4.0

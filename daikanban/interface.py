@@ -621,6 +621,24 @@ class BoardInterface(BaseModel):
             self.save_board()
             print(f'Saved DaiKanban board {name!r} to {path_style(path)}')
 
+    def _status_group_info(self, statuses: Optional[list[str]] = None) -> tuple[dict[str, str], dict[str, str]]:
+        """Given an optional list of statuses to include, returns a pair (group_by_status, group_colors).
+        The former is a map from task statuses to status groups.
+        The latter is a map from status groups to colors."""
+        status_groups = self.settings.status_groups
+        if statuses:
+            status_set = set(statuses)
+            status_groups = {group: [status for status in group_statuses if (status in status_set)] for (group, group_statuses) in status_groups.items()}
+        group_by_status = {}  # map from status to group
+        group_colors = {}  # map from group to color
+        for (group, group_statuses) in status_groups.items():
+            if group_statuses:
+                # use the first listed status to define the group color
+                group_colors[group] = cast(str, getattr(group_statuses[0], 'color', None))
+            for status in group_statuses:
+                group_by_status[status] = group
+        return (group_by_status, group_colors)
+
     def show_board(self,
         statuses: Optional[list[str]] = None,
         projects: Optional[list[str]] = None,
@@ -633,19 +651,7 @@ class BoardInterface(BaseModel):
             raise BoardNotLoadedError("No board has been loaded.\nRun 'board new' to create a new board or 'board load' to load an existing one.")
         if projects or tags:
             raise NotImplementedError
-        # each status group is a main table column
-        status_groups = self.settings.status_groups
-        if statuses:
-            status_set = set(statuses)
-            status_groups = {group: [status for status in group_statuses if (status in status_set)] for (group, group_statuses) in status_groups.items()}
-        group_by_status = {}  # map from status to group
-        group_colors = {}  # map from group to color
-        for (group, group_statuses) in status_groups.items():
-            if group_statuses:
-                # use the first listed status to define the group color
-                group_colors[group] = getattr(group_statuses[0], 'color', None)
-            for status in group_statuses:
-                group_by_status[status] = group
+        (group_by_status, group_colors) = self._status_group_info(statuses)
         # create BaseModel corresponding to a table row summarizing a Task
         # TODO: this class may be customized based on settings
         TaskInfo = simple_task_row_type('id', 'name', 'project', 'score')
@@ -659,10 +665,13 @@ class BoardInterface(BaseModel):
         for task_infos in grouped_task_info.values():
             task_infos.sort(key=attrgetter('score'), reverse=True)
         # build table
-        caption = f'Score: {self.settings.task_scorer.name}'
+        caption = f'[not italic]Score[/]: {scorer.name}'
+        if scorer.description:
+            caption += f' ({scorer.description})'
         table = Table(title=self.board.name, title_style='bold italic blue', caption=caption)
         subtables = []
         for (group, color) in group_colors.items():
+            # each status group is a main table column
             table.add_column(group, header_style=color, justify='center')
             task_infos = grouped_task_info[group]
             subtable: Table | str = make_table(TaskInfo, task_infos) if task_infos else ''

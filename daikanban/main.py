@@ -32,7 +32,7 @@ def schema(
 def shell(
     board: Annotated[Optional[Path], typer.Option(help='DaiKanban board JSON file')] = None
 ) -> None:
-    """Activate the DaiKanban shell."""
+    """Launch the DaiKanban shell."""
     BoardInterface().launch_shell(board_path=board)
 
 

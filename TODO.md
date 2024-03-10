@@ -2,7 +2,9 @@
 
 ## `v0.1.0`
 
-- Icon for paused/due/overdue tasks in board view
+- Styling for paused/due/overdue tasks in board view
+  - ⏸️ (paused), ⏱️ (has due date), 👀 (due soon) 🚨 (overdue)
+  - Color task text: orange (due soon), red (overdue), [maybe] green (active)
   - Include paused task in test file
 - Implement arguments for 'board show'
 - Test appearance on both light and dark terminals
@@ -10,6 +12,8 @@
   - Advance task status
     - `task start/pause/resume/complete [TASK_ID]`
     - If task "skips a step" (progresses todo->complete/paused or paused->complete), prompt for what time it was started/resumed, *ex post facto*.
+  - Make project/task display as a pretty table rather than raw JSON
+    - `proj/task show [ID]`
   - Set project/task attributes
     - `proj/task set [ID] [key] [value]`
 - Bugfixes
@@ -27,6 +31,9 @@
 
 ## Future
 
+- Shell features
+  - Scrollable TUI-type thing for editing project/task fields
+    - `proj/task edit [ID]`
 - Settings
   - `settings` subcommand of main CLI to interact with settings
     - Also an option within the shell
