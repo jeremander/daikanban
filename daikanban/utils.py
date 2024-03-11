@@ -100,7 +100,10 @@ def style_str(val: Any, color: str, bold: bool = False) -> str:
 
 def err_style(obj: object) -> str:
     """Renders an error as a rich-styled string."""
-    return style_str(str(obj).capitalize(), 'red')
+    s = str(obj)
+    if s:
+        s = s[0].upper() + s[1:]
+    return style_str(s, 'red')
 
 
 ##########

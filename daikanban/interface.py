@@ -41,6 +41,12 @@ class BoardFileError(KanbanError):
 class BoardNotLoadedError(KanbanError):
     """Error type for when a board has not yet been loaded."""
 
+class InvalidTaskStatusError(UserInputError):
+    """Error type for when the user provides an invalid task status."""
+    def __init__(self, status: str) -> None:
+        self.status = status
+        super().__init__(f'Invalid task status {status!r}')
+
 
 ####################
 # HELPER FUNCTIONS #
@@ -51,6 +57,20 @@ def get_billboard_art() -> str:
     """Loads billboard ASCII art from a file."""
     with open(BILLBOARD_ART_PATH) as f:
         return f.read()
+
+def parse_option_value_pair(s: str) -> tuple[str, str]:
+    """Parses a string of the form [OPTION]=[VALUE] and returns a tuple (OPTION, VALUE)."""
+    err = UserInputError(f'Invalid argument {s!r}\n\texpected format \[OPTION]=\[VALUE]')
+    if '=' not in s:
+        raise err
+    tup = tuple(map(str.strip, s.split('=', maxsplit=1)))
+    if len(tup) != 2:
+        raise err
+    return tup  # type: ignore[return-value]
+
+def split_comma_list(s: str) -> list[str]:
+    """Given a comma-separated list, splits it into a list of strings."""
+    return [token for token in s.split(',') if token]
 
 
 ##########
@@ -254,7 +274,7 @@ class BoardInterface(BaseModel):
         grid.add_row('', '\[l]oad [not bold]\[FILENAME][/]', 'load board from file')
         grid.add_row('', 'schema', 'show board JSON schema')
         grid.add_row('', '\[s]how', 'show current board, can provide extra filters like:')
-        grid.add_row('', '', '  status:\[STATUSES] project:\[PROJECT_IDS] tags:\[TAGS] limit:\[SIZE]')
+        grid.add_row('', '', '  status=\[STATUSES] project=\[PROJECT_IDS] tag=\[TAGS] limit=\[SIZE]')
 
     def add_project_help(self, grid: Table) -> None:
         """Adds entries to help menu related to projects."""
@@ -581,6 +601,10 @@ class BoardInterface(BaseModel):
         status_groups = self.settings.status_groups
         if statuses:
             status_set = set(statuses)
+            valid_statuses = {str(status) for status in TaskStatus}
+            for status in status_set:
+                if status not in valid_statuses:
+                    raise InvalidTaskStatusError(status)
             status_groups = {group: [status for status in group_statuses if (status in status_set)] for (group, group_statuses) in status_groups.items()}
         group_by_status = {}  # map from status to group
         group_colors = {}  # map from group to color
@@ -615,7 +639,8 @@ class BoardInterface(BaseModel):
             icons = task.status_icons
             name = task.name + (f' {icons}' if icons else '')
             task_info = TaskInfo(id=task_id_style(id_, bold=True), name=name, project=proj_str, score=scorer(task))
-            grouped_task_info[group_by_status[task.status]].append(task_info)
+            if (group := group_by_status.get(task.status)):
+                grouped_task_info[group].append(task_info)
         # sort by the scoring criterion, in reverse score order
         for task_infos in grouped_task_info.values():
             task_infos.sort(key=attrgetter('score'), reverse=True)
@@ -626,14 +651,17 @@ class BoardInterface(BaseModel):
         table = Table(title=self.board.name, title_style='bold italic blue', caption=caption)
         subtables = []
         for (group, color) in group_colors.items():
-            # each status group is a main table column
-            table.add_column(group, header_style=color, justify='center')
-            task_infos = grouped_task_info[group]
-            subtable: Table | str = make_table(TaskInfo, task_infos) if task_infos else ''
-            subtables.append(subtable)
-        table.add_row(*subtables)
-        # TODO: status icons, etc.
-        print(table)
+            if group in grouped_task_info:
+                # each status group is a main table column
+                table.add_column(group, header_style=color, justify='center')
+                task_infos = grouped_task_info[group]
+                subtable: Table | str = make_table(TaskInfo, task_infos) if task_infos else ''
+                subtables.append(subtable)
+        if subtables:
+            table.add_row(*subtables)
+            print(table)
+        else:
+            print(style_str('\[No tasks matching criteria]', DefaultColor.faint, bold=True))
 
     # SHELL
 
@@ -657,7 +685,26 @@ class BoardInterface(BaseModel):
             if prefix_match(tok1, 'new'):
                 return self.new_board()
             if prefix_match(tok1, 'show'):
-                return self.show_board()
+                # parse colon-separated arguments
+                d = dict([parse_option_value_pair(tok) for tok in tokens[2:]])
+                kwargs: dict[str, Any] = {}
+                for (singular, plural) in [('status', 'statuses'), ('project', 'projects'), ('tag', 'tags')]:
+                    if singular in d:
+                        kwargs[plural] = split_comma_list(d.pop(singular))
+                    elif plural in d:  # accept singular or plural version
+                        kwargs[plural] = split_comma_list(d.pop(plural))
+                    # TODO: accept prefix or fuzzy match?
+                    if kwargs.get(plural) == []:
+                        raise UserInputError(f'Must provide at least one {singular}')
+                if (option := 'limit') in d:
+                    try:
+                        kwargs[option] = int(d.pop(option))
+                    except ValueError as e:
+                        raise UserInputError(str(e)) from e
+                if d:  # reject unknown arguments
+                    invalid_option = next(iter(d))
+                    raise UserInputError(f'Invalid option: {invalid_option}')
+                return self.show_board(**kwargs)
             if prefix_match(tok1, 'schema', minlen=2):
                 return self.show_schema(Board)
         elif prefix_match(tok0, 'help') or (tok0 == 'info'):
