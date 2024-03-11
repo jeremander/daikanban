@@ -29,6 +29,7 @@
 ## Future
 
 - Shell features
+  - `task show` list view should also allow filtering by status/project/tag, and limit number
   - Scrollable TUI-type thing for editing project/task fields
     - `proj/task edit [ID]`
   - For advancing status, provide optional time saying when it occurred

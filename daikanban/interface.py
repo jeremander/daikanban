@@ -72,6 +72,13 @@ def split_comma_list(s: str) -> list[str]:
     """Given a comma-separated list, splits it into a list of strings."""
     return [token for token in s.split(',') if token]
 
+def parse_task_limit(s: str) -> int:
+    """Parses an integer task limit, raising a UserInputError if invalid."""
+    try:
+        return int(s)
+    except ValueError:
+        raise UserInputError('Must select a positive whole number for task limit') from None
+
 
 ##########
 # STYLES #
@@ -197,7 +204,7 @@ def simple_task_row_type(*fields: str) -> type[BaseModel]:
             val = (float, Field(justify='right'))  # type: ignore[call-arg]
         # TODO: add more fields
         else:
-            raise ValueError(f'unrecognized Task field {field}')
+            raise ValueError(f'Unrecognized Task field {field}')
         kwargs[field] = val
     return create_model('SimpleTaskRow', **kwargs)
 
@@ -616,7 +623,7 @@ class BoardInterface(BaseModel):
                 group_by_status[status] = group
         return (group_by_status, group_colors)
 
-    def show_board(self,
+    def show_board(self,  # noqa: C901
         statuses: Optional[list[str]] = None,
         projects: Optional[list[str]] = None,
         tags: Optional[list[str]] = None,
@@ -628,12 +635,14 @@ class BoardInterface(BaseModel):
             raise BoardNotLoadedError("No board has been loaded.\nRun 'board new' to create a new board or 'board load' to load an existing one.")
         if projects or tags:
             raise NotImplementedError
+        if (limit is not None) and (limit <= 0):
+            raise UserInputError('Must select a positive number for task limit')
         (group_by_status, group_colors) = self._status_group_info(statuses)
         # create BaseModel corresponding to a table row summarizing a Task
         # TODO: this class may be customized based on settings
         TaskInfo = simple_task_row_type('id', 'name', 'project', 'score')
         scorer = self.settings.task_scorer
-        grouped_task_info = defaultdict(list)
+        grouped_task_info: dict[str, list[BaseModel]] = defaultdict(list)
         for (id_, task) in self.board.tasks.items():
             proj_str = None if (task.project_id is None) else self._project_str_from_id(task.project_id)
             icons = task.status_icons
@@ -644,6 +653,8 @@ class BoardInterface(BaseModel):
         # sort by the scoring criterion, in reverse score order
         for task_infos in grouped_task_info.values():
             task_infos.sort(key=attrgetter('score'), reverse=True)
+        if limit is not None:  # limit the number of tasks in each group
+            grouped_task_info = {group: task_infos[:limit] for (group, task_infos) in grouped_task_info.items()}
         # build table
         caption = f'[not italic]Score[/]: {scorer.name}'
         if scorer.description:
@@ -697,10 +708,7 @@ class BoardInterface(BaseModel):
                     if kwargs.get(plural) == []:
                         raise UserInputError(f'Must provide at least one {singular}')
                 if (option := 'limit') in d:
-                    try:
-                        kwargs[option] = int(d.pop(option))
-                    except ValueError as e:
-                        raise UserInputError(str(e)) from e
+                    kwargs[option] = parse_task_limit(d.pop(option))
                 if d:  # reject unknown arguments
                     invalid_option = next(iter(d))
                     raise UserInputError(f'Invalid option: {invalid_option}')
