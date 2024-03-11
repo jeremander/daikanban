@@ -8,7 +8,7 @@ from pathlib import Path
 import readline  # improves shell interactivity  # noqa: F401
 import shlex
 import sys
-from typing import Any, Iterable, Optional, TypeVar, cast
+from typing import Any, Callable, Iterable, Optional, TypeVar, cast
 
 import pendulum
 import pendulum.parsing
@@ -249,16 +249,22 @@ class BoardInterface(BaseModel):
             id_ = int(s)
             if (id_ in d):
                 return id_
-            raise UserInputError(f'Invalid {item_type} ID')
+            raise UserInputError(f'Invalid {item_type} ID {s!r}')
         for (id_, proj) in d.items():
             if (proj.name.lower() == s.lower()):
                 return id_
-        raise UserInputError(f'Invalid {item_type} name')
+        raise UserInputError(f'Invalid {item_type} name {s!r}')
 
     def _parse_project(self, id_or_name: str) -> Optional[Id]:
+        """Given a project ID or name, returns the corresponding project ID.
+        If the string is empty, returns None.
+        If it is not valid, raises a UserInputError."""
         return self._parse_id_or_name('project', id_or_name)
 
     def _parse_task(self, id_or_name: str) -> Optional[Id]:
+        """Given a task ID or name, returns the corresponding task ID.
+        If the string is empty, returns None.
+        If it is not valid, raises a UserInputError."""
         return self._parse_id_or_name('task', id_or_name)
 
     def _model_json(self, model: BaseModel) -> str:
@@ -623,6 +629,22 @@ class BoardInterface(BaseModel):
                 group_by_status[status] = group
         return (group_by_status, group_colors)
 
+    def _filter_task_by_project_or_tag(self, projects: Optional[list[str]] = None, tags: Optional[list[str]] = None) -> Callable[[Task], bool]:
+        """Given project names/IDs and tags, returns a function that filters tasks based on whether their projects or tags match any of the provided values."""
+        filters = []
+        if projects:
+            project_id_set = {id_ for id_or_name in projects if (id_:= self._parse_project(id_or_name)) is not None}
+            # show task if its project ID matches one in the list
+            filters.append(lambda task: task.project_id in project_id_set)
+        if tags:
+            tag_set = set(tags)
+            # show task if any tag matches one in the list
+            filters.append(lambda task: task.tags and task.tags.intersection(tag_set))
+        if filters:
+            return lambda task: any(flt(task) for flt in filters)
+        # no filters, so permit any task
+        return lambda _: True
+
     def show_board(self,  # noqa: C901
         statuses: Optional[list[str]] = None,
         projects: Optional[list[str]] = None,
@@ -633,8 +655,7 @@ class BoardInterface(BaseModel):
         # TODO: take kwargs to filter board contents
         if self.board is None:
             raise BoardNotLoadedError("No board has been loaded.\nRun 'board new' to create a new board or 'board load' to load an existing one.")
-        if projects or tags:
-            raise NotImplementedError
+        task_filter = self._filter_task_by_project_or_tag(projects=projects, tags=tags)
         if (limit is not None) and (limit <= 0):
             raise UserInputError('Must select a positive number for task limit')
         (group_by_status, group_colors) = self._status_group_info(statuses)
@@ -644,6 +665,8 @@ class BoardInterface(BaseModel):
         scorer = self.settings.task_scorer
         grouped_task_info: dict[str, list[BaseModel]] = defaultdict(list)
         for (id_, task) in self.board.tasks.items():
+            if not task_filter(task):
+                continue
             proj_str = None if (task.project_id is None) else self._project_str_from_id(task.project_id)
             icons = task.status_icons
             name = task.name + (f' {icons}' if icons else '')
@@ -704,7 +727,7 @@ class BoardInterface(BaseModel):
                         kwargs[plural] = split_comma_list(d.pop(singular))
                     elif plural in d:  # accept singular or plural version
                         kwargs[plural] = split_comma_list(d.pop(plural))
-                    # TODO: accept prefix or fuzzy match?
+                    # TODO: accept prefix or fuzzy match, e.g. "proj" for "project"
                     if kwargs.get(plural) == []:
                         raise UserInputError(f'Must provide at least one {singular}')
                 if (option := 'limit') in d:
