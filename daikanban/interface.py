@@ -612,7 +612,9 @@ class BoardInterface(BaseModel):
         grouped_task_info = defaultdict(list)
         for (id_, task) in self.board.tasks.items():
             proj_str = None if (task.project_id is None) else self._project_str_from_id(task.project_id)
-            task_info = TaskInfo(id=task_id_style(id_, bold=True), name=task.name, project=proj_str, score=scorer(task))
+            icons = task.status_icons
+            name = task.name + (f' {icons}' if icons else '')
+            task_info = TaskInfo(id=task_id_style(id_, bold=True), name=name, project=proj_str, score=scorer(task))
             grouped_task_info[group_by_status[task.status]].append(task_info)
         # sort by the scoring criterion, in reverse score order
         for task_infos in grouped_task_info.values():

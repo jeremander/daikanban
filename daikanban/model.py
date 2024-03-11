@@ -1,5 +1,5 @@
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Annotated, Any, Counter, Iterator, Literal, Optional, TypeVar, cast
 
 from pydantic import AfterValidator, AnyUrl, BaseModel, BeforeValidator, Field, PlainSerializer, computed_field, model_validator
@@ -9,6 +9,8 @@ from daikanban.utils import TIME_FORMAT, KanbanError, StrEnum, get_current_time,
 
 
 T = TypeVar('T')
+
+NEARLY_DUE_THRESH = timedelta(days=1)
 
 
 ################
@@ -262,6 +264,32 @@ class Task(Model):
             return False
         eval_date = self.completed_time or get_current_time()
         return eval_date > self.due_date
+
+    @property
+    def time_till_due(self) -> Optional[timedelta]:
+        """Returns the time interval between the current time and the due date, or None if there is no due date."""
+        if self.due_date is None:
+            return None
+        return self.due_date - get_current_time()
+
+    @property
+    def status_icons(self, nearly_due_thresh: Optional[timedelta] = None) -> Optional[str]:
+        """Gets one or more icons (emoji) representing the status of the task, or None if there is none.
+        If nearly_due_threshold is given, this is the time threshold before the due date within which to show a status warning."""
+        nearly_due_thresh = NEARLY_DUE_THRESH if (nearly_due_thresh is None) else nearly_due_thresh
+        status = self.status
+        td = self.time_till_due
+        icons = []
+        if (status != TaskStatus.complete) and (td is not None):
+            if td < timedelta(0):  # overdue
+                icons.append('🚨')
+            elif td < nearly_due_thresh:  # due soon
+                icons.append('👀')
+            else:  # has a future due date
+                icons.append('⏱️ ')
+        if status == TaskStatus.paused:
+            icons.append('⏸️ ')
+        return ' '.join(icons) if icons else None
 
     @model_validator(mode='after')
     def check_consistent_times(self) -> 'Task':  # noqa: C901

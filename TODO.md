@@ -2,10 +2,6 @@
 
 ## `v0.1.0`
 
-- Styling for paused/due/overdue tasks in board view
-  - ⏸️ (paused), ⏱️ (has due date), 👀 (due soon) 🚨 (overdue)
-  - Color task text: orange (due soon), red (overdue), [maybe] green (active)
-  - Include paused task in test file
 - Implement arguments for 'board show'
 - Test appearance on both light and dark terminals
 - Shell features
