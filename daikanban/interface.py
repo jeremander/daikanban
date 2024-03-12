@@ -267,6 +267,13 @@ class BoardInterface(BaseModel):
         If it is not valid, raises a UserInputError."""
         return self._parse_id_or_name('task', id_or_name)
 
+    def _prompt_and_parse_task(self, id_or_name: Optional[str]) -> Id:
+        if id_or_name is None:
+            id_or_name = simple_input('Task ID or name', match='.+')
+        id_ = self._parse_task(id_or_name)
+        assert id_ is not None
+        return id_
+
     def _model_json(self, model: BaseModel) -> str:
         return model.model_dump_json(indent=self.settings.json_indent, exclude_none=True)
 
@@ -308,6 +315,7 @@ class BoardInterface(BaseModel):
         grid.add_row('', f'\[c]omplete {id_str}', 'complete a started task')
         grid.add_row('', f'\[p]ause {id_str}', 'pause a started task')
         grid.add_row('', f'\[r]esume {id_str}', 'resume a paused task')
+        grid.add_row('', f'\[t]odo {id_str}', "reset a task to the 'todo' state")
 
     def show_help(self) -> None:
         """Displays the main help menu listing various commands."""
@@ -410,10 +418,7 @@ class BoardInterface(BaseModel):
     def change_task_status(self, action: TaskStatusAction, id_or_name: Optional[str] = None) -> None:
         """Changes a task to a new stage."""
         assert self.board is not None
-        if id_or_name is None:
-            id_or_name = simple_input('Task ID or name', match='.+')
-        id_ = self._parse_task(id_or_name)
-        assert id_ is not None
+        id_ = self._prompt_and_parse_task(id_or_name)
         task = self.board.get_task(id_)
         # fail early if the action is invalid for the status
         _ = task.apply_status_action(action)
@@ -449,10 +454,7 @@ class BoardInterface(BaseModel):
     def delete_task(self, id_or_name: Optional[str] = None) -> None:
         """Deletes a task with the given ID or name."""
         assert self.board is not None
-        if id_or_name is None:
-            id_or_name = simple_input('Task ID or name', match='.+')
-        id_ = self._parse_task(id_or_name)
-        assert id_ is not None
+        id_ = self._prompt_and_parse_task(id_or_name)
         task = self.board.get_task(id_)
         self.board.delete_task(id_)
         self.save_board()
@@ -549,6 +551,17 @@ class BoardInterface(BaseModel):
             raise UserInputError('Invalid task')
         task = self.board.get_task(id_)
         print(self._model_json(task))
+
+    @require_board
+    def todo_task(self, id_or_name: Optional[str] = None) -> None:
+        """Resets a task to the 'todo' state, regardless of its current state.
+        This will preserve the original creation metadata but reset time worked to zero."""
+        assert self.board is not None
+        id_ = self._prompt_and_parse_task(id_or_name)
+        task = self.board.get_task(id_)
+        self.board.reset_task(id_)
+        self.save_board()
+        print(f"Reset task {task.name!r} with ID {task_id_style(id_)} to the 'todo' state")
 
     # BOARD
 
@@ -777,6 +790,8 @@ class BoardInterface(BaseModel):
                         break
             if action:
                 return self.change_task_status(action, None if (ntokens == 2) else tokens[2])
+            if prefix_match(tok1, 'todo'):
+                return self.todo_task(None if (ntokens == 2) else tokens[2])
         raise UserInputError('Invalid input')
 
     @staticmethod

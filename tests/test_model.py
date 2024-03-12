@@ -4,6 +4,7 @@ from pydantic import ValidationError
 import pytest
 
 from daikanban.model import Board, Project, ProjectNotFoundError, Task, TaskNotFoundError, TaskStatus, TaskStatusError
+from daikanban.utils import get_current_time
 
 
 class TestTask:
@@ -66,6 +67,22 @@ class TestTask:
         assert isinstance(completed.completed_time, datetime)
         with pytest.raises(TaskStatusError, match='cannot resume'):
             _ = completed.resumed()
+
+    def test_reset(self):
+        todo = Task(name='mytask')
+        assert isinstance(todo.created_time, datetime)
+        assert todo.reset() == todo
+        todo2 = todo.model_copy(update={'logs': []})
+        assert todo2 != todo
+        assert todo2.reset() == todo
+        todo3 = todo.model_copy(update={'due_date': get_current_time()})
+        assert todo3.reset() == todo
+        started = todo.started()
+        assert started.reset() == todo
+        assert started.reset().status == TaskStatus.todo
+        completed = started.completed()
+        assert completed.reset() == todo
+        assert completed.reset().status == TaskStatus.todo
 
 
 class TestBoard:

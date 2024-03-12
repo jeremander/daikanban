@@ -1,6 +1,6 @@
 from contextlib import contextmanager
 from datetime import datetime, timedelta
-from typing import Annotated, Any, Counter, Iterator, Literal, Optional, TypeVar, cast
+from typing import Annotated, Any, ClassVar, Counter, Iterator, Literal, Optional, TypeVar, cast
 
 from pydantic import AfterValidator, AnyUrl, BaseModel, BeforeValidator, Field, PlainSerializer, computed_field, model_validator
 from typing_extensions import TypeAlias
@@ -222,6 +222,9 @@ class Task(Model):
         description='List of dated logs related to the task'
     )
 
+    # fields that are reset to None when a Task is reset
+    RESET_FIELDS: ClassVar[list[str]] = ['due_date', 'first_started_time', 'last_started_time', 'last_paused_time', 'completed_time', 'completed_time', 'prior_time_worked', 'blocked_by', 'logs']
+
     @computed_field  # type: ignore[misc]
     @property
     def status(self) -> TaskStatus:
@@ -390,6 +393,13 @@ class Task(Model):
         assert action == TaskStatusAction.resume
         return self.resumed()
 
+    def reset(self) -> 'Task':
+        """Resets a task to the 'todo' state, regardless of its current state.
+        This will preserve the original creation metadata except for timestamps, due date, blocking tasks, and logs."""
+        reset_fields = set(self.RESET_FIELDS)
+        kwargs = {field: None if (field in reset_fields) else getattr(self, field) for field in self.model_fields}
+        return self.model_copy(update=kwargs)
+
 
 class Board(Model):
     """A DaiKanban board (collection of projects and tasks)."""
@@ -464,6 +474,13 @@ class Board(Model):
     def delete_task(self, task_id: Id) -> None:
         """Deletes a task with the given ID."""
         del self.tasks[task_id]
+
+    @catch_key_error(TaskNotFoundError)
+    def reset_task(self, task_id: Id) -> None:
+        """Resets a task with the given ID to the 'todo' state, regardless of its current state.
+        This will preserve the original creation metadata except for timestamps, due date, blocking tasks, and logs."""
+        task = self.get_task(task_id)
+        self.tasks[task_id] = task.reset()
 
     @catch_key_error(TaskNotFoundError)
     def add_blocking_task(self, blocking_task_id: Id, blocked_task_id: Id) -> None:

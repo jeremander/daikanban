@@ -4,7 +4,6 @@
 
 - Shell features
   - Allow task resumption to go from complete back to active
-  - Task reset (keep all data, but reset time worked to 0, status to `todo`)
   - Make project/task display as a pretty table rather than raw JSON
     - `proj/task show [ID]`
   - Set project/task attributes
@@ -29,8 +28,9 @@
 - Shell features
   - Filtering
     - `task show` list view should also allow filtering by status/project/tag, and limit number
-    - Consider boolean complement operator (`~` or `!`), implicity ANDed with other constraints
+    - Consider boolean complement operator (`~` or `!`), implicitly ANDed with other constraints?
       - This may be too complicated
+    - Consider having a yes/no user prompt before resetting/deleting a task?
   - Scrollable TUI-type thing for editing project/task fields
     - `proj/task edit [ID]`
   - For advancing status, provide optional time saying when it occurred
