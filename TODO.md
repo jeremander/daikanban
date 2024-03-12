@@ -2,8 +2,6 @@
 
 ## `v0.1.0`
 
-- Implement arguments for 'board show'
-- Test appearance on both light and dark terminals
 - Shell features
   - Allow task resumption to go from complete back to active
   - Task reset (keep all data, but reset time worked to 0, status to `todo`)
@@ -22,14 +20,17 @@
   - Set widths for each help menu separately
   - Accept now/today/tomorrow/yesterday as valid dates, also month/year durations
   - Relax URL parsing to infer scheme if missing (default https?)
-  - Fuzzy matching of names in prompts
+  - Fuzzy matching of names in prompts, and as filter keys
 - Create a `README` and `CHANGELOG`
 - Upload to PyPI
 
 ## Future
 
 - Shell features
-  - `task show` list view should also allow filtering by status/project/tag, and limit number
+  - Filtering
+    - `task show` list view should also allow filtering by status/project/tag, and limit number
+    - Consider boolean complement operator (`~` or `!`), implicity ANDed with other constraints
+      - This may be too complicated
   - Scrollable TUI-type thing for editing project/task fields
     - `proj/task edit [ID]`
   - For advancing status, provide optional time saying when it occurred
@@ -48,6 +49,7 @@
   - Show dates as timestamps or human-readable relative times
   - Use system default directory for app-specific configs? XDG?
   - Make colors configurable?
+  - Advanced: Set time ranges which will be excluded from duration measurements (e.g. work only counts during work hours)
 - Allow custom task status labels?
   - todo/active/paused/complete are still the primary ones; extras would presumably be "sub-statuses" of active
   - What should be the name of this field? "status" would conflict with the existing one. Options:
@@ -60,7 +62,9 @@
 - Support task logs
 - Github/Gitlab/Jira integration
   - Query APIs
+  - Bidirectional syncing
   - Interface to map between external task metadata and DaiKanban Tasks
+  - Need to handle issue assignment (i.e. only pull tasks assigned to you)
 - Analytics
   - Kanban metrics
     - Lead time (todo to complete) & cycle time (active to complete)

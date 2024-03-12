@@ -90,7 +90,7 @@ class DefaultColor(StrEnum):
     task_id = 'dark_orange3'
     path = 'dodger_blue2'
     error = 'red'
-    faint = 'grey0'
+    faint = 'bright_black'
 
 def proj_id_style(id_: Id, bold: bool = False) -> str:
     """Renders a project ID as a rich-styled string."""
@@ -275,8 +275,8 @@ class BoardInterface(BaseModel):
     def make_new_help_table(self) -> Table:
         """Creates a new 3-column rich table for displaying help menus."""
         grid = Table.grid(expand=True)
-        grid.add_column(style=f'bold {DefaultColor.faint}')
-        grid.add_column(style=f'bold {DefaultColor.faint}')
+        grid.add_column(style='bold')
+        grid.add_column(style='bold')
         grid.add_column()
         return grid
 
@@ -790,7 +790,7 @@ class BoardInterface(BaseModel):
         Optionally a board path may be provided, which will be loaded after the shell launches."""
         print(get_billboard_art())
         print('[bold italic cyan]Welcome to DaiKanban![/]')
-        print("[bright_black]Type 'h' for help.[/]")
+        print(style_str("Type 'h' for help.", DefaultColor.faint))
         # TODO: load default board from global config
         if board_path is not None:
             with handle_error(BoardFileError):
