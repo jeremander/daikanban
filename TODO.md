@@ -8,11 +8,14 @@
     - `proj/task show [ID]`
   - Set project/task attributes
     - `proj/task set [ID] [key] [value]`
+      - Project/task update: prevent certain fields (like timestamps) from being set?
 - Bugfixes
-  - For never-paused task, no need to store both first and last started timestamps
-  - Name uniqueness on projects/tasks
-    - Completed projects maybe should be allowed to have duplicate names? Esp. if tasks can recur.
-  - If you delete a project, its id must be removed from all associated tasks
+  - DB integrity
+    - Name uniqueness on projects/tasks
+      - Projects may not have the same name (check during new & update)
+      - Active tasks may not have the same name (check during new & update)
+      - Completed tasks maybe should be allowed to have duplicate names? Esp. if tasks can recur.
+    - If you delete a project, its id must be removed from all associated tasks
   - Deal with Mac terminal backspace issues (if possible; otherwise mark it for later)
 - Small QoL improvements
   - Remove difficulty & links from task prompt in default settings

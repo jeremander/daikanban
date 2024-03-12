@@ -3,12 +3,13 @@ from datetime import datetime, timedelta
 from typing import Annotated, Any, ClassVar, Counter, Iterator, Literal, Optional, TypeVar, cast
 
 from pydantic import AfterValidator, AnyUrl, BaseModel, BeforeValidator, Field, PlainSerializer, computed_field, model_validator
-from typing_extensions import TypeAlias
+from typing_extensions import Self, TypeAlias
 
 from daikanban.utils import TIME_FORMAT, KanbanError, StrEnum, get_current_time, get_duration_between
 
 
 T = TypeVar('T')
+M = TypeVar('M', bound=BaseModel)
 
 NEARLY_DUE_THRESH = timedelta(days=1)
 
@@ -27,7 +28,7 @@ def _check_name(name: str) -> str:
 Name: TypeAlias = Annotated[str, AfterValidator(_check_name)]
 Datetime: TypeAlias = Annotated[
     datetime,
-    BeforeValidator(lambda s: datetime.strptime(s, TIME_FORMAT)),
+    BeforeValidator(lambda s: datetime.strptime(s, TIME_FORMAT) if isinstance(s, str) else s),
     PlainSerializer(lambda dt: dt.strftime(TIME_FORMAT), return_type=str)
 ]
 Duration: TypeAlias = Annotated[float, Field(description='duration (days)', ge=0.0)]
@@ -115,6 +116,16 @@ class Model(BaseModel):
     """Base class setting up pydantic configs."""
     class Config:  # noqa: D106
         frozen = True
+
+    def _replace(self, **kwargs: Any) -> Self:
+        """Creates a new copy of the object with the given kwargs replaced.
+        Validation will be performed."""
+        d = {field: getattr(self, field) for field in self.model_fields}
+        for (key, val) in kwargs.items():
+            if key not in d:  # do not allow extra fields
+                raise TypeError(f'Unknown field {key!r}')
+            d[key] = val
+        return type(self)(**d)
 
 
 class Project(Model):
@@ -396,9 +407,8 @@ class Task(Model):
     def reset(self) -> 'Task':
         """Resets a task to the 'todo' state, regardless of its current state.
         This will preserve the original creation metadata except for timestamps, due date, blocking tasks, and logs."""
-        reset_fields = set(self.RESET_FIELDS)
-        kwargs = {field: None if (field in reset_fields) else getattr(self, field) for field in self.model_fields}
-        return self.model_copy(update=kwargs)
+        kwargs = {field: None for field in self.RESET_FIELDS}
+        return self._replace(**kwargs)
 
 
 class Board(Model):
@@ -447,7 +457,7 @@ class Board(Model):
     def update_project(self, project_id: Id, **kwargs: Any) -> None:
         """Updates a project with the given keyword arguments."""
         proj = self.get_project(project_id)
-        self.projects[project_id] = proj.model_copy(update=kwargs)
+        self.projects[project_id] = proj._replace(**kwargs)
 
     @catch_key_error(ProjectNotFoundError)
     def delete_project(self, project_id: Id) -> None:
@@ -468,7 +478,7 @@ class Board(Model):
     def update_task(self, task_id: Id, **kwargs: Any) -> None:
         """Updates a task with the given keyword arguments."""
         task = self.get_task(task_id)
-        self.tasks[task_id] = task.model_copy(update=kwargs)
+        self.tasks[task_id] = task._replace(**kwargs)
 
     @catch_key_error(TaskNotFoundError)
     def delete_task(self, task_id: Id) -> None:

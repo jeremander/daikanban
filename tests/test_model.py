@@ -4,10 +4,21 @@ from pydantic import ValidationError
 import pytest
 
 from daikanban.model import Board, Project, ProjectNotFoundError, Task, TaskNotFoundError, TaskStatus, TaskStatusError
-from daikanban.utils import get_current_time
+from daikanban.utils import TIME_FORMAT, get_current_time
 
 
 class TestTask:
+
+    def test_replace(self):
+        now = get_current_time()
+        task = Task(name='mytask', created_time=now)
+        assert task._replace(name='new').name == 'new'
+        assert task._replace(name='new')._replace(name='mytask') == task
+        assert task == Task(name='mytask', created_time=now)
+        with pytest.raises(TypeError, match="Unknown field 'fake'"):
+            _ = task._replace(fake='value')
+        # types are coerced
+        assert isinstance(task._replace(due_date=get_current_time().strftime(TIME_FORMAT)).due_date, datetime)
 
     def test_valid_name(self):
         _ = Task(name='a')

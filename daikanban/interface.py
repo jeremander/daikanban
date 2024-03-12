@@ -12,7 +12,7 @@ from typing import Any, Callable, Iterable, Optional, TypeVar, cast
 
 import pendulum
 import pendulum.parsing
-from pydantic import BaseModel, Field, create_model
+from pydantic import BaseModel, Field, ValidationError, create_model
 import pytimeparse
 from rich import print
 from rich.prompt import Confirm
@@ -87,6 +87,7 @@ def parse_task_limit(s: str) -> int:
 class DefaultColor(StrEnum):
     """Enum for default color map."""
     name = 'magenta'
+    field_name = 'deep_pink4'
     proj_id = 'purple4'
     task_id = 'dark_orange3'
     path = 'dodger_blue2'
@@ -308,6 +309,7 @@ class BoardInterface(BaseModel):
         grid.add_row('', '\[n]ew', 'create new project')
         grid.add_row('', '\[s]how', 'show project list')
         grid.add_row('', f'\[s]how {id_str}', 'show project info')
+        grid.add_row('', f'set {id_str} [not bold]\[FIELD] \[VALUE][/]', 'change a project attribute')
 
     def add_task_help(self, grid: Table) -> None:
         """Adds entries to help menu related to tasks."""
@@ -316,6 +318,7 @@ class BoardInterface(BaseModel):
         grid.add_row('', '\[n]ew', 'create new task')
         grid.add_row('', '\[s]how', 'show task list')
         grid.add_row('', f'\[s]how {id_str}', 'show task info')
+        grid.add_row('', f'set {id_str} [not bold]\[FIELD] \[VALUE][/]', 'change a task attribute')
         grid.add_row('', f'\[b]egin {id_str}', 'begin a task')
         grid.add_row('', f'\[c]omplete {id_str}', 'complete a started task')
         grid.add_row('', f'\[p]ause {id_str}', 'pause a started task')
@@ -412,10 +415,25 @@ class BoardInterface(BaseModel):
         """Shows project info."""
         assert self.board is not None
         id_ = self._parse_project(id_or_name)
-        if id_ is None:
-            raise UserInputError('Invalid project')
+        assert id_ is not None
         proj = self.board.get_project(id_)
         print(self._model_json(proj))
+
+    @require_board
+    def update_project(self, id_or_name: str, field: str, value: str) -> None:
+        """Updates an attribute of a project."""
+        assert self.board is not None
+        id_ = self._parse_project(id_or_name)
+        assert id_ is not None
+        proj = self.board.get_project(id_)
+        kwargs = {field: value}
+        try:
+            self.board.update_project(id_, **kwargs)  # pydantic should handle string conversion
+        except (TypeError, ValidationError) as e:
+            msg = e.errors()[0]['msg'] if isinstance(e, ValidationError) else str(e)
+            raise UserInputError(msg) from e
+        field_str = style_str(repr(field), DefaultColor.field_name)
+        print(f'Updated field {field_str} for project {name_style(proj.name)} with ID {proj_id_style(id_)}')
 
     # TASK
 
@@ -770,6 +788,10 @@ class BoardInterface(BaseModel):
                 if ntokens == 2:
                     return self.show_projects()
                 return self.show_project(tokens[2])
+            if tok1 == 'set':
+                if len(tokens) < 5:
+                    raise UserInputError('Must provide [ID/NAME] [FIELD] [VALUE]')
+                return self.update_project(*tokens[2:5])
         elif prefix_match(tok0, 'quit') or (tok0 == 'exit'):
             return self.quit_shell()
         elif prefix_match(tok0, 'task'):
@@ -784,6 +806,10 @@ class BoardInterface(BaseModel):
                 if ntokens == 2:
                     return self.show_tasks()
                 return self.show_task(tokens[2])
+            if tok1 == 'set':
+                if len(tokens) < 5:
+                    raise UserInputError('Must provide [ID/NAME] [FIELD] [VALUE]')
+                return self.update_task(*tokens[2:5])
             action: Optional[TaskStatusAction] = None
             if prefix_match(tok1, 'begin'):
                 # for convenience, use 'begin' instead of 'start' to avoid prefix collision with 'show'
