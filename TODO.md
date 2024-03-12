@@ -12,6 +12,7 @@
   - For never-paused task, no need to store both first and last started timestamps
   - Name uniqueness on projects/tasks
     - Completed projects maybe should be allowed to have duplicate names? Esp. if tasks can recur.
+  - If you delete a project, its id must be removed from all associated tasks
   - Deal with Mac terminal backspace issues (if possible; otherwise mark it for later)
 - Small QoL improvements
   - Remove difficulty & links from task prompt in default settings
@@ -41,6 +42,9 @@
   - Global config file?
   - Which items to include when making new tasks (priority/difficulty/duration can be omitted, with default)
   - Priority/difficulty upper bounds
+  - Age-off for completed tasks to prevent displaying too many in board
+    - `archived` status? Like `kanban-python`
+    - Or set `limit=none` to view these in `completed` column
   - Store board-specific settings in file itself?
     - To avoid circularity, may have to move BoradSettings class into model.py
   - Size limit, set of statuses to show

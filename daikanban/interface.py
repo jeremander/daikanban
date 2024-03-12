@@ -86,11 +86,16 @@ def parse_task_limit(s: str) -> int:
 
 class DefaultColor(StrEnum):
     """Enum for default color map."""
+    name = 'magenta'
     proj_id = 'purple4'
     task_id = 'dark_orange3'
     path = 'dodger_blue2'
     error = 'red'
     faint = 'bright_black'
+
+def name_style(name: str) -> str:
+    """Renders a project/task/board name as a rich-styled string."""
+    return style_str(name, DefaultColor.name)
 
 def proj_id_style(id_: Id, bold: bool = False) -> str:
     """Renders a project ID as a rich-styled string."""
@@ -249,7 +254,7 @@ class BoardInterface(BaseModel):
             id_ = int(s)
             if (id_ in d):
                 return id_
-            raise UserInputError(f'Invalid {item_type} ID {s!r}')
+            raise UserInputError(f'Invalid {item_type} ID: {s!r}')
         for (id_, proj) in d.items():
             if (proj.name.lower() == s.lower()):
                 return id_
@@ -368,7 +373,7 @@ class BoardInterface(BaseModel):
         proj = self.board.get_project(id_)
         self.board.delete_project(id_)
         self.save_board()
-        print(f'Deleted project {proj.name!r} with ID {proj_id_style(id_)}')
+        print(f'Deleted project {name_style(proj.name)} with ID {proj_id_style(id_)}')
 
     @require_board
     def new_project(self) -> None:
@@ -388,7 +393,7 @@ class BoardInterface(BaseModel):
         proj = model_from_prompt(Project, prompters)
         id_ = self.board.create_project(proj)
         self.save_board()
-        print(f'Created new project with ID {proj_id_style(id_)}')
+        print(f'Created new project {name_style(proj.name)} with ID {proj_id_style(id_)}')
 
     @require_board
     def show_projects(self) -> None:
@@ -448,7 +453,7 @@ class BoardInterface(BaseModel):
         task = task.apply_status_action(action, dt=dt, first_dt=first_dt)
         self.board.tasks[id_] = task
         self.save_board()
-        print(f'Changed task {task.name!r} [not bold]\[{task_id_style(id_)}][/] to {status_style(task.status)} state')
+        print(f'Changed task {name_style(task.name)} [not bold]\[{task_id_style(id_)}][/] to {status_style(task.status)} state')
 
     @require_board
     def delete_task(self, id_or_name: Optional[str] = None) -> None:
@@ -458,7 +463,7 @@ class BoardInterface(BaseModel):
         task = self.board.get_task(id_)
         self.board.delete_task(id_)
         self.save_board()
-        print(f'Deleted task {task.name!r} with ID {task_id_style(id_)}')
+        print(f'Deleted task {name_style(task.name)} with ID {task_id_style(id_)}')
 
     @require_board
     def new_task(self) -> None:
@@ -502,7 +507,7 @@ class BoardInterface(BaseModel):
         task = model_from_prompt(Task, prompters)
         id_ = self.board.create_task(task)
         self.save_board()
-        print(f'Created new task with ID {task_id_style(id_)}')
+        print(f'Created new task {name_style(task.name)} with ID {task_id_style(id_)}')
 
     def _project_str_from_id(self, id_: Id) -> str:
         """Given a project ID, gets a string displaying both the project name and ID."""
@@ -561,7 +566,7 @@ class BoardInterface(BaseModel):
         task = self.board.get_task(id_)
         self.board.reset_task(id_)
         self.save_board()
-        print(f"Reset task {task.name!r} with ID {task_id_style(id_)} to the 'todo' state")
+        print(f"Reset task {name_style(task.name)} with ID {task_id_style(id_)} to the 'todo' state")
 
     # BOARD
 
@@ -576,7 +581,7 @@ class BoardInterface(BaseModel):
         if delete:
             self.board_path.unlink()
             assert self.board is not None
-            print(f'Deleted board {self.board.name!r} from {path}')
+            print(f'Deleted board {name_style(self.board.name)} from {path}')
 
     def load_board(self, board_path: Optional[str | Path] = None) -> None:
         """Loads a board from a JSON file.
@@ -618,7 +623,7 @@ class BoardInterface(BaseModel):
             self.board = Board(name=name, description=description)
             self.board_path = board_path
             self.save_board()
-            print(f'Saved DaiKanban board {name!r} to {path_style(path)}')
+            print(f'Saved DaiKanban board {name_style(name)} to {path_style(path)}')
 
     def _status_group_info(self, statuses: Optional[list[str]] = None) -> tuple[dict[str, str], dict[str, str]]:
         """Given an optional list of statuses to include, returns a pair (group_by_status, group_colors).
