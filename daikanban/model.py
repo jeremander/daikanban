@@ -5,7 +5,7 @@ from typing import Annotated, Any, ClassVar, Counter, Iterator, Literal, Optiona
 from pydantic import AfterValidator, AnyUrl, BaseModel, BeforeValidator, Field, PlainSerializer, computed_field, model_validator
 from typing_extensions import Self, TypeAlias
 
-from daikanban.utils import TIME_FORMAT, KanbanError, StrEnum, get_current_time, get_duration_between
+from daikanban.utils import TIME_FORMAT, KanbanError, StrEnum, get_current_time, get_duration_between, parse_date
 
 
 T = TypeVar('T')
@@ -25,10 +25,24 @@ def _check_name(name: str) -> str:
         raise ValueError('name must have at least one letter')
     return name
 
+def _parse_date(obj: str | datetime) -> datetime:
+    if isinstance(obj, str):
+        try:  # prefer the standard datetime format
+            return datetime.strptime(obj, TIME_FORMAT)
+        except ValueError as e:  # attempt to parse string more flexibly
+            try:
+                dt = parse_date(obj)
+                assert dt is not None
+                return dt
+            except Exception:
+                raise e from None
+    return obj
+
+
 Name: TypeAlias = Annotated[str, AfterValidator(_check_name)]
 Datetime: TypeAlias = Annotated[
     datetime,
-    BeforeValidator(lambda s: datetime.strptime(s, TIME_FORMAT) if isinstance(s, str) else s),
+    BeforeValidator(_parse_date),
     PlainSerializer(lambda dt: dt.strftime(TIME_FORMAT), return_type=str)
 ]
 Duration: TypeAlias = Annotated[float, Field(description='duration (days)', ge=0.0)]

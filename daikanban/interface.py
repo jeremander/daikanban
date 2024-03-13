@@ -363,6 +363,25 @@ class BoardInterface(BaseModel):
         """Prints out the JSON schema of the given type."""
         print(json.dumps(cls.model_json_schema(mode='serialization'), indent=indent))
 
+    @require_board
+    def _update_project_or_task(self, id_or_name: str, field: str, value: str, is_task: bool) -> None:
+        """Updates an attribute of a project or task."""
+        assert self.board is not None
+        name = 'task' if is_task else 'project'
+        id_ = getattr(self, f'_parse_{name}')(id_or_name)
+        assert id_ is not None
+        obj = getattr(self.board, f'get_{name}')(id_)
+        kwargs = {field: value}
+        try:
+            getattr(self.board, f'update_{name}')(id_, **kwargs)  # pydantic handles string conversion
+        except (TypeError, ValidationError) as e:
+            msg = e.errors()[0]['msg'] if isinstance(e, ValidationError) else str(e)
+            msg = msg.splitlines()[0]
+            raise UserInputError(msg) from e
+        field_str = style_str(repr(field), DefaultColor.field_name)
+        id_style = task_id_style if is_task else proj_id_style
+        print(f'Updated field {field_str} for {name} {name_style(obj.name)} with ID {id_style(id_)}')
+
     # PROJECT
 
     @require_board
@@ -419,21 +438,9 @@ class BoardInterface(BaseModel):
         proj = self.board.get_project(id_)
         print(self._model_json(proj))
 
-    @require_board
     def update_project(self, id_or_name: str, field: str, value: str) -> None:
         """Updates an attribute of a project."""
-        assert self.board is not None
-        id_ = self._parse_project(id_or_name)
-        assert id_ is not None
-        proj = self.board.get_project(id_)
-        kwargs = {field: value}
-        try:
-            self.board.update_project(id_, **kwargs)  # pydantic should handle string conversion
-        except (TypeError, ValidationError) as e:
-            msg = e.errors()[0]['msg'] if isinstance(e, ValidationError) else str(e)
-            raise UserInputError(msg) from e
-        field_str = style_str(repr(field), DefaultColor.field_name)
-        print(f'Updated field {field_str} for project {name_style(proj.name)} with ID {proj_id_style(id_)}')
+        return self._update_project_or_task(id_or_name, field, value, is_task=False)
 
     # TASK
 
@@ -574,6 +581,10 @@ class BoardInterface(BaseModel):
             raise UserInputError('Invalid task')
         task = self.board.get_task(id_)
         print(self._model_json(task))
+
+    def update_task(self, id_or_name: str, field: str, value: str) -> None:
+        """Updates an attribute of a task."""
+        return self._update_project_or_task(id_or_name, field, value, is_task=True)
 
     @require_board
     def todo_task(self, id_or_name: Optional[str] = None) -> None:

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from pydantic import ValidationError
 import pytest
@@ -94,6 +94,26 @@ class TestTask:
         completed = started.completed()
         assert completed.reset() == todo
         assert completed.reset().status == TaskStatus.todo
+
+    def test_timestamps(self):
+        dt = get_current_time()
+        # a task started in the future is permitted
+        task = Task(name='mytask', first_started_time=(dt + timedelta(days=90)))
+        assert task.total_time_worked < 0
+        # task cannot be started before it was created
+        with pytest.raises(ValidationError, match='start time cannot precede created time'):
+            _ = Task(name='mytask', created_time=dt, first_started_time=(dt - timedelta(days=90)))
+        # due date can be before creation
+        task = Task(name='mytask', due_date=(dt - timedelta(days=90)))
+        assert task.is_overdue
+        # date parsing is flexible
+        for val in [dt, dt.isoformat(), dt.strftime(TIME_FORMAT), '2024-01-01', '1/1/2024', 'Jan 1, 2024', 'Jan 1', '2024']:
+            task = Task(name='mytask', created_time=val)
+            assert isinstance(task.created_time, datetime)
+        # invalid timestamps
+        for val in ['abcde', '2024-01--01', '2024-01-01T00:00:00Z-400']:
+            with pytest.raises(ValidationError, match='does not match format'):
+                _ = Task(name='mytask', created_time=val)
 
 
 class TestBoard:

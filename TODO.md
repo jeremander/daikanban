@@ -6,9 +6,6 @@
   - Allow task resumption to go from complete back to active
   - Make project/task display as a pretty table rather than raw JSON
     - `proj/task show [ID]`
-  - Set project/task attributes
-    - `proj/task set [ID] [key] [value]`
-      - Project/task update: prevent certain fields (like timestamps) from being set?
 - Bugfixes
   - DB integrity
     - Name uniqueness on projects/tasks
