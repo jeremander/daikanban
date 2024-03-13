@@ -620,7 +620,7 @@ class BoardInterface(BaseModel):
         try:
             with open(board_path) as f:
                 self.board = Board(**json.load(f))
-        except (json.JSONDecodeError, OSError) as e:
+        except (json.JSONDecodeError, OSError, ValidationError) as e:
             msg = f'ERROR loading JSON {path_style(board_path)}: {e}'
             raise BoardFileError(msg) from None
         self.board_path = Path(board_path)

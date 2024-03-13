@@ -389,12 +389,19 @@ class Task(Model):
     def resumed(self, dt: Optional[datetime] = None) -> 'Task':
         """Returns a new resumed version of the Task, if its status is paused.
         Otherwise raises a TaskStatusError."""
-        if self.status == TaskStatus.paused:
+        status = self.status
+        if status in [TaskStatus.paused, TaskStatus.complete]:
             dt = dt or get_current_time()
-            assert self.last_paused_time is not None
-            if dt < self.last_paused_time:
-                raise TaskStatusError('cannot resume a task before its last paused time')
-            return self.model_copy(update={'last_started_time': dt, 'last_paused_time': None})
+            if status == TaskStatus.paused:
+                assert self.last_paused_time is not None
+                if dt < self.last_paused_time:
+                    raise TaskStatusError('cannot resume a task before its last paused time')
+                return self.model_copy(update={'last_started_time': dt, 'last_paused_time': None})
+            else:  # complete
+                assert self.completed_time is not None
+                if dt < self.completed_time:
+                    raise TaskStatusError('cannot resume a task before its completed time')
+                return self.model_copy(update={'last_started_time': dt, 'prior_time_worked': self.total_time_worked, 'completed_time': None})
         raise TaskStatusError(f"cannot resume task with status '{self.status}'")
 
     def apply_status_action(self, action: TaskStatusAction, dt: Optional[datetime] = None, first_dt: Optional[datetime] = None) -> 'Task':
