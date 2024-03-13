@@ -35,10 +35,21 @@
     - Consider boolean complement operator (`~` or `!`), implicitly ANDed with other constraints?
       - This may be too complicated
     - Consider having a yes/no user prompt before resetting/deleting a task?
+  - `task split`: split up a task into multiple tasks
+    - Presumably walks through interactive prompts to populate new descriptions for subtasks
+      - Keep it as simple as possible (only prompt for description/priority/difficulty/duration, or less)
+      - Ask "Add another subtask?" at the end of each one
+    - Should formalize "hierarchical names" (e.g. if no spaces are present, just separate with dots?)
+    - Could also formalize the parent/child relation, if so desired
+  - `board merge` (or direct CLI subcommand): merge two or more boards together
+    - Can avoid name collisions by once again assuming a "name hierarchy" convention
+    - Could warn about exact duplicates in case both name & description are the same
   - Scrollable TUI-type thing for editing project/task fields
     - `proj/task edit [ID]`
-  - For advancing status, provide optional time saying when it occurred
-    - Or could take it positionally and prompt if absent, with "now" as default
+    - Opening up terminal editor would work reasonably well, see: [https://github.com/fmoo/python-editor/blob/master/editor.py](python-editor)
+  - ASCII billboard art is hot garbage
+  - For advancing status, currently prompts user for time(s)
+    - If just a single time, could take it as an optional final argument?
 - Settings
   - `settings` subcommand of main CLI to interact with settings
     - Also an option within the shell
@@ -86,12 +97,10 @@
   - Prevent cyclic blocking?
   - Prevent completion of a blocked task without its precursors
     - Prompt user to complete all of them at once
-- I/O
-  - Export pretty output
-    - markdown checklist/table
-    - HTML static site (maybe unecessary if web app covers it)
-  - "Scanner"
+- Import/Export
+  - Import
     - Input a task list (e.g. markdown checklist, e.g. Python files with lines matching regex "#\s*TODO")
+    - More full-fledged idea would be custom [markdown format](doc/dkmarkdown.md)
     - See kanban-python library for example of this:
 
     ```lang=python
@@ -101,6 +110,9 @@
             }
     ```
 
+  - Export pretty output
+    - markdown checklist/table
+    - HTML static site (maybe unecessary if web app covers it)
 - Web app
   - `web` subcommand of main CLI
   - `streamlit`? `fastui`?

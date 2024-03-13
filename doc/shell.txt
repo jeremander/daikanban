@@ -1,0 +1,19 @@
+[X] proj/task new
+[X] proj/task show
+[.] proj/task show [ID]
+[ ] proj/task set [ID] [key] [value]
+[ ] proj/task edit [ID]
+[X] proj/task delete [ID]
+
+[ ] task block [BLOCKER_ID] [BLOCKED_ID]
+[X] task start/pause/restart/complete [TASK_ID]
+
+[X] board new
+[X] board delete
+[X] board load
+[X] board schema
+[X] board show status:[STATUS_LIST] project:[PROJECT_LIST] tags:[TAG_LIST] limit:[SIZE]
+
+[X] help
+[X] quit
+[ ] settings
