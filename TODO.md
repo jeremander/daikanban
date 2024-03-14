@@ -3,7 +3,6 @@
 ## `v0.1.0`
 
 - Bugfixes
-  - fill gaps in IDs
   - DB integrity
     - Name uniqueness on projects/tasks
       - Projects may not have the same name (check during new & update)

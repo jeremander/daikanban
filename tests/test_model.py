@@ -153,9 +153,12 @@ class TestBoard:
         assert board.create_project(Project(name='proj0')) == 0
         assert board.new_project_id() == 1
         board.projects[2] = Project(name='proj2')
+        # new ID fills in any gaps
+        assert board.new_project_id() == 1
+        assert board.create_project(Project(name='proj3')) == 1
         assert board.new_project_id() == 3
-        assert board.create_project(Project(name='proj3')) == 3
-        assert board.new_project_id() == 4
+        board.projects[100] = Project(name='proj100')
+        assert board.new_project_id() == 3
 
     def test_crud_project(self):
         board = Board(name='myboard')

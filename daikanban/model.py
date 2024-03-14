@@ -1,5 +1,6 @@
 from contextlib import contextmanager
 from datetime import datetime, timedelta
+import itertools
 from typing import Annotated, Any, ClassVar, Counter, Iterator, Literal, Optional, TypeVar, cast
 
 import pendulum
@@ -501,11 +502,11 @@ class Board(Model):
 
     def new_project_id(self) -> Id:
         """Gets an available integer as a project ID."""
-        return max(self.projects) + 1 if self.projects else 0
+        return next(filter(lambda id_: id_ not in self.projects, itertools.count()))
 
     def new_task_id(self) -> Id:
         """Gets an available integer as a task ID."""
-        return max(self.tasks) + 1 if self.tasks else 0
+        return next(filter(lambda id_: id_ not in self.tasks, itertools.count()))
 
     def create_project(self, project: Project) -> Id:
         """Adds a new project and returns its ID."""
