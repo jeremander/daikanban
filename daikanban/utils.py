@@ -70,8 +70,12 @@ def get_duration_between(dt1: datetime, dt2: datetime) -> float:
 def parse_date(s: str) -> Optional[datetime]:
     """Parses a string into a datetime.
     The input string can either specify a datetime directly, or a time duration from the present moment."""
-    if not s.strip():
+    err = UserInputError(f'Invalid date {s!r}')
+    s = s.strip()
+    if not s:
         return None
+    if s.isdigit():
+        raise err
     try:
         dt: datetime = pendulum.parse(s, strict=False, tz=pendulum.local_timezone())  # type: ignore
         assert isinstance(dt, datetime)
@@ -82,10 +86,19 @@ def parse_date(s: str) -> Optional[datetime]:
         s = s.removeprefix('in ').removesuffix(' from now').removesuffix(' ago').strip()
         secs = pytimeparse.parse(s)
         if secs is None:
-            raise UserInputError('Invalid date') from None
+            raise err from None
         td = timedelta(seconds=secs)
         dt = get_current_time() + (-td if is_past else td)
     return dt
+
+def parse_duration(s: str) -> Optional[float]:
+    """Parses a string into a time duration (number of days)."""
+    if not s.strip():
+        return None
+    secs = pytimeparse.parse(s)
+    if (secs is None):
+        raise UserInputError('Invalid time duration')
+    return secs / SECS_PER_DAY
 
 def human_readable_duration(days: float) -> str:
     """Given a duration (in days), converts it to a human-readable string.

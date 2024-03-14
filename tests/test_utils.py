@@ -2,7 +2,7 @@ from datetime import datetime
 
 import pytest
 
-from daikanban.utils import convert_number_words_to_digits, get_current_time, parse_date
+from daikanban.utils import UserInputError, convert_number_words_to_digits, get_current_time, parse_date
 
 
 @pytest.mark.parametrize(['string', 'output'], [
@@ -18,8 +18,7 @@ def test_number_words_to_digits(string, output):
     assert convert_number_words_to_digits(string) == output
 
 
-@pytest.mark.parametrize(['string', 'is_future'], [
-    # valid input
+VALID_RELATIVE_TIMES = [
     ('now', False),
     ('in 2 days', True),
     ('in three days', True),
@@ -27,17 +26,30 @@ def test_number_words_to_digits(string, output):
     ('4 weeks ago', False),
     ('five days ago', False),
     ('3 days', True),
+    ('3 day', True),
     # TODO: widen parser's flexibility to cover these cases
     # ('tomorrow', True),
     # ('yesterday', False),
     # ('2 months', True),
     # ('2 years', True),
-    # invalid input
-    pytest.param('invalid time', True, marks=pytest.mark.xfail),
-    pytest.param('3', True, marks=pytest.mark.xfail),
+]
+
+INVALID_RELATIVE_TIMES = [
+    ('invalid time', True),
+    ('3', True),
+]
+
+@pytest.mark.parametrize(['string', 'is_future', 'valid'], [
+    *[(s, is_future, True) for (s, is_future) in VALID_RELATIVE_TIMES],
+    *[(s, is_future, False) for (s, is_future) in INVALID_RELATIVE_TIMES]
 ])
-def test_parse_relative_time(string, is_future):
-    dt = parse_date(string)
+def test_parse_relative_time(string, is_future, valid):
+    if valid:
+        dt = parse_date(string)
+    else:
+        with pytest.raises(UserInputError, match='Invalid date'):
+            _ = parse_date(string)
+        return
     assert isinstance(dt, datetime)
     now = get_current_time()
     if is_future:

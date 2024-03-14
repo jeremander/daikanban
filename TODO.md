@@ -3,9 +3,7 @@
 ## `v0.1.0`
 
 - Bugfixes
-  - parse duration for "task set [ID] expected_duration"
-    - pydantic validator itself has to be able to parse this
-    - add unit test
+  - fill gaps in IDs
   - DB integrity
     - Name uniqueness on projects/tasks
       - Projects may not have the same name (check during new & update)

@@ -6,7 +6,7 @@ import pendulum
 from pydantic import AfterValidator, AnyUrl, BaseModel, BeforeValidator, Field, PlainSerializer, computed_field, model_validator
 from typing_extensions import Self, TypeAlias
 
-from daikanban.utils import DATE_FORMAT, TIME_FORMAT, KanbanError, StrEnum, get_current_time, get_duration_between, human_readable_duration, parse_date
+from daikanban.utils import DATE_FORMAT, TIME_FORMAT, KanbanError, StrEnum, get_current_time, get_duration_between, human_readable_duration, parse_date, parse_duration
 
 
 T = TypeVar('T')
@@ -39,6 +39,9 @@ def _parse_date(obj: str | datetime) -> datetime:
                 raise e from None
     return obj
 
+def _parse_duration(obj: str | float) -> Optional[float]:
+    return parse_duration(obj) if isinstance(obj, str) else obj
+
 
 Name: TypeAlias = Annotated[str, AfterValidator(_check_name)]
 Datetime: TypeAlias = Annotated[
@@ -46,7 +49,11 @@ Datetime: TypeAlias = Annotated[
     BeforeValidator(_parse_date),
     PlainSerializer(lambda dt: dt.strftime(TIME_FORMAT), return_type=str)
 ]
-Duration: TypeAlias = Annotated[float, Field(description='duration (days)', ge=0.0)]
+Duration: TypeAlias = Annotated[
+    float,
+    BeforeValidator(_parse_duration),
+    Field(description='duration (days)', ge=0.0)
+]
 Score: TypeAlias = Annotated[float, Field(description='a score (positive number)', ge=0.0)]
 
 

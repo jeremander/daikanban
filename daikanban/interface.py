@@ -13,15 +13,14 @@ from typing import Any, Callable, Iterable, Optional, TypeVar, cast
 import pendulum
 import pendulum.parsing
 from pydantic import BaseModel, Field, ValidationError, create_model
-import pytimeparse
 from rich import print
 from rich.prompt import Confirm
 from rich.table import Table
 
-from daikanban.model import Board, Duration, Id, KanbanError, Model, Project, Task, TaskStatus, TaskStatusAction, pretty_value
+from daikanban.model import Board, Id, KanbanError, Model, Project, Task, TaskStatus, TaskStatusAction, pretty_value
 from daikanban.prompt import FieldPrompter, Prompter, model_from_prompt, simple_input
 from daikanban.settings import BoardSettings
-from daikanban.utils import DATE_FORMAT, SECS_PER_DAY, TIME_FORMAT, StrEnum, UserInputError, err_style, get_current_time, handle_error, parse_date, prefix_match, style_str, to_snake_case
+from daikanban.utils import DATE_FORMAT, TIME_FORMAT, StrEnum, UserInputError, err_style, get_current_time, handle_error, parse_date, parse_duration, prefix_match, style_str, to_snake_case
 
 
 M = TypeVar('M', bound=BaseModel)
@@ -128,15 +127,6 @@ def parse_string_set(s: str) -> Optional[set[str]]:
     Allows for quote delimiting so that commas can be escaped."""
     strings = set(list(csv.reader([s]))[0])
     return strings or None
-
-def parse_duration(s: str) -> Optional[Duration]:
-    """Parses a string into a time duration (number of days)."""
-    if not s.strip():
-        return None
-    secs = pytimeparse.parse(s)
-    if (secs is None):
-        raise UserInputError('Invalid time duration')
-    return secs / SECS_PER_DAY
 
 def parse_date_as_string(s: str) -> Optional[str]:
     """Parses a string into a timestamp string.
@@ -383,7 +373,10 @@ class BoardInterface(BaseModel):
     def _update_project_or_task(self, id_or_name: str, field: str, value: str, is_task: bool) -> None:
         """Updates an attribute of a project or task."""
         assert self.board is not None
-        name = 'task' if is_task else 'project'
+        cls = Task if is_task else Project
+        if field in cls.model_computed_fields:  # type: ignore[attr-defined]
+            raise UserInputError(f'Field {field!r} cannot be updated')
+        name = cls.__name__.lower()
         id_ = getattr(self, f'_parse_{name}')(id_or_name)
         assert id_ is not None
         obj = getattr(self.board, f'get_{name}')(id_)

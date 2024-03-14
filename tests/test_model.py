@@ -11,10 +11,10 @@ class TestTask:
 
     def test_replace(self):
         now = get_current_time()
-        task = Task(name='mytask', created_time=now)
+        task = Task(name='task', created_time=now)
         assert task._replace(name='new').name == 'new'
-        assert task._replace(name='new')._replace(name='mytask') == task
-        assert task == Task(name='mytask', created_time=now)
+        assert task._replace(name='new')._replace(name='task') == task
+        assert task == Task(name='task', created_time=now)
         with pytest.raises(TypeError, match="Unknown field 'fake'"):
             _ = task._replace(fake='value')
         # types are coerced
@@ -30,6 +30,22 @@ class TestTask:
         with pytest.raises(ValidationError):
             _ = Task(name='.')
 
+    def test_valid_duration(self):
+        task = Task(name='task', expected_duration=None)
+        assert task.expected_duration is None
+        task = Task(name='task', expected_duration='1 day')
+        assert task.expected_duration == 1
+        with pytest.raises(ValidationError, match='Invalid time duration'):
+            _ = Task(name='task', expected_duration='1 month')
+        with pytest.raises(ValidationError, match='Invalid time duration'):
+            _ = Task(name='task', expected_duration='not a time')
+        task = Task(name='task', expected_duration='31 days')
+        assert task.expected_duration == 31
+        task = Task(name='task', expected_duration=50)
+        assert task.expected_duration == 50
+        with pytest.raises(ValidationError, match='should be greater than or equal to 0'):
+            _ = Task(name='task', expected_duration=-1)
+
     def test_schema(self):
         schema = Task.model_json_schema(mode='serialization')
         # FIXME: computed fields should not be required?
@@ -39,7 +55,7 @@ class TestTask:
             assert schema['properties'][field]['readOnly'] is True
 
     def test_status(self):
-        todo = Task(name='mytask')
+        todo = Task(name='task')
         assert todo.status == TaskStatus.todo == 'todo'
         assert todo.first_started_time is None
         assert todo.last_paused_time is None
@@ -83,7 +99,7 @@ class TestTask:
         assert resumed.completed_time is None
 
     def test_reset(self):
-        todo = Task(name='mytask')
+        todo = Task(name='task')
         assert isinstance(todo.created_time, datetime)
         assert todo.reset() == todo
         todo2 = todo.model_copy(update={'logs': []})
@@ -101,22 +117,22 @@ class TestTask:
     def test_timestamps(self):
         dt = get_current_time()
         # a task started in the future is permitted
-        task = Task(name='mytask', first_started_time=(dt + timedelta(days=90)))
+        task = Task(name='task', first_started_time=(dt + timedelta(days=90)))
         assert task.total_time_worked < 0
         # task cannot be started before it was created
         with pytest.raises(ValidationError, match='start time cannot precede created time'):
-            _ = Task(name='mytask', created_time=dt, first_started_time=(dt - timedelta(days=90)))
+            _ = Task(name='task', created_time=dt, first_started_time=(dt - timedelta(days=90)))
         # due date can be before creation
-        task = Task(name='mytask', due_date=(dt - timedelta(days=90)))
+        task = Task(name='task', due_date=(dt - timedelta(days=90)))
         assert task.is_overdue
         # date parsing is flexible
-        for val in [dt, dt.isoformat(), dt.strftime(TIME_FORMAT), '2024-01-01', '1/1/2024', 'Jan 1, 2024', 'Jan 1', '2024']:
-            task = Task(name='mytask', created_time=val)
+        for val in [dt, dt.isoformat(), dt.strftime(TIME_FORMAT), '2024-01-01', '1/1/2024', 'Jan 1, 2024', 'Jan 1']:
+            task = Task(name='task', created_time=val)
             assert isinstance(task.created_time, datetime)
         # invalid timestamps
-        for val in ['abcde', '2024-01--01', '2024-01-01T00:00:00Z-400']:
+        for val in ['abcde', '2024', '2024-01--01', '2024-01-01T00:00:00Z-400']:
             with pytest.raises(ValidationError, match='does not match format'):
-                _ = Task(name='mytask', created_time=val)
+                _ = Task(name='task', created_time=val)
 
 
 class TestBoard:
@@ -124,7 +140,7 @@ class TestBoard:
     def test_serialization(self):
         proj = Project(name='myproj')
         proj_id = 0
-        task = Task(name='mytask')
+        task = Task(name='task')
         task_id = 0
         board = Board(name='myboard', projects={proj_id: proj}, tasks={task_id: task})
         for obj in [proj, task, board]:
