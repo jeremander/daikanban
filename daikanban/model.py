@@ -1,13 +1,12 @@
 from contextlib import contextmanager
 from datetime import datetime, timedelta
-import re
 from typing import Annotated, Any, ClassVar, Counter, Iterator, Literal, Optional, TypeVar, cast
 
 import pendulum
 from pydantic import AfterValidator, AnyUrl, BaseModel, BeforeValidator, Field, PlainSerializer, computed_field, model_validator
 from typing_extensions import Self, TypeAlias
 
-from daikanban.utils import DATE_FORMAT, TIME_FORMAT, KanbanError, StrEnum, get_current_time, get_duration_between, parse_date
+from daikanban.utils import DATE_FORMAT, TIME_FORMAT, KanbanError, StrEnum, get_current_time, get_duration_between, human_readable_duration, parse_date
 
 
 T = TypeVar('T')
@@ -117,7 +116,10 @@ class Model(BaseModel):
 
     def _pretty_dict(self) -> dict[str, str]:
         """Gets a dict from fields to pretty values (as strings)."""
-        return {field: pretty_value(val) for (field, val) in dict(self).items() if (val is not None)}
+        return {
+            **{field: pretty_value(val) for (field, val) in dict(self).items() if val is not None},
+            **{field: pretty_value(val) for field in self.model_computed_fields if (val := getattr(self, field)) is not None}
+        }
 
 
 class TaskStatus(StrEnum):
@@ -270,14 +272,17 @@ class Task(Model):
 
     # fields that are reset to None when a Task is reset
     RESET_FIELDS: ClassVar[list[str]] = ['due_date', 'first_started_time', 'last_started_time', 'last_paused_time', 'completed_time', 'completed_time', 'prior_time_worked', 'blocked_by', 'logs']
+    DURATION_FIELDS: ClassVar[list[str]] = ['expected_duration', 'prior_time_worked', 'total_time_worked', 'lead_time']
 
     def _pretty_dict(self) -> dict[str, str]:
         d = super()._pretty_dict()
-        if self.expected_duration is not None:
-            dur = pendulum.Duration(days=self.expected_duration).in_words()
-            # hacky way to round to the nearest minute
-            dur = re.sub(r'\s+\d+ seconds?', '', dur)
-            d['expected_duration'] = dur
+        for field in self.DURATION_FIELDS:
+            # make durations human-readable
+            if (field in d):
+                val = getattr(self, field)
+                if (val is not None):
+                    assert isinstance(val, float)
+                    d[field] = '-' if (val == 0) else human_readable_duration(val)
         return d
 
     @computed_field  # type: ignore[misc]
@@ -300,7 +305,8 @@ class Task(Model):
         if self.last_paused_time is None:  # active or complete
             last_started_time = self.last_started_time or self.first_started_time
             if last_started_time is not None:
-                dur += get_duration_between(last_started_time, get_current_time())
+                final_time = self.completed_time or get_current_time()
+                dur += get_duration_between(last_started_time, final_time)
         return dur
 
     @computed_field  # type: ignore[misc]

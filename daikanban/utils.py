@@ -87,6 +87,15 @@ def parse_date(s: str) -> Optional[datetime]:
         dt = get_current_time() + (-td if is_past else td)
     return dt
 
+def human_readable_duration(days: float) -> str:
+    """Given a duration (in days), converts it to a human-readable string.
+    This rounds to the nearest minute."""
+    if days == 0:
+        return '0 seconds'
+    s = pendulum.Duration(days=days).in_words()
+    # hacky way to round to the nearest minute
+    return re.sub(r'\s+\d+ seconds?', '', s)
+
 
 #########
 # STYLE #

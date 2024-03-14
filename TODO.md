@@ -3,6 +3,9 @@
 ## `v0.1.0`
 
 - Bugfixes
+  - parse duration for "task set [ID] expected_duration"
+    - pydantic validator itself has to be able to parse this
+    - add unit test
   - DB integrity
     - Name uniqueness on projects/tasks
       - Projects may not have the same name (check during new & update)
@@ -28,6 +31,7 @@
     - Consider boolean complement operator (`~` or `!`), implicitly ANDed with other constraints?
       - This may be too complicated
     - Consider having a yes/no user prompt before resetting/deleting a task?
+  - Simple option for JSON output in `project/task show`
   - `task split`: split up a task into multiple tasks
     - Presumably walks through interactive prompts to populate new descriptions for subtasks
       - Keep it as simple as possible (only prompt for description/priority/difficulty/duration, or less)
@@ -92,6 +96,9 @@
   - Prevent cyclic blocking?
   - Prevent completion of a blocked task without its precursors
     - Prompt user to complete all of them at once
+  - Score calculation of blocked tasks can be complex
+    - Can try to ensure it is less than any of its blockers (but that's hard if score is arbitrary, e.g. =priority)
+    - Or just ensure it comes later in the ordering, even if its score is higher
 - Import/Export
   - Import
     - Input a task list (e.g. markdown checklist, e.g. Python files with lines matching regex "#\s*TODO")
