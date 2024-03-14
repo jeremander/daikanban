@@ -76,8 +76,11 @@ class TestTask:
         _ = resumed.paused()
         completed = started.completed()
         assert isinstance(completed.completed_time, datetime)
-        with pytest.raises(TaskStatusError, match='cannot resume'):
-            _ = completed.resumed()
+        resumed = completed.resumed()
+        assert isinstance(resumed.first_started_time, datetime)
+        assert isinstance(resumed.last_started_time, datetime)
+        assert resumed.last_paused_time is None
+        assert resumed.completed_time is None
 
     def test_reset(self):
         todo = Task(name='mytask')

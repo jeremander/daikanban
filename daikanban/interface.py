@@ -18,7 +18,7 @@ from rich import print
 from rich.prompt import Confirm
 from rich.table import Table
 
-from daikanban.model import Board, Duration, Id, KanbanError, Project, Task, TaskStatus, TaskStatusAction
+from daikanban.model import Board, Duration, Id, KanbanError, Model, Project, Task, TaskStatus, TaskStatusAction, pretty_value
 from daikanban.prompt import FieldPrompter, Prompter, model_from_prompt, simple_input
 from daikanban.settings import BoardSettings
 from daikanban.utils import DATE_FORMAT, SECS_PER_DAY, TIME_FORMAT, StrEnum, UserInputError, err_style, get_current_time, handle_error, parse_date, prefix_match, style_str, to_snake_case
@@ -119,6 +119,10 @@ def status_style(status: TaskStatus) -> str:
 # PARSING #
 ###########
 
+def empty_is_none(s: str) -> Optional[str]:
+    """Identity function on strings, except if the string is empty, returns None."""
+    return s or None
+
 def parse_string_set(s: str) -> Optional[set[str]]:
     """Parses a comma-separated string into a set of strings.
     Allows for quote delimiting so that commas can be escaped."""
@@ -145,15 +149,27 @@ def parse_date_as_string(s: str) -> Optional[str]:
 # PRETTY PRINTING #
 ###################
 
-def _render_cell(val: Any) -> str:
-    if val is None:
-        return '-'
-    if isinstance(val, float):
-        return str(int(val)) if (int(val) == val) else f'{val:.3g}'
-    return str(val)
+def model_pretty(obj: Model, id_: Optional[Id] = None) -> Table:
+    """Given a Model object (and optional ID), creates a two-column Table displaying its contents prettily."""
+    table = Table(show_header=False)
+    table.add_column('Field', style='bold')
+    table.add_column('Value')
+    if id_ is not None:
+        if isinstance(obj, Project):
+            id_str = proj_id_style(id_)
+        elif isinstance(obj, Task):
+            id_str = task_id_style(id_)
+        else:
+            id_str = str(id_)
+        table.add_row('ID ', id_str)
+    for (field, pretty) in obj._pretty_dict().items():
+        if field == 'name':
+            pretty = name_style(pretty)
+        table.add_row(f'{field}  ', pretty)
+    return table
 
 def make_table(tp: type[M], rows: Iterable[M], **kwargs: Any) -> Table:
-    """Given a BaseModel type and a list of elements of that type, creates a Table displaying the data."""
+    """Given a BaseModel type and a list of objects of that type, creates a Table displaying the data, with each object being a row."""
     table = Table(**kwargs)
     flags = []  # indicates whether each field has any nontrivial element
     for (name, info) in tp.model_fields.items():
@@ -164,7 +180,7 @@ def make_table(tp: type[M], rows: Iterable[M], **kwargs: Any) -> Table:
             kw = cast(dict, info.json_schema_extra) or {}
             table.add_column(title, **kw)
     for row in rows:
-        vals = [_render_cell(val) for (flag, (_, val)) in zip(flags, row) if flag]
+        vals = [pretty_value(val) for (flag, (_, val)) in zip(flags, row) if flag]
         table.add_row(*vals)
     return table
 
@@ -405,7 +421,9 @@ class BoardInterface(BaseModel):
             'name': {
                 'prompt': 'Project name'
             },
-            'description': {},
+            'description': {
+                'parse': empty_is_none
+            },
             'links': {
                 'prompt': 'Links [not bold]\[optional, comma-separated][/]',
                 'parse': parse_string_set
@@ -436,7 +454,7 @@ class BoardInterface(BaseModel):
         id_ = self._parse_project(id_or_name)
         assert id_ is not None
         proj = self.board.get_project(id_)
-        print(self._model_json(proj))
+        print(model_pretty(proj, id_=id_))
 
     def update_project(self, id_or_name: str, field: str, value: str) -> None:
         """Updates an attribute of a project."""
@@ -498,7 +516,9 @@ class BoardInterface(BaseModel):
             'name': {
                 'prompt': 'Task name'
             },
-            'description': {},
+            'description': {
+                'parse': empty_is_none
+            },
             'priority': {
                 'prompt': 'Priority [not bold]\[0-10][/]'
             },
@@ -580,7 +600,7 @@ class BoardInterface(BaseModel):
         if id_ is None:
             raise UserInputError('Invalid task')
         task = self.board.get_task(id_)
-        print(self._model_json(task))
+        print(model_pretty(task, id_=id_))
 
     def update_task(self, id_or_name: str, field: str, value: str) -> None:
         """Updates an attribute of a task."""

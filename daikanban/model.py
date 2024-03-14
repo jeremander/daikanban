@@ -1,11 +1,13 @@
 from contextlib import contextmanager
 from datetime import datetime, timedelta
+import re
 from typing import Annotated, Any, ClassVar, Counter, Iterator, Literal, Optional, TypeVar, cast
 
+import pendulum
 from pydantic import AfterValidator, AnyUrl, BaseModel, BeforeValidator, Field, PlainSerializer, computed_field, model_validator
 from typing_extensions import Self, TypeAlias
 
-from daikanban.utils import TIME_FORMAT, KanbanError, StrEnum, get_current_time, get_duration_between, parse_date
+from daikanban.utils import DATE_FORMAT, TIME_FORMAT, KanbanError, StrEnum, get_current_time, get_duration_between, parse_date
 
 
 T = TypeVar('T')
@@ -83,6 +85,41 @@ def catch_key_error(cls: type[Exception]) -> Iterator[None]:
 # MODEL #
 #########
 
+def pretty_value(val: Any) -> str:
+    """Gets a pretty representation of a value as a string.
+    The representation will depend on its type."""
+    if val is None:
+        return '-'
+    if isinstance(val, float):
+        return str(int(val)) if (int(val) == val) else f'{val:.3g}'
+    if isinstance(val, datetime):  # human-readable date
+        # TODO: make time format configurable
+        if (get_current_time() - val >= timedelta(days=7)):
+            return val.strftime(DATE_FORMAT)
+        return pendulum.instance(val).diff_for_humans()
+    return str(val)
+
+
+class Model(BaseModel):
+    """Base class setting up pydantic configs."""
+    class Config:  # noqa: D106
+        frozen = True
+
+    def _replace(self, **kwargs: Any) -> Self:
+        """Creates a new copy of the object with the given kwargs replaced.
+        Validation will be performed."""
+        d = dict(self)
+        for (key, val) in kwargs.items():
+            if key not in d:  # do not allow extra fields
+                raise TypeError(f'Unknown field {key!r}')
+            d[key] = val
+        return type(self)(**d)
+
+    def _pretty_dict(self) -> dict[str, str]:
+        """Gets a dict from fields to pretty values (as strings)."""
+        return {field: pretty_value(val) for (field, val) in dict(self).items() if (val is not None)}
+
+
 class TaskStatus(StrEnum):
     """Possible status a task can have."""
     todo = 'todo'
@@ -124,22 +161,6 @@ STATUS_ACTION_MAP = {
     'pause': TaskStatus.paused,
     'resume': TaskStatus.active
 }
-
-
-class Model(BaseModel):
-    """Base class setting up pydantic configs."""
-    class Config:  # noqa: D106
-        frozen = True
-
-    def _replace(self, **kwargs: Any) -> Self:
-        """Creates a new copy of the object with the given kwargs replaced.
-        Validation will be performed."""
-        d = {field: getattr(self, field) for field in self.model_fields}
-        for (key, val) in kwargs.items():
-            if key not in d:  # do not allow extra fields
-                raise TypeError(f'Unknown field {key!r}')
-            d[key] = val
-        return type(self)(**d)
 
 
 class Project(Model):
@@ -249,6 +270,15 @@ class Task(Model):
 
     # fields that are reset to None when a Task is reset
     RESET_FIELDS: ClassVar[list[str]] = ['due_date', 'first_started_time', 'last_started_time', 'last_paused_time', 'completed_time', 'completed_time', 'prior_time_worked', 'blocked_by', 'logs']
+
+    def _pretty_dict(self) -> dict[str, str]:
+        d = super()._pretty_dict()
+        if self.expected_duration is not None:
+            dur = pendulum.Duration(days=self.expected_duration).in_words()
+            # hacky way to round to the nearest minute
+            dur = re.sub(r'\s+\d+ seconds?', '', dur)
+            d['expected_duration'] = dur
+        return d
 
     @computed_field  # type: ignore[misc]
     @property

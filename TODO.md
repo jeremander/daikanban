@@ -2,10 +2,6 @@
 
 ## `v0.1.0`
 
-- Shell features
-  - Allow task resumption to go from complete back to active
-  - Make project/task display as a pretty table rather than raw JSON
-    - `proj/task show [ID]`
 - Bugfixes
   - DB integrity
     - Name uniqueness on projects/tasks
@@ -74,6 +70,8 @@
   - Want high coverage of data model, board manipulations
   - Use `hypothesis` to generate random data?
   - Some UI tests (input command -> terminal output), though these can be brittle if output format changes
+- Better schema documentation
+  - Go into more detail about the meaning(s) of priority/difficulty/duration
 - Support task logs
 - Github/Gitlab/Jira integration
   - Query APIs
@@ -118,3 +116,4 @@
   - Could be *chosen tasks for today*, *tasks due soon*, etc.
   - Send reminders via e-mail (smtplib) or text (twilio/pushover/etc.)
     - The latter may cost money
+- NLP to predict difficulty/duration based on name/description/project/tags
