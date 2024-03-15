@@ -291,17 +291,20 @@ class Task(Model):
 
     # fields that are reset to None when a Task is reset
     RESET_FIELDS: ClassVar[list[str]] = ['due_date', 'first_started_time', 'last_started_time', 'last_paused_time', 'completed_time', 'completed_time', 'prior_time_worked', 'blocked_by', 'logs']
-    DURATION_FIELDS: ClassVar[list[str]] = ['expected_duration', 'prior_time_worked', 'total_time_worked', 'lead_time']
+    DURATION_FIELDS: ClassVar[list[str]] = ['expected_duration', 'prior_time_worked', 'lead_time', 'cycle_time', 'total_time_worked']
 
     def _pretty_dict(self) -> dict[str, str]:
         d = super()._pretty_dict()
         for field in self.DURATION_FIELDS:
             # make durations human-readable
-            if (field in d):
+            if field in d:
                 val = getattr(self, field)
                 if (val is not None):
                     assert isinstance(val, float)
                     d[field] = '-' if (val == 0) else human_readable_duration(val)
+            if ('cycle_time' in d) and ('total_time_worked' in d) and (d['cycle_time'] == d['total_time_worked']):
+                # remove redundant field since they are equivalent here
+                del d['cycle_time']
         return d
 
     @computed_field  # type: ignore[misc]
@@ -318,6 +321,28 @@ class Task(Model):
 
     @computed_field  # type: ignore[misc]
     @property
+    def lead_time(self) -> Optional[Duration]:
+        """If the task is completed, returns the lead time (in days), which is the elapsed time from created to completed.
+        Otherwise, returns None."""
+        if self.status == TaskStatus.complete:
+            assert self.created_time is not None
+            assert self.completed_time is not None
+            return get_duration_between(self.created_time, self.completed_time)
+        return None
+
+    @computed_field  # type: ignore[misc]
+    @property
+    def cycle_time(self) -> Optional[Duration]:
+        """If the task is completed, returns the cycle time (in days), which is the elapsed time from started to completed.
+        Otherwise, returns None."""
+        if self.status == TaskStatus.complete:
+            assert self.first_started_time is not None
+            assert self.completed_time is not None
+            return get_duration_between(self.first_started_time, self.completed_time)
+        return None
+
+    @computed_field  # type: ignore[misc]
+    @property
     def total_time_worked(self) -> Duration:
         """Gets the total time (in days) worked on the task."""
         dur = self.prior_time_worked or 0.0
@@ -327,17 +352,6 @@ class Task(Model):
                 final_time = self.completed_time or get_current_time()
                 dur += get_duration_between(last_started_time, final_time)
         return dur
-
-    @computed_field  # type: ignore[misc]
-    @property
-    def lead_time(self) -> Optional[Duration]:
-        """If the task is completed, returns the lead time (in days), which is the elapsed time from started to completed.
-        Otherwise, returns None."""
-        if self.status == TaskStatus.complete:
-            assert self.first_started_time is not None
-            assert self.completed_time is not None
-            return get_duration_between(self.first_started_time, self.completed_time)
-        return None
 
     @computed_field  # type: ignore[misc]
     @property
