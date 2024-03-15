@@ -550,6 +550,10 @@ class Board(Model):
     def delete_project(self, project_id: Id) -> None:
         """Deletes a project with the given ID."""
         del self.projects[project_id]
+        # remove project ID from any tasks that have it
+        for (task_id, task) in self.tasks.items():
+            if task.project_id == project_id:
+                self.tasks[task_id] = task._replace(project_id=None)
 
     def create_task(self, task: Task) -> Id:
         """Adds a new task and returns its ID."""

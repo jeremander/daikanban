@@ -3,8 +3,6 @@
 ## `v0.1.0`
 
 - Bugfixes
-  - DB integrity
-    - If you delete a project, its id must be removed from all associated tasks
   - Deal with Mac terminal backspace issues (if possible; otherwise mark it for later)
 - Small QoL improvements
   - Remove difficulty & links from task prompt in default settings

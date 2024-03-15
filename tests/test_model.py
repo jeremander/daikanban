@@ -179,6 +179,15 @@ class TestBoard:
             board.delete_project(0)
         assert board.create_project(proj) == 0
 
+    def test_delete_project(self):
+        board = Board(name='myboard')
+        board.create_project(Project(name='myproj'))
+        board.create_task(Task(name='task0', project_id=0))
+        board.create_task(Task(name='task1', project_id=0))
+        board.delete_project(0)
+        assert len(board.projects) == 0
+        assert all(task.project_id is None for task in board.tasks.values())
+
     def test_add_blocking_task(self):
         board = Board(name='myboard')
         task0 = Task(name='task0')
