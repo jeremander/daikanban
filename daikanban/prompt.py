@@ -1,17 +1,33 @@
 from dataclasses import dataclass
 import re
-from typing import Any, Callable, Generic, Optional, TypeVar
+from typing import Any, Callable, Generic, Optional, TextIO, TypeVar
 
 from pydantic import BaseModel, ValidationError
 from pydantic_core import PydanticUndefined
 import rich
 from rich.prompt import Prompt
+from rich.text import TextType
 
 from daikanban.utils import UserInputError, err_style
 
 
 M = TypeVar('M', bound=BaseModel)
 T = TypeVar('T')
+
+
+class Console(rich.console.Console):
+    """Subclass of rich's Console that fixes a terminal bug.
+    See:
+        - https://github.com/Textualize/rich/issues/2293
+        - https://github.com/Textualize/rich/commit/568b9517b63282ac781a907d82b0c2965242be54"""
+
+    def input(self, prompt: TextType = '', password: bool = False, stream: Optional[TextIO] = None) -> str:  # type: ignore  # noqa
+        prompt_str = ''
+        if prompt:
+            with self.capture() as capture:
+                self.print(prompt, markup=True, emoji=True, end='')
+            prompt_str = capture.get()
+        return input(prompt_str)
 
 
 class PromptNoSuffix(Prompt):
@@ -23,7 +39,7 @@ def simple_input(prompt: str, default: Optional[str] = None, match: str = '.*') 
     """Prompts the user with the given string until the user's response matches a certain regex."""
     regex = re.compile(match)
     while True:
-        result = Prompt.ask(f'[bold]{prompt}[/]', default=default) or ''
+        result = Prompt.ask(f'[bold]{prompt}[/]', default=default, console=Console()) or ''
         if regex.fullmatch(result):
             break
     return result
@@ -41,7 +57,7 @@ def validated_input(prompt: str, validator: Callable[[str], T], default: Any = N
         default = str(default)
     prompt_cls = Prompt if use_prompt_suffix else PromptNoSuffix
     while True:
-        result = prompt_cls.ask(f'[bold]{prompt}[/]', default=default, **kwargs) or ''
+        result = prompt_cls.ask(f'[bold]{prompt}[/]', default=default, console=Console(), **kwargs) or ''
         try:
             return validator(result)
         except Exception as e:
