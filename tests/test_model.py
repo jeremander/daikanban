@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from pydantic import ValidationError
 import pytest
 
-from daikanban.model import Board, Project, ProjectNotFoundError, Task, TaskNotFoundError, TaskStatus, TaskStatusError
+from daikanban.model import Board, DuplicateProjectNameError, Project, ProjectNotFoundError, Task, TaskNotFoundError, TaskStatus, TaskStatusError
 from daikanban.utils import TIME_FORMAT, get_current_time
 
 
@@ -193,3 +193,14 @@ class TestBoard:
         board.add_blocking_task(0, 1)
         assert task1.blocked_by is None  # no mutation on original task
         assert board.get_task(1).blocked_by == {0}
+
+    def test_duplicate_project_names(self):
+        board = Board(name='myboard')
+        board.create_project(Project(name='proj0'))
+        with pytest.raises(DuplicateProjectNameError, match='Duplicate project name'):
+            board.create_project(Project(name='proj0'))
+        board.create_project(Project(name='proj1'))
+        with pytest.raises(DuplicateProjectNameError, match='Duplicate project name'):
+            board.update_project(1, name='proj0')
+        board.update_project(0, name='proj2')
+        board.update_project(1, name='proj0')

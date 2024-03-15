@@ -102,11 +102,11 @@ def parse_duration(s: str) -> Optional[float]:
 
 def human_readable_duration(days: float) -> str:
     """Given a duration (in days), converts it to a human-readable string.
-    This rounds to the nearest minute."""
+    This goes out to minute precision only."""
     if days == 0:
         return '0 seconds'
     s = pendulum.Duration(days=days).in_words()
-    # hacky way to round to the nearest minute
+    # hacky way to truncate the seconds
     return re.sub(r'\s+\d+ seconds?', '', s)
 
 

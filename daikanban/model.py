@@ -78,6 +78,12 @@ class TaskNotFoundError(KanbanError):
 class TaskStatusError(KanbanError):
     """Error that occurs when a task's status is invalid for a certain operation."""
 
+class DuplicateProjectNameError(KanbanError):
+    """Error that occurs when duplicate project names are encountered."""
+
+class DuplicateTaskNameError(KanbanError):
+    """Error that occurs when duplicate task names are encountered."""
+
 
 @contextmanager
 def catch_key_error(cls: type[Exception]) -> Iterator[None]:
@@ -510,6 +516,9 @@ class Board(Model):
 
     def create_project(self, project: Project) -> Id:
         """Adds a new project and returns its ID."""
+        project_names = {p.name for p in self.projects.values()}
+        if project.name in project_names:
+            raise DuplicateProjectNameError(f'Duplicate project name {project.name!r}')
         id_ = self.new_project_id()
         self.projects[id_] = project
         return id_
@@ -522,7 +531,11 @@ class Board(Model):
     def update_project(self, project_id: Id, **kwargs: Any) -> None:
         """Updates a project with the given keyword arguments."""
         proj = self.get_project(project_id)
-        self.projects[project_id] = proj._replace(**kwargs)
+        project_names = {p.name for (id_, p) in self.projects.items() if (id_ != project_id)}
+        proj = proj._replace(**kwargs)
+        if proj.name in project_names:
+            raise DuplicateProjectNameError(f'Duplicate project name {proj.name!r}')
+        self.projects[project_id] = proj
 
     @catch_key_error(ProjectNotFoundError)
     def delete_project(self, project_id: Id) -> None:

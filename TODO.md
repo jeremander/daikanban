@@ -4,11 +4,12 @@
 
 - Bugfixes
   - DB integrity
+    - If you delete a project, its id must be removed from all associated tasks
     - Name uniqueness on projects/tasks
-      - Projects may not have the same name (check during new & update)
       - Active tasks may not have the same name (check during new & update)
       - Completed tasks maybe should be allowed to have duplicate names? Esp. if tasks can recur.
-    - If you delete a project, its id must be removed from all associated tasks
+        - Move parse_task & parse_project into Board Class
+        - Test that parsing a name gets specifically the active task in case of duplicates
   - Deal with Mac terminal backspace issues (if possible; otherwise mark it for later)
 - Small QoL improvements
   - Remove difficulty & links from task prompt in default settings
