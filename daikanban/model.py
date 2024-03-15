@@ -473,7 +473,7 @@ class Task(Model):
                 return self.started(dt=first_dt).paused(dt=dt)
             return self.paused(dt=dt)
         assert action == TaskStatusAction.resume
-        return self.resumed()
+        return self.resumed(dt=dt)
 
     def reset(self) -> 'Task':
         """Resets a task to the 'todo' state, regardless of its current state.
@@ -544,6 +544,9 @@ class Board(Model):
 
     def create_task(self, task: Task) -> Id:
         """Adds a new task and returns its ID."""
+        incomplete_task_names = {t.name for t in self.tasks.values() if (t.completed_time is None)}
+        if task.name in incomplete_task_names:
+            raise DuplicateTaskNameError(f'Duplicate task name {task.name!r}')
         id_ = self.new_task_id()
         self.tasks[id_] = task
         return id_
@@ -556,6 +559,10 @@ class Board(Model):
     def update_task(self, task_id: Id, **kwargs: Any) -> None:
         """Updates a task with the given keyword arguments."""
         task = self.get_task(task_id)
+        incomplete_task_names = {t.name for (id_, t) in self.tasks.items() if (id_ != task_id) and (t.completed_time is None)}
+        task = task._replace(**kwargs)
+        if task.name in incomplete_task_names:
+            raise DuplicateTaskNameError(f'Duplicate task name {task.name!r}')
         self.tasks[task_id] = task._replace(**kwargs)
 
     @catch_key_error(TaskNotFoundError)
@@ -569,6 +576,14 @@ class Board(Model):
         This will preserve the original creation metadata except for timestamps, due date, blocking tasks, and logs."""
         task = self.get_task(task_id)
         self.tasks[task_id] = task.reset()
+
+    def apply_status_action(self, task_id: Id, action: TaskStatusAction, dt: Optional[datetime] = None, first_dt: Optional[datetime] = None) -> None:
+        """Changes a task to a new stage, based on the given action at the given time."""
+        task = self.get_task(task_id).apply_status_action(action, dt=dt, first_dt=first_dt)
+        incomplete_task_names = {t.name for (id_, t) in self.tasks.items() if (id_ != task_id) and (t.completed_time is None)}
+        if task.name in incomplete_task_names:
+            raise DuplicateTaskNameError(f'Duplicate task name {task.name!r}')
+        self.tasks[task_id] = task
 
     @catch_key_error(TaskNotFoundError)
     def add_blocking_task(self, blocking_task_id: Id, blocked_task_id: Id) -> None:

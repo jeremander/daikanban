@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from pydantic import ValidationError
 import pytest
 
-from daikanban.model import Board, DuplicateProjectNameError, Project, ProjectNotFoundError, Task, TaskNotFoundError, TaskStatus, TaskStatusError
+from daikanban.model import Board, DuplicateProjectNameError, DuplicateTaskNameError, Project, ProjectNotFoundError, Task, TaskNotFoundError, TaskStatus, TaskStatusAction, TaskStatusError
 from daikanban.utils import TIME_FORMAT, get_current_time
 
 
@@ -204,3 +204,24 @@ class TestBoard:
             board.update_project(1, name='proj0')
         board.update_project(0, name='proj2')
         board.update_project(1, name='proj0')
+
+    def test_duplicate_task_names(self):
+        board = Board(name='myboard')
+        board.create_task(Task(name='task0'))
+        with pytest.raises(DuplicateTaskNameError, match='Duplicate task name'):
+            board.create_task(Task(name='task0'))
+        # completed tasks do not get counted as duplicate
+        board.tasks[0] = board.tasks[0].started().completed()
+        board.create_task(Task(name='task0'))
+        board = Board(name='myboard')
+        board.create_task(Task(name='task0'))
+        board.create_task(Task(name='task1'))
+        with pytest.raises(DuplicateTaskNameError, match='Duplicate task name'):
+            board.update_task(1, name='task0')
+        board.tasks[0] = board.tasks[0].started().completed()
+        board.update_task(1, name='task0')
+        # if a completed task is resumed, check for duplication
+        with pytest.raises(DuplicateTaskNameError, match='Duplicate task name'):
+            board.apply_status_action(0, TaskStatusAction.resume)
+        board.delete_task(1)
+        board.apply_status_action(0, TaskStatusAction.resume)

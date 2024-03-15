@@ -17,7 +17,7 @@ from rich import print
 from rich.prompt import Confirm
 from rich.table import Table
 
-from daikanban.model import Board, Id, KanbanError, Model, Project, Task, TaskStatus, TaskStatusAction, pretty_value
+from daikanban.model import Board, DuplicateProjectNameError, DuplicateTaskNameError, Id, KanbanError, Model, Project, Task, TaskStatus, TaskStatusAction, pretty_value
 from daikanban.prompt import FieldPrompter, Prompter, model_from_prompt, simple_input
 from daikanban.settings import BoardSettings
 from daikanban.utils import DATE_FORMAT, TIME_FORMAT, StrEnum, UserInputError, err_style, get_current_time, handle_error, parse_date, parse_duration, prefix_match, style_str, to_snake_case
@@ -410,9 +410,15 @@ class BoardInterface(BaseModel):
     def new_project(self) -> None:
         """Creates a new project."""
         assert self.board is not None
+        def _parse_name(name: str) -> str:
+            # catch duplicate project name early
+            if name in {p.name for p in self.board.projects.values()}:  # type: ignore[union-attr]
+                raise DuplicateProjectNameError(f'Duplicate project name {name!r}')
+            return name
         params: dict[str, dict[str, Any]] = {
             'name': {
-                'prompt': 'Project name'
+                'prompt': 'Project name',
+                'parse': _parse_name
             },
             'description': {
                 'parse': empty_is_none
@@ -486,8 +492,7 @@ class BoardInterface(BaseModel):
         prompt = f'When was the task {action.past_tense()}? [not bold]\[now][/] '
         prompter = Prompter(prompt, _parse_date, validate=None, default=get_current_time)
         dt = prompter.loop_prompt(use_prompt_suffix=False, show_default=False)
-        task = task.apply_status_action(action, dt=dt, first_dt=first_dt)
-        self.board.tasks[id_] = task
+        self.board.apply_status_action(id_, action, dt=dt, first_dt=first_dt)
         self.save_board()
         print(f'Changed task {name_style(task.name)} [not bold]\[{task_id_style(id_)}][/] to {status_style(task.status)} state')
 
@@ -505,9 +510,15 @@ class BoardInterface(BaseModel):
     def new_task(self) -> None:
         """Createas a new task."""
         assert self.board is not None
+        def _parse_name(name: str) -> str:
+            # catch duplicate task name early
+            if name in {t.name for t in self.board.tasks.values() if (t.completed_time is None)}:  # type: ignore[union-attr]
+                raise DuplicateTaskNameError(f'Duplicate task name {name!r}')
+            return name
         params: dict[str, dict[str, Any]] = {
             'name': {
-                'prompt': 'Task name'
+                'prompt': 'Task name',
+                'parse': _parse_name
             },
             'description': {
                 'parse': empty_is_none
