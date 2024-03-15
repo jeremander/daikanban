@@ -1,7 +1,8 @@
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 import itertools
-from typing import Annotated, Any, ClassVar, Counter, Iterator, Literal, Optional, TypeVar, cast
+import operator
+from typing import Annotated, Any, Callable, ClassVar, Counter, Iterator, Literal, Optional, TypeVar, cast
 
 import pendulum
 from pydantic import AfterValidator, AnyUrl, BaseModel, BeforeValidator, Field, PlainSerializer, computed_field, model_validator
@@ -56,6 +57,10 @@ Duration: TypeAlias = Annotated[
     Field(description='duration (days)', ge=0.0)
 ]
 Score: TypeAlias = Annotated[float, Field(description='a score (positive number)', ge=0.0)]
+
+# function which matches a queried name against an existing name
+NameMatcher: TypeAlias = Callable[[str, str], bool]
+exact_match: NameMatcher = operator.eq
 
 
 ##################
@@ -528,6 +533,10 @@ class Board(Model):
         """Gets a project with the given ID."""
         return self.projects[project_id]
 
+    def get_project_id_by_name(self, name: str, matcher: NameMatcher = exact_match) -> Optional[Id]:
+        """Gets the ID of the project with the given name, if it matches; otherwise, None."""
+        return next((id_ for (id_, p) in self.projects.items() if matcher(name, p.name)), None)
+
     def update_project(self, project_id: Id, **kwargs: Any) -> None:
         """Updates a project with the given keyword arguments."""
         proj = self.get_project(project_id)
@@ -555,6 +564,23 @@ class Board(Model):
     def get_task(self, task_id: Id) -> Task:
         """Gets a task with the given ID."""
         return self.tasks[task_id]
+
+    def get_task_id_by_name(self, name: str, matcher: NameMatcher = exact_match) -> Optional[Id]:
+        """Gets the ID of the task with the given name, if it matches; otherwise, None.
+        There may be multiple tasks with the same name, but at most one can be incomplete.
+        Behavior is as follows:
+            - If there is an incomplete task, chooses this one
+            - If there is a single complete task, chooses this one
+            - Otherwise, raises DuplicateTaskNameError"""
+        try:
+            return next(id_ for (id_, t) in self.tasks.items() if (t.completed_time is None) and matcher(name, t.name))
+        except StopIteration:
+            ids = [id_ for (id_, t) in self.tasks.items() if (t.completed_time is not None) and matcher(name, t.name)]
+            if len(ids) == 0:
+                return None
+            if len(ids) == 1:
+                return ids[0]
+            raise DuplicateTaskNameError(f'Multiple completed tasks match name {name!r}') from None
 
     def update_task(self, task_id: Id, **kwargs: Any) -> None:
         """Updates a task with the given keyword arguments."""

@@ -251,6 +251,11 @@ class BoardInterface(BaseModel):
         description='board settings'
     )
 
+    @staticmethod
+    def match_name(name1: str, name2: str) -> bool:
+        """Matches a queried name against a stored name, case-insensitively."""
+        return name1.strip().lower() == name2.lower()
+
     def _parse_id_or_name(self, item_type: str, s: str) -> Optional[Id]:
         assert self.board is not None
         s = s.strip()
@@ -258,13 +263,12 @@ class BoardInterface(BaseModel):
             return None
         d = getattr(self.board, f'{item_type}s')
         if s.isdigit():
-            id_ = int(s)
-            if (id_ in d):
+            if (id_ := int(s)) in d:
                 return id_
             raise UserInputError(f'Invalid {item_type} ID: {s!r}')
-        for (id_, proj) in d.items():
-            if (proj.name.lower() == s.lower()):
-                return id_
+        method = getattr(self.board, f'get_{item_type}_id_by_name')
+        if ((id_ := method(s, self.match_name)) is not None):
+            return id_
         raise UserInputError(f'Invalid {item_type} name {s!r}')
 
     def _parse_project(self, id_or_name: str) -> Optional[Id]:

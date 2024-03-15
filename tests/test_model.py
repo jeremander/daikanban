@@ -225,3 +225,33 @@ class TestBoard:
             board.apply_status_action(0, TaskStatusAction.resume)
         board.delete_task(1)
         board.apply_status_action(0, TaskStatusAction.resume)
+
+    def test_name_matching(self):
+        always_match = lambda s1, s2: True
+        board = Board(name='myboard')
+        assert board.get_project_id_by_name('abc') is None
+        assert board.get_project_id_by_name('abc', always_match) is None
+        board.create_project(Project(name='proj0'))
+        assert board.get_project_id_by_name('abc') is None
+        assert board.get_project_id_by_name('proj0') == 0
+        assert board.get_project_id_by_name('abc', always_match) == 0
+        assert board.get_project_id_by_name('   proj0', lambda s1, s2: s1.strip() == s2) == 0
+        assert board.get_project_id_by_name('PROJ0', lambda s1, s2: s1.lower() == s2) == 0
+        assert board.get_task_id_by_name('abc') is None
+        assert board.get_task_id_by_name('abc', always_match) is None
+        board.create_task(Task(name='task0'))
+        # single active task
+        assert board.get_task_id_by_name('abc') is None
+        assert board.get_task_id_by_name('task0') == 0
+        assert board.get_task_id_by_name('abc', always_match) == 0
+        assert board.get_task_id_by_name('TASK0', lambda s1, s2: s1.lower() == s2) == 0
+        # completed task with duplicate name
+        board.apply_status_action(0, TaskStatusAction.complete)
+        assert board.get_task_id_by_name('task0') == 0  # completed task the only one
+        assert board.create_task(Task(name='task0')) == 1
+        assert board.get_task_id_by_name('task0') == 1  # active task chosen, of the two
+        board.apply_status_action(1, TaskStatusAction.complete)
+        with pytest.raises(DuplicateTaskNameError, match='Multiple completed tasks'):
+            _ = board.get_task_id_by_name('task0')
+        assert board.create_task(Task(name='task0')) == 2
+        assert board.get_task_id_by_name('task0') == 2  # active task chosen, of the three
