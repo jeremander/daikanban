@@ -21,7 +21,7 @@ from rich.table import Table
 from daikanban.model import Board, DuplicateProjectNameError, DuplicateTaskNameError, Id, KanbanError, Model, Project, Task, TaskStatus, TaskStatusAction, pretty_value
 from daikanban.prompt import FieldPrompter, Prompter, model_from_prompt, simple_input
 from daikanban.settings import BoardSettings
-from daikanban.utils import DATE_FORMAT, TIME_FORMAT, StrEnum, UserInputError, err_style, get_current_time, handle_error, parse_date, parse_duration, prefix_match, style_str, to_snake_case
+from daikanban.utils import DATE_FORMAT, TIME_FORMAT, StrEnum, UserInputError, err_style, fuzzy_match_names, get_current_time, handle_error, parse_date, parse_duration, prefix_match, style_str, to_snake_case
 
 
 M = TypeVar('M', bound=BaseModel)
@@ -252,11 +252,6 @@ class BoardInterface(BaseModel):
         description='board settings'
     )
 
-    @staticmethod
-    def match_name(name1: str, name2: str) -> bool:
-        """Matches a queried name against a stored name, case-insensitively."""
-        return name1.strip().lower() == name2.lower()
-
     def _parse_id_or_name(self, item_type: str, s: str) -> Optional[Id]:
         assert self.board is not None
         s = s.strip()
@@ -268,7 +263,7 @@ class BoardInterface(BaseModel):
                 return id_
             raise UserInputError(f'Invalid {item_type} ID: {s!r}')
         method = getattr(self.board, f'get_{item_type}_id_by_name')
-        if ((id_ := method(s, self.match_name)) is not None):
+        if ((id_ := method(s, fuzzy_match_names)) is not None):
             return id_
         raise UserInputError(f'Invalid {item_type} name {s!r}')
 

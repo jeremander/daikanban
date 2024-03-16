@@ -54,6 +54,13 @@ def convert_number_words_to_digits(s: str) -> str:
     pattern = re.compile(r'\b(' + '|'.join(words_to_numbers.keys()) + r')\b')
     return re.sub(pattern, lambda x: words_to_numbers[x.group()], s)
 
+def fuzzy_match_names(name1: str, name2: str) -> bool:
+    """Matches a queried name against a stored name, case-insensitively.
+    This allows the first string to be a prefix of the second, if it is at least three characters long."""
+    s1 = name1.strip().lower()
+    s2 = name2.strip().lower()
+    return (s1 == s2) or ((len(s1) >= 3) and s2.startswith(s1))
+
 
 ############
 # DATETIME #

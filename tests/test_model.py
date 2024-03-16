@@ -5,7 +5,7 @@ from pydantic_core import Url
 import pytest
 
 from daikanban.model import AmbiguousProjectNameError, AmbiguousTaskNameError, Board, DuplicateProjectNameError, DuplicateTaskNameError, Project, ProjectNotFoundError, Task, TaskNotFoundError, TaskStatus, TaskStatusAction, TaskStatusError
-from daikanban.utils import TIME_FORMAT, get_current_time
+from daikanban.utils import TIME_FORMAT, fuzzy_match_names, get_current_time
 
 
 class TestProject:
@@ -275,16 +275,27 @@ class TestBoard:
         assert board.get_project_id_by_name('abc', always_match) == 0
         assert board.get_project_id_by_name('   proj0', lambda s1, s2: s1.strip() == s2) == 0
         assert board.get_project_id_by_name('PROJ0', case_insensitive) == 0
+        assert board.get_project_id_by_name('proj', case_insensitive) is None
+        assert board.get_project_id_by_name('proj', fuzzy_match_names) == 0
+        assert board.get_project_id_by_name('PrO', fuzzy_match_names) == 0
+        assert board.get_project_id_by_name('pr', fuzzy_match_names) is None
         # multiple projects match case-insensitively
         assert board.create_project(Project(name='PROJ0')) == 1
         assert board.get_project_id_by_name('proj0') == 0
         assert board.get_project_id_by_name('PROJ0') == 1
         assert board.get_project_id_by_name('proj0', case_insensitive) == 0
         assert board.get_project_id_by_name('PROJ0', case_insensitive) == 1
+        assert board.get_project_id_by_name('proj0', fuzzy_match_names) == 0
+        assert board.get_project_id_by_name('PROJ0', fuzzy_match_names) == 1
         assert board.get_project_id_by_name('proj0', always_match) == 0
         assert board.get_project_id_by_name('Proj0') is None
         with pytest.raises(AmbiguousProjectNameError, match='Ambiguous project name'):
             _ = board.get_project_id_by_name('Proj0', case_insensitive)
+        with pytest.raises(AmbiguousProjectNameError, match='Ambiguous project name'):
+            _ = board.get_project_id_by_name('Pro', fuzzy_match_names)
+        with pytest.raises(AmbiguousProjectNameError, match='Ambiguous project name'):
+            # this fails because case matching prefix is not given priority over case insensitive prefix
+            _ = board.get_project_id_by_name('pro', fuzzy_match_names)
         # TASK NAMES
         assert board.get_task_id_by_name('abc') is None
         assert board.get_task_id_by_name('abc', always_match) is None
@@ -294,6 +305,7 @@ class TestBoard:
         assert board.get_task_id_by_name('task0') == 0
         assert board.get_task_id_by_name('abc', always_match) == 0
         assert board.get_task_id_by_name('TASK0', case_insensitive) == 0
+        assert board.get_task_id_by_name('TAS', fuzzy_match_names) == 0
         # completed task with duplicate name
         task = board.apply_status_action(0, TaskStatusAction.complete)
         assert task.status == TaskStatus.complete
