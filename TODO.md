@@ -3,7 +3,6 @@
 ## `v0.1.0`
 
 - Small QoL improvements
-  - Catch Ctrl-C within sequential prompts to go back to main loop
   - Set widths for each help menu separately
   - Accept now/today/tomorrow/yesterday as valid dates, also month/year durations
   - Relax URL parsing to infer scheme if missing (default https?)

@@ -484,13 +484,12 @@ class BoardInterface(BaseModel):
         #   todo -> active -> complete
         #   todo -> active -> paused
         #   paused -> active -> complete
-        status = task.status
         intermediate_action_map = {
             (TaskStatus.todo, TaskStatusAction.complete): TaskStatusAction.start,
             (TaskStatus.todo, TaskStatusAction.pause): TaskStatusAction.start,
             (TaskStatus.paused, TaskStatusAction.complete): TaskStatusAction.resume
         }
-        if (intermediate := intermediate_action_map.get((status, action))):
+        if (intermediate := intermediate_action_map.get((task.status, action))):
             prompt = f'When was the task {intermediate.past_tense()}? [not bold]\[now][/] '
             prompter = Prompter(prompt, _parse_date, validate=None, default=get_current_time)
             first_dt = prompter.loop_prompt(use_prompt_suffix=False, show_default=False)
@@ -500,7 +499,7 @@ class BoardInterface(BaseModel):
         prompt = f'When was the task {action.past_tense()}? [not bold]\[now][/] '
         prompter = Prompter(prompt, _parse_date, validate=None, default=get_current_time)
         dt = prompter.loop_prompt(use_prompt_suffix=False, show_default=False)
-        self.board.apply_status_action(id_, action, dt=dt, first_dt=first_dt)
+        task = self.board.apply_status_action(id_, action, dt=dt, first_dt=first_dt)
         self.save_board()
         print(f'Changed task {name_style(task.name)} [not bold]\[{task_id_style(id_)}][/] to {status_style(task.status)} state')
 
@@ -897,5 +896,5 @@ class BoardInterface(BaseModel):
                 except KanbanError as e:
                     print(err_style(e))
         except KeyboardInterrupt:
-            print('')
+            print()
             self.quit_shell()

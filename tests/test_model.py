@@ -49,7 +49,7 @@ class TestTask:
     def test_schema(self):
         schema = Task.model_json_schema(mode='serialization')
         # FIXME: computed fields should not be required?
-        computed_fields = ['status', 'total_time_worked', 'lead_time', 'is_overdue']
+        computed_fields = ['status', 'lead_time', 'cycle_time', 'total_time_worked', 'is_overdue']
         assert schema['required'] == ['name'] + computed_fields
         for field in computed_fields:
             assert schema['properties'][field]['readOnly'] is True
@@ -233,7 +233,8 @@ class TestBoard:
         with pytest.raises(DuplicateTaskNameError, match='Duplicate task name'):
             board.apply_status_action(0, TaskStatusAction.resume)
         board.delete_task(1)
-        board.apply_status_action(0, TaskStatusAction.resume)
+        task = board.apply_status_action(0, TaskStatusAction.resume)
+        assert task.status == TaskStatus.active
 
     def test_name_matching(self):
         always_match = lambda s1, s2: True
@@ -255,11 +256,13 @@ class TestBoard:
         assert board.get_task_id_by_name('abc', always_match) == 0
         assert board.get_task_id_by_name('TASK0', lambda s1, s2: s1.lower() == s2) == 0
         # completed task with duplicate name
-        board.apply_status_action(0, TaskStatusAction.complete)
+        task = board.apply_status_action(0, TaskStatusAction.complete)
+        assert task.status == TaskStatus.complete
         assert board.get_task_id_by_name('task0') == 0  # completed task the only one
         assert board.create_task(Task(name='task0')) == 1
         assert board.get_task_id_by_name('task0') == 1  # active task chosen, of the two
-        board.apply_status_action(1, TaskStatusAction.complete)
+        task = board.apply_status_action(1, TaskStatusAction.complete)
+        assert task.status == TaskStatus.complete
         with pytest.raises(DuplicateTaskNameError, match='Multiple completed tasks'):
             _ = board.get_task_id_by_name('task0')
         assert board.create_task(Task(name='task0')) == 2
