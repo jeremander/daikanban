@@ -2,10 +2,7 @@
 
 ## `v0.1.0`
 
-- Bugfixes
-  - Deal with Mac terminal backspace issues (if possible; otherwise mark it for later)
 - Small QoL improvements
-  - Remove difficulty & links from task prompt in default settings
   - Catch Ctrl-C within sequential prompts to go back to main loop
   - Set widths for each help menu separately
   - Accept now/today/tomorrow/yesterday as valid dates, also month/year durations
@@ -38,6 +35,7 @@
   - ASCII billboard art is hot garbage
   - For advancing status, currently prompts user for time(s)
     - If just a single time, could take it as an optional final argument?
+- Github Actions for automated code-checking
 - Settings
   - `settings` subcommand of main CLI to interact with settings
     - Also an option within the shell

@@ -554,9 +554,9 @@ class BoardInterface(BaseModel):
                 'parse': parse_string_set
             }
         }
-        prompters: dict[str, FieldPrompter] = {
-            field: FieldPrompter(Task, field, **kwargs) for (field, kwargs) in params.items()
-        }
+        # only prompt for the fields specified in the settings
+        task_fields = set(self.settings.task.new_task_fields)
+        prompters: dict[str, FieldPrompter] = {field: FieldPrompter(Task, field, **kwargs) for (field, kwargs) in params.items() if field in task_fields}
         task = model_from_prompt(Task, prompters)
         id_ = self.board.create_task(task)
         self.save_board()
@@ -727,17 +727,18 @@ class BoardInterface(BaseModel):
         limit: Optional[int] = None
     ) -> None:
         """Displays the board to the screen using the current configurations."""
-        # TODO: take kwargs to filter board contents
         if self.board is None:
             raise BoardNotLoadedError("No board has been loaded.\nRun 'board new' to create a new board or 'board load' to load an existing one.")
         task_filter = self._filter_task_by_project_or_tag(projects=projects, tags=tags)
+        if limit is None:
+            limit = self.settings.limit
         if (limit is not None) and (limit <= 0):
             raise UserInputError('Must select a positive number for task limit')
         (group_by_status, group_colors) = self._status_group_info(statuses)
         # create BaseModel corresponding to a table row summarizing a Task
         # TODO: this class may be customized based on settings
         TaskInfo = simple_task_row_type('id', 'name', 'project', 'score')
-        scorer = self.settings.task_scorer
+        scorer = self.settings.task.scorer
         grouped_task_info: dict[str, list[BaseModel]] = defaultdict(list)
         for (id_, task) in self.board.tasks.items():
             if not task_filter(task):

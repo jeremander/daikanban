@@ -115,6 +115,8 @@ def pretty_value(val: Any) -> str:
         if (get_current_time() - val >= timedelta(days=7)):
             return val.strftime(DATE_FORMAT)
         return pendulum.instance(val).diff_for_humans()
+    if isinstance(val, (list, set)):  # display comma-separated list
+        return ', '.join(map(pretty_value, val))
     return str(val)
 
 
