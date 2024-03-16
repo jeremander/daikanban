@@ -5,7 +5,6 @@
 - Small QoL improvements
   - Accept now/today/tomorrow/yesterday as valid dates, also month/year durations
   - Accept "work days," "work weeks," etc. as durations
-  - Relax URL parsing to infer scheme if missing (default https?)
   - Fuzzy matching of names in prompts, and as filter keys
 - Create a `README` and `CHANGELOG`
 - Upload to PyPI
@@ -13,6 +12,8 @@
 ## Future
 
 - Github Actions for automated code-checking
+- Error handling
+  - Debug mode: env variable to drop into pdb on unhandled exception
 - Shell features
   - Filtering
     - `task show` list view should also allow filtering by status/project/tag, and limit number
@@ -103,6 +104,7 @@
   - Export pretty output
     - markdown checklist/table
     - HTML static site (maybe unecessary if web app covers it)
+- Backup/restore
 - Web app
   - `web` subcommand of main CLI
   - `streamlit`? `fastui`?

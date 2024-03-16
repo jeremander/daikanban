@@ -1,10 +1,36 @@
 from datetime import datetime, timedelta
 
 from pydantic import ValidationError
+from pydantic_core import Url
 import pytest
 
 from daikanban.model import Board, DuplicateProjectNameError, DuplicateTaskNameError, Project, ProjectNotFoundError, Task, TaskNotFoundError, TaskStatus, TaskStatusAction, TaskStatusError
 from daikanban.utils import TIME_FORMAT, get_current_time
+
+
+class TestProject:
+
+    def test_links(self):
+        proj = Project(name='proj')
+        assert proj.links is None
+        with pytest.raises(ValidationError, match='Input should be a valid set'):
+            proj = Project(name='proj', links='')
+        proj = Project(name='proj', links=set())
+        assert proj.links == set()
+        with pytest.raises(ValidationError, match='Invalid URL'):
+            proj = Project(name='proj', links={''})
+        with pytest.raises(ValidationError, match='Invalid URL'):
+            proj = Project(name='proj', links={'example'})
+        proj = Project(name='proj', links={'example.com'})
+        assert proj.links == {Url('https://example.com/')}
+        proj = Project(name='proj', links={'www.example.com'})
+        assert proj.links == {Url('https://www.example.com/')}
+        proj = Project(name='proj', links={'http://example.com'})
+        assert proj.links == {Url('http://example.com/')}
+        proj = Project(name='proj', links={'fake://example.com'})
+        assert proj.links == {Url('fake://example.com')}
+        proj = Project(name='proj', links={'scheme://netloc/path;parameters?query#fragment'})
+        assert proj.links == {Url('scheme://netloc/path;parameters?query#fragment')}
 
 
 class TestTask:

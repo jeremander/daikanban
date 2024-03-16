@@ -14,6 +14,7 @@ import pendulum
 import pendulum.parsing
 from pydantic import BaseModel, Field, ValidationError, create_model
 from rich import print
+from rich.markup import escape
 from rich.prompt import Confirm
 from rich.table import Table
 
@@ -656,7 +657,8 @@ class BoardInterface(BaseModel):
             with open(board_path) as f:
                 self.board = Board(**json.load(f))
         except (json.JSONDecodeError, OSError, ValidationError) as e:
-            msg = f'ERROR loading JSON {path_style(board_path)}: {e}'
+            e_str = escape(str(e)) if isinstance(e, ValidationError) else str(e)
+            msg = f'ERROR loading JSON {path_style(board_path)}: {e_str}'
             raise BoardFileError(msg) from None
         self.board_path = Path(board_path)
         print(f'Loaded board from {path_style(self.board_path)}')

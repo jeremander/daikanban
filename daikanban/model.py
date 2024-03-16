@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 import itertools
 import operator
 from typing import Annotated, Any, Callable, ClassVar, Counter, Iterator, Literal, Optional, TypeVar, cast
+from urllib.parse import urlparse
 
 import pendulum
 from pydantic import AfterValidator, AnyUrl, BaseModel, BeforeValidator, Field, PlainSerializer, computed_field, model_validator
@@ -25,8 +26,15 @@ Id: TypeAlias = Annotated[int, Field(ge=0)]
 
 def _check_name(name: str) -> str:
     if not any(c.isalpha() for c in name):
-        raise ValueError('name must have at least one letter')
+        raise ValueError('Name must have at least one letter')
     return name
+
+def _check_url(url: str) -> str:
+    parsed = urlparse(url)
+    if (parsed.scheme in ['', 'http', 'https']) and ('.' not in parsed.netloc) and ('.' not in parsed.path):
+        raise ValueError('Invalid URL')
+    # if scheme is absent, assume https
+    return url if parsed.scheme else f'https://{url}'
 
 def _parse_date(obj: str | datetime) -> datetime:
     if isinstance(obj, str):
@@ -46,16 +54,21 @@ def _parse_duration(obj: str | float) -> Optional[float]:
 
 
 Name: TypeAlias = Annotated[str, AfterValidator(_check_name)]
+
+Url: TypeAlias = Annotated[AnyUrl, BeforeValidator(_check_url)]
+
 Datetime: TypeAlias = Annotated[
     datetime,
     BeforeValidator(_parse_date),
     PlainSerializer(lambda dt: dt.strftime(TIME_FORMAT), return_type=str)
 ]
+
 Duration: TypeAlias = Annotated[
     float,
     BeforeValidator(_parse_duration),
     Field(description='duration (days)', ge=0.0)
 ]
+
 Score: TypeAlias = Annotated[float, Field(description='a score (positive number)', ge=0.0)]
 
 # function which matches a queried name against an existing name
@@ -199,7 +212,7 @@ class Project(Model):
         default_factory=get_current_time,
         description='Time the project was created'
     )
-    links: Optional[set[AnyUrl]] = Field(
+    links: Optional[set[Url]] = Field(
         default=None,
         description='Links associated with the project'
     )
@@ -254,7 +267,7 @@ class Task(Model):
         default=None,
         description='Tags associated with the task'
     )
-    links: Optional[set[AnyUrl]] = Field(
+    links: Optional[set[Url]] = Field(
         default=None,
         description='Links associated with the project'
     )
