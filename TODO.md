@@ -3,8 +3,8 @@
 ## `v0.1.0`
 
 - Small QoL improvements
-  - Set widths for each help menu separately
   - Accept now/today/tomorrow/yesterday as valid dates, also month/year durations
+  - Accept "work days," "work weeks," etc. as durations
   - Relax URL parsing to infer scheme if missing (default https?)
   - Fuzzy matching of names in prompts, and as filter keys
 - Create a `README` and `CHANGELOG`

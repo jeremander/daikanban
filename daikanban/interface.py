@@ -297,7 +297,7 @@ class BoardInterface(BaseModel):
 
     def make_new_help_table(self) -> Table:
         """Creates a new 3-column rich table for displaying help menus."""
-        grid = Table.grid(expand=True)
+        grid = Table.grid(padding=(0, 2))
         grid.add_column(style='bold')
         grid.add_column(style='bold')
         grid.add_column()
