@@ -433,7 +433,11 @@ class BoardInterface(BaseModel):
             }
         }
         prompters: dict[str, FieldPrompter] = {field: FieldPrompter(Project, field, **kwargs) for (field, kwargs) in params.items()}
-        proj = model_from_prompt(Project, prompters)
+        try:
+            proj = model_from_prompt(Project, prompters)
+        except KeyboardInterrupt:  # go back to main REPL
+            print()
+            return
         id_ = self.board.create_project(proj)
         self.save_board()
         print(f'Created new project {name_style(proj.name)} with ID {proj_id_style(id_)}')
@@ -512,7 +516,7 @@ class BoardInterface(BaseModel):
 
     @require_board
     def new_task(self) -> None:
-        """Createas a new task."""
+        """Creates a new task."""
         assert self.board is not None
         def _parse_name(name: str) -> str:
             # catch duplicate task name early
@@ -557,7 +561,11 @@ class BoardInterface(BaseModel):
         # only prompt for the fields specified in the settings
         task_fields = set(self.settings.task.new_task_fields)
         prompters: dict[str, FieldPrompter] = {field: FieldPrompter(Task, field, **kwargs) for (field, kwargs) in params.items() if field in task_fields}
-        task = model_from_prompt(Task, prompters)
+        try:
+            task = model_from_prompt(Task, prompters)
+        except KeyboardInterrupt:  # go back to main REPL
+            print()
+            return
         id_ = self.board.create_task(task)
         self.save_board()
         print(f'Created new task {name_style(task.name)} with ID {task_id_style(id_)}')

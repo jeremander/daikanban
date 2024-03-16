@@ -13,6 +13,7 @@
 
 ## Future
 
+- Github Actions for automated code-checking
 - Shell features
   - Filtering
     - `task show` list view should also allow filtering by status/project/tag, and limit number
@@ -35,7 +36,6 @@
   - ASCII billboard art is hot garbage
   - For advancing status, currently prompts user for time(s)
     - If just a single time, could take it as an optional final argument?
-- Github Actions for automated code-checking
 - Settings
   - `settings` subcommand of main CLI to interact with settings
     - Also an option within the shell
