@@ -4,7 +4,7 @@ from pydantic import ValidationError
 from pydantic_core import Url
 import pytest
 
-from daikanban.model import Board, DuplicateProjectNameError, DuplicateTaskNameError, Project, ProjectNotFoundError, Task, TaskNotFoundError, TaskStatus, TaskStatusAction, TaskStatusError
+from daikanban.model import AmbiguousProjectNameError, AmbiguousTaskNameError, Board, DuplicateProjectNameError, DuplicateTaskNameError, Project, ProjectNotFoundError, Task, TaskNotFoundError, TaskStatus, TaskStatusAction, TaskStatusError
 from daikanban.utils import TIME_FORMAT, get_current_time
 
 
@@ -264,7 +264,9 @@ class TestBoard:
 
     def test_name_matching(self):
         always_match = lambda s1, s2: True
+        case_insensitive = lambda s1, s2: s1.lower() == s2.lower()
         board = Board(name='myboard')
+        # PROJECT NAMES
         assert board.get_project_id_by_name('abc') is None
         assert board.get_project_id_by_name('abc', always_match) is None
         board.create_project(Project(name='proj0'))
@@ -272,7 +274,18 @@ class TestBoard:
         assert board.get_project_id_by_name('proj0') == 0
         assert board.get_project_id_by_name('abc', always_match) == 0
         assert board.get_project_id_by_name('   proj0', lambda s1, s2: s1.strip() == s2) == 0
-        assert board.get_project_id_by_name('PROJ0', lambda s1, s2: s1.lower() == s2) == 0
+        assert board.get_project_id_by_name('PROJ0', case_insensitive) == 0
+        # multiple projects match case-insensitively
+        assert board.create_project(Project(name='PROJ0')) == 1
+        assert board.get_project_id_by_name('proj0') == 0
+        assert board.get_project_id_by_name('PROJ0') == 1
+        assert board.get_project_id_by_name('proj0', case_insensitive) == 0
+        assert board.get_project_id_by_name('PROJ0', case_insensitive) == 1
+        assert board.get_project_id_by_name('proj0', always_match) == 0
+        assert board.get_project_id_by_name('Proj0') is None
+        with pytest.raises(AmbiguousProjectNameError, match='Ambiguous project name'):
+            _ = board.get_project_id_by_name('Proj0', case_insensitive)
+        # TASK NAMES
         assert board.get_task_id_by_name('abc') is None
         assert board.get_task_id_by_name('abc', always_match) is None
         board.create_task(Task(name='task0'))
@@ -280,7 +293,7 @@ class TestBoard:
         assert board.get_task_id_by_name('abc') is None
         assert board.get_task_id_by_name('task0') == 0
         assert board.get_task_id_by_name('abc', always_match) == 0
-        assert board.get_task_id_by_name('TASK0', lambda s1, s2: s1.lower() == s2) == 0
+        assert board.get_task_id_by_name('TASK0', case_insensitive) == 0
         # completed task with duplicate name
         task = board.apply_status_action(0, TaskStatusAction.complete)
         assert task.status == TaskStatus.complete
@@ -289,7 +302,20 @@ class TestBoard:
         assert board.get_task_id_by_name('task0') == 1  # active task chosen, of the two
         task = board.apply_status_action(1, TaskStatusAction.complete)
         assert task.status == TaskStatus.complete
-        with pytest.raises(DuplicateTaskNameError, match='Multiple completed tasks'):
+        with pytest.raises(AmbiguousTaskNameError, match='Multiple completed tasks'):
             _ = board.get_task_id_by_name('task0')
         assert board.create_task(Task(name='task0')) == 2
         assert board.get_task_id_by_name('task0') == 2  # active task chosen, of the three
+        # multiple tasks match case-insensitively
+        assert board.create_task(Task(name='TASK0')) == 3
+        assert board.get_task_id_by_name('task0') == 2
+        assert board.get_task_id_by_name('TASK0') == 3
+        assert board.get_task_id_by_name('task0', case_insensitive) == 2
+        assert board.get_task_id_by_name('TASK0', case_insensitive) == 3
+        assert board.get_task_id_by_name('Task0') is None
+        with pytest.raises(AmbiguousTaskNameError, match='Ambiguous task name'):
+            _ = board.get_task_id_by_name('Task0', case_insensitive)
+        assert board.create_task(Task(name='Task0')) == 4
+        board.apply_status_action(4, TaskStatusAction.complete)
+        assert board.get_task_id_by_name('Task0') == 4
+        assert board.get_task_id_by_name('Task0', case_insensitive) == 4

@@ -102,6 +102,12 @@ class DuplicateProjectNameError(KanbanError):
 class DuplicateTaskNameError(KanbanError):
     """Error that occurs when duplicate task names are encountered."""
 
+class AmbiguousProjectNameError(KanbanError):
+    """Error that occurs when a provided project name matches multiple names."""
+
+class AmbiguousTaskNameError(KanbanError):
+    """Error that occurs when provided task name matches multiple names."""
+
 
 @contextmanager
 def catch_key_error(cls: type[Exception]) -> Iterator[None]:
@@ -562,9 +568,21 @@ class Board(Model):
         """Gets a project with the given ID."""
         return self.projects[project_id]
 
+    @staticmethod
+    def _filter_id_matches(pairs: list[tuple[Id, bool]]) -> list[Id]:
+        if any(exact for (_, exact) in pairs):
+            return [id_ for (id_, exact) in pairs if exact]
+        return [id_ for (id_, _) in pairs]
+
     def get_project_id_by_name(self, name: str, matcher: NameMatcher = exact_match) -> Optional[Id]:
         """Gets the ID of the project with the given name, if it matches; otherwise, None."""
-        return next((id_ for (id_, p) in self.projects.items() if matcher(name, p.name)), None)
+        pairs = [(id_, name == p.name) for (id_, p) in self.projects.items() if matcher(name, p.name)]
+        ids = self._filter_id_matches(pairs)  # retain only exact matches, if present
+        if ids:
+            if len(ids) > 1:
+                raise AmbiguousProjectNameError(f'Ambiguous project name {name!r}')
+            return ids[0]
+        return None
 
     def update_project(self, project_id: Id, **kwargs: Any) -> None:
         """Updates a project with the given keyword arguments."""
@@ -604,16 +622,29 @@ class Board(Model):
         Behavior is as follows:
             - If there is an incomplete task, chooses this one
             - If there is a single complete task, chooses this one
-            - Otherwise, raises DuplicateTaskNameError"""
-        try:
-            return next(id_ for (id_, t) in self.tasks.items() if (t.completed_time is None) and matcher(name, t.name))
-        except StopIteration:
-            ids = [id_ for (id_, t) in self.tasks.items() if (t.completed_time is not None) and matcher(name, t.name)]
-            if len(ids) == 0:
-                return None
-            if len(ids) == 1:
-                return ids[0]
-            raise DuplicateTaskNameError(f'Multiple completed tasks match name {name!r}') from None
+            - Otherwise, raises AmbiguousTaskNameError"""
+        incomplete_pairs: list[tuple[Id, bool]] = []
+        complete_pairs: list[tuple[Id, bool]] = []
+        for (id_, t) in self.tasks.items():
+            if matcher(name, t.name):
+                pairs = incomplete_pairs if (t.completed_time is None) else complete_pairs
+                pairs.append((id_, name == t.name))
+        incomplete_ids = self._filter_id_matches(incomplete_pairs)
+        complete_ids = self._filter_id_matches(complete_pairs)
+        # prioritize exact matches, and incomplete over complete
+        if any(exact for (_, exact) in incomplete_pairs):
+            return incomplete_ids[0]
+        def _get_id(ids: list[Id], err: str) -> Id:
+            if len(ids) > 1:
+                raise AmbiguousTaskNameError(err)
+            return ids[0]
+        if any(exact for (_, exact) in complete_pairs):
+            return _get_id(complete_ids, f'Multiple completed tasks match name {name!r}')
+        if incomplete_ids:
+            return _get_id(incomplete_ids, f'Ambiguous task name {name!r}')
+        if complete_ids:
+            return _get_id(complete_ids, f'Multiple completed tasks match name {name!r}')
+        return None
 
     def update_task(self, task_id: Id, **kwargs: Any) -> None:
         """Updates a task with the given keyword arguments."""
