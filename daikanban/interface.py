@@ -802,19 +802,22 @@ class BoardInterface(BaseModel):
                 # parse colon-separated arguments
                 d = dict([parse_option_value_pair(tok) for tok in tokens[2:]])
                 kwargs: dict[str, Any] = {}
+                _keys = set()
                 for (singular, plural) in [('status', 'statuses'), ('project', 'projects'), ('tag', 'tags')]:
-                    if singular in d:
-                        kwargs[plural] = split_comma_list(d.pop(singular))
-                    elif plural in d:  # accept singular or plural version
-                        kwargs[plural] = split_comma_list(d.pop(plural))
-                    # TODO: accept prefix or fuzzy match, e.g. "proj" for "project"
-                    if kwargs.get(plural) == []:
-                        raise UserInputError(f'Must provide at least one {singular}')
-                if (option := 'limit') in d:
-                    kwargs[option] = parse_task_limit(d.pop(option))
-                if d:  # reject unknown arguments
-                    invalid_option = next(iter(d))
-                    raise UserInputError(f'Invalid option: {invalid_option}')
+                    for key in d:
+                        key_lower = key.lower()
+                        if prefix_match(key_lower, singular, minlen=3) or prefix_match(key_lower, plural, minlen=3):
+                            values = split_comma_list(d[key])
+                            _keys.add(key)
+                            if not values:
+                                raise UserInputError(f'Must provide at least one {singular}')
+                            kwargs[plural] = values
+                        elif prefix_match(key_lower, 'limit', minlen=3):
+                            kwargs['limit'] = parse_task_limit(d[key])
+                            _keys.add(key)
+                for key in d:
+                    if key not in _keys:  # reject unknown keys
+                        raise UserInputError(f'Invalid option: {key}')
                 return self.show_board(**kwargs)
             if prefix_match(tok1, 'schema', minlen=2):
                 return self.show_schema(Board)

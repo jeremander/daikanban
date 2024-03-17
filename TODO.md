@@ -4,7 +4,6 @@
 
 - Small QoL improvements
   - Accept "work days," "work weeks," etc. as durations
-  - Fuzzy matching for filter keys
 - Setting for case/whitespace-sensitivity in project/task names
   - For now, only use this for preventing duplicates; keep name matching the same
 - Make priority/difficulty optional
