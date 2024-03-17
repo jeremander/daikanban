@@ -1,5 +1,5 @@
 from contextlib import contextmanager
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from enum import Enum
 import re
 import sys
@@ -71,44 +71,6 @@ def get_current_time() -> datetime:
 def get_duration_between(dt1: datetime, dt2: datetime) -> float:
     """Gets the duration (in days) between two datetimes."""
     return (dt2 - dt1).total_seconds() / SECS_PER_DAY
-
-def parse_date(s: str) -> Optional[datetime]:
-    """Parses a string into a datetime.
-    The input string can either specify a datetime directly, or a time duration from the present moment."""
-    err = UserInputError(f'Invalid date {s!r}')
-    s = s.lower().strip()
-    if not s:
-        return None
-    if s.isdigit():
-        raise err
-    now = pendulum.now()
-    # for today/yesterday/tomorrow, just assume midnight
-    if s == 'yesterday':
-        s = now.subtract(days=1).to_date_string()
-    elif s == 'today':
-        s = now.to_date_string()
-    elif s == 'tomorrow':
-        s = now.add(days=1).to_date_string()
-    try:
-        dt: datetime = pendulum.parse(s, strict=False, tz=pendulum.local_timezone())  # type: ignore
-        assert isinstance(dt, datetime)
-        return dt
-    except (AssertionError, pendulum.parsing.ParserError):
-        # parse as a duration from now
-        s = convert_number_words_to_digits(s.strip())
-        is_past = s.endswith(' ago')
-        s = s.removeprefix('in ').removesuffix(' from now').removesuffix(' ago').strip()
-        secs = pytimeparse.parse(s)
-        if secs is not None:
-            td = timedelta(seconds=secs)
-            return get_current_time() + (-td if is_past else td)
-        if (match := re.fullmatch(r'(\d+) months?', s)):
-            months = int(match.groups(0)[0])
-            return now.subtract(months=months) if is_past else now.add(months=months)
-        elif (match := re.fullmatch(r'(\d+) years?', s)):
-            years = int(match.groups(0)[0])
-            return now.subtract(years=years) if is_past else now.add(years=years)
-        raise err from None
 
 def parse_duration(s: str) -> Optional[float]:
     """Parses a string into a time duration (number of days)."""

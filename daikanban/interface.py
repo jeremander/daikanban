@@ -21,7 +21,7 @@ from rich.table import Table
 from daikanban.model import Board, DuplicateProjectNameError, DuplicateTaskNameError, Id, KanbanError, Model, Project, Task, TaskStatus, TaskStatusAction, pretty_value
 from daikanban.prompt import FieldPrompter, Prompter, model_from_prompt, simple_input
 from daikanban.settings import Settings
-from daikanban.utils import StrEnum, UserInputError, err_style, fuzzy_match_names, get_current_time, handle_error, parse_date, parse_duration, prefix_match, style_str, to_snake_case
+from daikanban.utils import StrEnum, UserInputError, err_style, fuzzy_match_names, get_current_time, handle_error, parse_duration, prefix_match, style_str, to_snake_case
 
 
 M = TypeVar('M', bound=BaseModel)
@@ -132,8 +132,10 @@ def parse_string_set(s: str) -> Optional[set[str]]:
 def parse_date_as_string(s: str) -> Optional[str]:
     """Parses a string into a timestamp string.
     The input string can either specify a datetime directly, or a time duration from the present moment."""
-    dt = parse_date(s)
-    return None if (dt is None) else dt.strftime(Settings.global_settings().time.datetime_format)
+    if s is None:
+        return None
+    settings = Settings.global_settings().time
+    return settings.render_datetime(settings.parse_datetime(s))
 
 
 ###################
@@ -473,9 +475,8 @@ class BoardInterface(BaseModel):
         task = self.board.get_task(id_)
         # fail early if the action is invalid for the status
         _ = task.apply_status_action(action)
+        _parse_datetime = Settings.global_settings().time.parse_datetime
         # if valid, prompt the user for when the action took place
-        def _parse_date(s: str) -> datetime:
-            return cast(datetime, parse_date(s))
         # ask for time of intermediate status change, which occurs if:
         #   todo -> active -> complete
         #   todo -> active -> paused
@@ -487,13 +488,13 @@ class BoardInterface(BaseModel):
         }
         if (intermediate := intermediate_action_map.get((task.status, action))):
             prompt = f'When was the task {intermediate.past_tense()}? [not bold]\[now][/] '
-            prompter = Prompter(prompt, _parse_date, validate=None, default=get_current_time)
+            prompter = Prompter(prompt, _parse_datetime, validate=None, default=get_current_time)
             first_dt = prompter.loop_prompt(use_prompt_suffix=False, show_default=False)
         else:
             first_dt = None
         # prompt user for time of latest status change
         prompt = f'When was the task {action.past_tense()}? [not bold]\[now][/] '
-        prompter = Prompter(prompt, _parse_date, validate=None, default=get_current_time)
+        prompter = Prompter(prompt, _parse_datetime, validate=None, default=get_current_time)
         dt = prompter.loop_prompt(use_prompt_suffix=False, show_default=False)
         task = self.board.apply_status_action(id_, action, dt=dt, first_dt=first_dt)
         self.save_board()

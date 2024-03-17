@@ -10,7 +10,7 @@ from pydantic import AfterValidator, AnyUrl, BaseModel, BeforeValidator, Field, 
 from typing_extensions import Self, TypeAlias
 
 from daikanban.settings import Settings, TaskStatus
-from daikanban.utils import KanbanError, StrEnum, get_current_time, get_duration_between, human_readable_duration, parse_date, parse_duration
+from daikanban.utils import KanbanError, StrEnum, get_current_time, get_duration_between, human_readable_duration
 
 
 T = TypeVar('T')
@@ -38,23 +38,13 @@ def _check_url(url: str) -> str:
     return url if parsed.scheme else f'https://{url}'
 
 def _parse_datetime(obj: str | datetime) -> datetime:
-    if isinstance(obj, str):
-        try:  # prefer the standard datetime format
-            return datetime.strptime(obj, Settings.global_settings().time.datetime_format)
-        except ValueError as e:  # attempt to parse string more flexibly
-            try:
-                dt = parse_date(obj)
-                assert dt is not None
-                return dt
-            except Exception:
-                raise e from None
-    return obj
+    return Settings.global_settings().time.parse_datetime(obj) if isinstance(obj, str) else obj
 
 def _render_datetime(dt: datetime) -> str:
-    return dt.strftime(Settings.global_settings().time.datetime_format)
+    return Settings.global_settings().time.render_datetime(dt)
 
 def _parse_duration(obj: str | float) -> Optional[float]:
-    return parse_duration(obj) if isinstance(obj, str) else obj
+    return Settings.global_settings().time.parse_duration(obj) if isinstance(obj, str) else obj
 
 
 Name: TypeAlias = Annotated[str, AfterValidator(_check_name)]

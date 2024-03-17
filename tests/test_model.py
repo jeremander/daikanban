@@ -196,7 +196,7 @@ class TestTask:
             assert isinstance(task.created_time, datetime)
         # invalid timestamps
         for val in ['abcde', '2024', '2024-01--01', '2024-01-01T00:00:00Z-400']:
-            with pytest.raises(ValidationError, match='does not match format'):
+            with pytest.raises(ValidationError, match='Invalid time'):
                 _ = Task(name='task', created_time=val)
 
 
