@@ -45,6 +45,10 @@ def _render_datetime(dt: datetime) -> str:
 def _parse_duration(obj: str | float) -> float:
     return Settings.global_settings().time.parse_duration(obj) if isinstance(obj, str) else obj
 
+def _parse_optional(obj: Any) -> Any:
+    if (obj is None) or (isinstance(obj, str) and (not obj)):
+        return None
+    return obj
 
 Name: TypeAlias = Annotated[str, AfterValidator(_check_name)]
 
@@ -62,7 +66,11 @@ Duration: TypeAlias = Annotated[
     Field(description='duration (days)', ge=0.0)
 ]
 
+OptionalDuration: TypeAlias = Annotated[Optional[Duration], BeforeValidator(_parse_optional)]
+
 Score: TypeAlias = Annotated[float, Field(description='a score (positive number)', ge=0.0)]
+
+OptionalScore: TypeAlias = Annotated[Optional[Score], BeforeValidator(_parse_optional)]
 
 # function which matches a queried name against an existing name
 NameMatcher: TypeAlias = Callable[[str, str], bool]
@@ -191,7 +199,7 @@ class Log(Model):
         default=None,
         description='Textual content of the log'
     )
-    rating: Optional[Score] = Field(
+    rating: OptionalScore = Field(
         default=None,
         description="Rating of the task's current progress"
     )
@@ -206,15 +214,15 @@ class Task(Model):
         default=None,
         description='Task description'
     )
-    priority: Score = Field(
-        default=3.0,
+    priority: OptionalScore = Field(
+        default=None,
         description='Priority of task'
     )
-    expected_difficulty: Score = Field(
-        default=3.0,
+    expected_difficulty: OptionalScore = Field(
+        default=None,
         description='Estimated difficulty of task'
     )
-    expected_duration: Optional[Duration] = Field(
+    expected_duration: OptionalDuration = Field(
         default=None,
         description='Expected number of days to complete task'
     )
@@ -254,7 +262,7 @@ class Task(Model):
         default=None,
         description='Time the task was completed'
     )
-    prior_time_worked: Optional[Duration] = Field(
+    prior_time_worked: OptionalDuration = Field(
         default=None,
         description='Total time (in days) the task was worked on prior to last_started_time'
     )

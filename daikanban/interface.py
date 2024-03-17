@@ -196,8 +196,8 @@ class TaskRow(BaseModel):
     id: str = Field(justify='right')    # type: ignore[call-arg]
     name: str = Field(min_width=15)  # type: ignore[call-arg]
     project: Optional[str]
-    priority: float = Field(title="pri…ty")
-    difficulty: float = Field(title="diff…ty")
+    priority: Optional[float] = Field(title="pri…ty")
+    difficulty: Optional[float] = Field(title="diff…ty")
     duration: Optional[str]
     create: str
     start: Optional[str]
@@ -215,11 +215,11 @@ def simple_task_row_type(*fields: str) -> type[BaseModel]:
         elif field == 'name':
             val = (str, ...)
         elif field == 'project':
-            val = (Optional[str], ...)  # type: ignore
+            val = (Optional[str], ...)  # type: ignore[assignment]
         elif field == 'priority':
-            val = (float, Field(title="pri…ty"))
+            val = (Optional[float], Field(title="pri…ty"))  # type: ignore[assignment]
         elif field == 'difficulty':
-            val = (float, Field(title="diff…ty"))
+            val = (Optional[float], Field(title="diff…ty"))  # type: ignore[assignment]
         elif field == 'score':
             val = (float, Field(justify='right'))  # type: ignore[call-arg]
         # TODO: add more fields
@@ -533,10 +533,12 @@ class BoardInterface(BaseModel):
                 'parse': empty_is_none
             },
             'priority': {
-                'prompt': 'Priority [not bold]\[0-10][/]'
+                'prompt': 'Priority [not bold]\[optional, 0-10][/]',
+                'parse': empty_is_none
             },
             'expected_difficulty': {
-                'prompt': 'Expected difficulty [not bold]\[0-10][/]'
+                'prompt': 'Expected difficulty [not bold]\[optional, 0-10][/]',
+                'parse': empty_is_none
             },
             'expected_duration': {
                 'prompt': 'Expected duration [not bold]\[optional, e.g. "3 days", "2 months"][/]',

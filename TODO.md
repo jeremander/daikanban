@@ -4,8 +4,6 @@
 
 - Setting for case/whitespace-sensitivity in project/task names
   - For now, only use this for preventing duplicates; keep name matching the same
-- Make priority/difficulty optional
-  - TaskScorers either break with None as input or return a default value
 - Create a `README` and `CHANGELOG`
 - Upload to PyPI
 
@@ -14,18 +12,17 @@
 - Age-off for completed tasks to prevent displaying too many in board
   - `archived` status? Like `kanban-python`
   - Or set `limit=none` to view these in `completed` column
-
-## Future
-
+- Consider having a yes/no user prompt before resetting/deleting a task?
 - Github Actions for automated code-checking
 - Error handling
   - Debug mode: env variable to drop into pdb on unhandled exception
+
+## Future
+
 - Shell features
   - Filtering
-    - `task show` list view should also allow filtering by status/project/tag, and limit number
     - Consider boolean complement operator (`~` or `!`), implicitly ANDed with other constraints?
       - This may be too complicated
-    - Consider having a yes/no user prompt before resetting/deleting a task?
   - Simple option for JSON output in `project/task show`
   - `task split`: split up a task into multiple tasks
     - Presumably walks through interactive prompts to populate new descriptions for subtasks

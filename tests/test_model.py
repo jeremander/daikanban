@@ -5,6 +5,7 @@ from pydantic_core import Url
 import pytest
 
 from daikanban.model import AmbiguousProjectNameError, AmbiguousTaskNameError, Board, DuplicateProjectNameError, DuplicateTaskNameError, Project, ProjectNotFoundError, Task, TaskNotFoundError, TaskStatus, TaskStatusAction, TaskStatusError
+from daikanban.score import TASK_SCORERS
 from daikanban.settings import Settings
 from daikanban.utils import fuzzy_match_names, get_current_time
 
@@ -36,6 +37,32 @@ class TestProject:
 
 class TestTask:
 
+    def test_priority(self):
+        assert Task(name='task', priority=1).priority == 1
+        assert Task(name='task', priority=0).priority == 0
+        with pytest.raises(ValidationError, match='Input should be greater than or equal to 0'):
+            _ = Task(name='task', priority=-1)
+        assert Task(name='task', priority='1').priority == 1
+        with pytest.raises(ValidationError, match='Input should be greater than or equal to 0'):
+            _ = Task(name='task', priority='-1')
+        with pytest.raises(ValidationError, match='Input should be a valid number'):
+            _ = Task(name='task', priority='a')
+        assert Task(name='task', priority=None).priority is None
+        assert Task(name='task').priority is None
+        assert Task(name='task', priority='').priority is None
+
+    def test_duration(self):
+        assert Task(name='task', expected_duration=5).expected_duration == 5
+        with pytest.raises(ValidationError, match='Invalid time duration'):
+            _ = Task(name='task', expected_duration='fake duration')
+        with pytest.raises(ValidationError, match='Invalid time duration'):
+            _ = Task(name='task', expected_duration='5')
+        assert Task(name='task', expected_duration='5 days').expected_duration == 5
+        assert Task(name='task', expected_duration='1 week').expected_duration == 7
+        assert Task(name='task').expected_duration is None
+        assert Task(name='task', expected_duration=None).expected_duration is None
+        assert Task(name='task', expected_duration='').expected_duration is None
+
     def test_replace(self):
         now = get_current_time()
         task = Task(name='task', created_time=now)
@@ -46,6 +73,7 @@ class TestTask:
             _ = task._replace(fake='value')
         # types are coerced
         assert isinstance(task._replace(due_date=get_current_time().strftime(Settings.global_settings().time.datetime_format)).due_date, datetime)
+        assert task._replace(priority='').priority is None
 
     def test_valid_name(self):
         _ = Task(name='a')
@@ -162,6 +190,29 @@ class TestTask:
         for val in ['abcde', '2024', '2024-01--01', '2024-01-01T00:00:00Z-400']:
             with pytest.raises(ValidationError, match='Invalid time'):
                 _ = Task(name='task', created_time=val)
+
+    def test_scorers(self):
+        pri = TASK_SCORERS['priority']
+        pri_diff = TASK_SCORERS['priority-difficulty']
+        pri_rate = TASK_SCORERS['priority-rate']
+        # default settings
+        task = Task(name='task')
+        assert task.priority is None
+        assert task.expected_difficulty is None
+        assert task.expected_duration is None
+        assert pri(task) == 1
+        assert pri_diff(task) == 1
+        assert pri_rate(task) == 1 / pri_rate.default_duration
+        # specify priority only
+        task = Task(name='task', priority=100)
+        assert pri(task) == 100
+        assert pri_diff(task) == 100
+        assert pri_rate(task) == 100 / pri_rate.default_duration
+        # specify various fields
+        task = Task(name='task', priority=100, expected_difficulty=5, expected_duration='1 day')
+        assert pri(task) == 100
+        assert pri_diff(task) == 500
+        assert pri_rate(task) == 100
 
 
 class TestBoard:
