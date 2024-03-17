@@ -18,6 +18,7 @@ def test_number_words_to_digits(string, output):
     assert convert_number_words_to_digits(string) == output
 
 
+# (time, is_future)
 VALID_RELATIVE_TIMES = [
     ('now', False),
     ('in 2 days', True),
@@ -27,11 +28,13 @@ VALID_RELATIVE_TIMES = [
     ('five days ago', False),
     ('3 days', True),
     ('3 day', True),
-    # TODO: widen parser's flexibility to cover these cases
-    # ('tomorrow', True),
-    # ('yesterday', False),
-    # ('2 months', True),
-    # ('2 years', True),
+    ('yesterday', False),
+    ('today', False),
+    ('tomorrow', True),
+    ('2 months', True),
+    ('in 2 years', True),
+    ('2 months ago', False),
+    ('2 years ago', False),
 ]
 
 INVALID_RELATIVE_TIMES = [

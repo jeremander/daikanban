@@ -3,9 +3,12 @@
 ## `v0.1.0`
 
 - Small QoL improvements
-  - Accept now/today/tomorrow/yesterday as valid dates, also month/year durations
   - Accept "work days," "work weeks," etc. as durations
-  - Fuzzy matching of names in prompts, and as filter keys
+  - Fuzzy matching for filter keys
+- Setting for case/whitespace-sensitivity in project/task names
+  - For now, only use this for preventing duplicates; keep name matching the same
+- Make priority/difficulty optional
+  - TaskScorers either break with None as input or return a default value
 - Create a `README` and `CHANGELOG`
 - Upload to PyPI
 
