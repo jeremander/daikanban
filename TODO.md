@@ -56,7 +56,9 @@
   - Show dates as timestamps or human-readable relative times
   - Use system default directory for app-specific configs? XDG?
   - Make colors configurable?
-  - Advanced: Set time ranges which will be excluded from duration measurements (e.g. work only counts during work hours)
+  - Accept "work days," "work weeks," etc. as relative times (not just durations)
+    - Would require settings to specify exactly which hours/days are working times
+    - (This may be more effort than it's worth)
 - Allow custom task status labels?
   - todo/active/paused/complete are still the primary ones; extras would presumably be "sub-statuses" of active
   - What should be the name of this field? "status" would conflict with the existing one. Options:

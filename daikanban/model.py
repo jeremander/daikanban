@@ -1,11 +1,10 @@
 from contextlib import contextmanager
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 import itertools
 import operator
 from typing import Annotated, Any, Callable, ClassVar, Counter, Iterator, Literal, Optional, TypeVar, cast
 from urllib.parse import urlparse
 
-import pendulum
 from pydantic import AfterValidator, AnyUrl, BaseModel, BeforeValidator, Field, PlainSerializer, computed_field, model_validator
 from typing_extensions import Self, TypeAlias
 
@@ -43,7 +42,7 @@ def _parse_datetime(obj: str | datetime) -> datetime:
 def _render_datetime(dt: datetime) -> str:
     return Settings.global_settings().time.render_datetime(dt)
 
-def _parse_duration(obj: str | float) -> Optional[float]:
+def _parse_duration(obj: str | float) -> float:
     return Settings.global_settings().time.parse_duration(obj) if isinstance(obj, str) else obj
 
 
@@ -116,25 +115,6 @@ def catch_key_error(cls: type[Exception]) -> Iterator[None]:
 # MODEL #
 #########
 
-def pretty_value(val: Any) -> str:
-    """Gets a pretty representation of a value as a string.
-    The representation will depend on its type."""
-    if val is None:
-        return '-'
-    if isinstance(val, float):
-        return str(int(val)) if (int(val) == val) else f'{val:.3g}'
-    if isinstance(val, datetime):  # human-readable date
-        if (get_current_time() - val >= timedelta(days=7)):
-            return val.strftime(Settings.global_settings().time.date_format)
-        return pendulum.instance(val).diff_for_humans()
-    if isinstance(val, date):
-        tzinfo = get_current_time().tzinfo
-        return pretty_value(datetime(year=val.year, month=val.month, day=val.day, tzinfo=tzinfo))
-    if isinstance(val, (list, set)):  # display comma-separated list
-        return ', '.join(map(pretty_value, val))
-    return str(val)
-
-
 class Model(BaseModel):
     """Base class setting up pydantic configs."""
     class Config:  # noqa: D106
@@ -152,9 +132,10 @@ class Model(BaseModel):
 
     def _pretty_dict(self) -> dict[str, str]:
         """Gets a dict from fields to pretty values (as strings)."""
+        settings = Settings.global_settings()
         return {
-            **{field: pretty_value(val) for (field, val) in dict(self).items() if val is not None},
-            **{field: pretty_value(val) for field in self.model_computed_fields if (val := getattr(self, field)) is not None}
+            **{field: settings.pretty_value(val) for (field, val) in dict(self).items() if val is not None},
+            **{field: settings.pretty_value(val) for field in self.model_computed_fields if (val := getattr(self, field)) is not None}
         }
 
 

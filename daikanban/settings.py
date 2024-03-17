@@ -1,13 +1,13 @@
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 import re
-from typing import Optional
+from typing import Any, Optional
 
 import pendulum
 from pydantic import BaseModel, Field, field_validator
 import pytimeparse
 
 from daikanban.score import TASK_SCORERS, TaskScorer
-from daikanban.utils import StrEnum, UserInputError, convert_number_words_to_digits, get_current_time, parse_duration
+from daikanban.utils import SECS_PER_DAY, StrEnum, UserInputError, convert_number_words_to_digits, get_current_time
 
 
 DEFAULT_DATE_FORMAT = '%m/%d/%y'  # USA-based format
@@ -62,11 +62,15 @@ class TimeSettings(BaseModel):
     )
     hours_per_work_day: float = Field(
         default=DEFAULT_HOURS_PER_WORK_DAY,
-        description='number of hours per work day'
+        description='number of hours per work day',
+        gt=0,
+        le=24
     )
     days_per_work_week: float = Field(
         default=DEFAULT_DAYS_PER_WORK_WEEK,
-        description='number of days per work week'
+        description='number of days per work week',
+        gt=0,
+        le=7
     )
 
     def parse_datetime(self, s: str) -> datetime:  # noqa: C901
@@ -101,22 +105,30 @@ class TimeSettings(BaseModel):
                 if secs is not None:
                     td = timedelta(seconds=secs)
                     return get_current_time() + (-td if is_past else td)
-                # TODO: handle work day/week
+                diff_func = now.subtract if is_past else now.add
                 if (match := re.fullmatch(r'(\d+) months?', s)):
                     months = int(match.groups(0)[0])
-                    return now.subtract(months=months) if is_past else now.add(months=months)
+                    return diff_func(months=months)
                 elif (match := re.fullmatch(r'(\d+) years?', s)):
                     years = int(match.groups(0)[0])
-                    return now.subtract(years=years) if is_past else now.add(years=years)
+                    return diff_func(years=years)
+                # TODO: handle work day/week?
+                # (difficult since calculating relative times requires knowing which hours/days are work times
                 raise err from None
 
     def render_datetime(self, dt: datetime) -> str:
         """Renders a datetime object as a string."""
         return dt.strftime(self.datetime_format)
 
-    def parse_duration(self, s: str) -> Optional[float]:
+    def parse_duration(self, s: str) -> float:
         """Parses a duration from a string."""
-        return parse_duration(s)
+        s = s.strip()
+        if not s:
+            raise UserInputError('Empty duration string') from None
+        secs = pytimeparse.parse(s)
+        if (secs is None):
+            raise UserInputError('Invalid time duration')
+        return secs / SECS_PER_DAY
 
 
 class FileSettings(BaseModel):
@@ -182,6 +194,24 @@ class Settings(BaseModel):
         """Updates the global settings object."""
         global SETTINGS
         SETTINGS = self
+
+    def pretty_value(self, val: Any) -> str:
+        """Gets a pretty representation of a value as a string.
+        The representation will depend on its type and the settings."""
+        if val is None:
+            return '-'
+        if isinstance(val, float):
+            return str(int(val)) if (int(val) == val) else f'{val:.3g}'
+        if isinstance(val, datetime):  # human-readable date
+            if (get_current_time() - val >= timedelta(days=7)):
+                return val.strftime(self.time.date_format)
+            return pendulum.instance(val).diff_for_humans()
+        if isinstance(val, date):
+            tzinfo = get_current_time().tzinfo
+            return self.pretty_value(datetime(year=val.year, month=val.month, day=val.day, tzinfo=tzinfo))
+        if isinstance(val, (list, set)):  # display comma-separated list
+            return ', '.join(map(self.pretty_value, val))
+        return str(val)
 
 
 # global object that may be updated by user's configuration file

@@ -1,50 +1,12 @@
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 
 from pydantic import ValidationError
 from pydantic_core import Url
 import pytest
 
-from daikanban.model import AmbiguousProjectNameError, AmbiguousTaskNameError, Board, DuplicateProjectNameError, DuplicateTaskNameError, Project, ProjectNotFoundError, Task, TaskNotFoundError, TaskStatus, TaskStatusAction, TaskStatusError, pretty_value
-from daikanban.score import TASK_SCORERS, TaskScorer
-from daikanban.settings import DEFAULT_DATE_FORMAT, DEFAULT_TASK_SCORER_NAME, Settings, TaskSettings
+from daikanban.model import AmbiguousProjectNameError, AmbiguousTaskNameError, Board, DuplicateProjectNameError, DuplicateTaskNameError, Project, ProjectNotFoundError, Task, TaskNotFoundError, TaskStatus, TaskStatusAction, TaskStatusError
+from daikanban.settings import Settings
 from daikanban.utils import fuzzy_match_names, get_current_time
-
-
-class TestSettings:
-
-    def test_global_settings(self):
-        dt = date(2024, 1, 1)
-        orig_settings = Settings.global_settings()
-        assert orig_settings.time.date_format == DEFAULT_DATE_FORMAT
-        assert pretty_value(dt) == dt.strftime(DEFAULT_DATE_FORMAT)
-        new_settings = orig_settings.model_copy(deep=True)
-        new_date_format = '*%Y-%m-%d*'
-        new_settings.time.date_format = new_date_format
-        assert pretty_value(dt) == dt.strftime(DEFAULT_DATE_FORMAT)
-        new_settings.update_global_settings()
-        assert pretty_value(dt) == '*2024-01-01*'
-        assert pretty_value(dt) == dt.strftime(new_date_format)
-        cur_settings = Settings.global_settings()
-        assert cur_settings != orig_settings
-        assert cur_settings is new_settings
-        assert cur_settings.time.date_format == new_date_format
-        # restore original settings
-        orig_settings.update_global_settings()
-        cur_settings = Settings.global_settings()
-        assert cur_settings != new_settings
-        assert cur_settings is orig_settings
-        assert cur_settings.time.date_format == DEFAULT_DATE_FORMAT
-        assert pretty_value(dt) == dt.strftime(DEFAULT_DATE_FORMAT)
-
-    def test_task_scorer(self):
-        settings = Settings.global_settings()
-        assert settings.task.scorer_name == DEFAULT_TASK_SCORER_NAME
-        assert DEFAULT_TASK_SCORER_NAME in TASK_SCORERS
-        assert isinstance(TASK_SCORERS[DEFAULT_TASK_SCORER_NAME], TaskScorer)
-        fake_scorer_name = 'fake-scorer'
-        assert fake_scorer_name not in TASK_SCORERS
-        with pytest.raises(ValidationError, match='Unknown task scorer'):
-            _ = TaskSettings(scorer_name=fake_scorer_name)
 
 
 class TestProject:

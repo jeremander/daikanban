@@ -18,10 +18,10 @@ from rich.markup import escape
 from rich.prompt import Confirm
 from rich.table import Table
 
-from daikanban.model import Board, DuplicateProjectNameError, DuplicateTaskNameError, Id, KanbanError, Model, Project, Task, TaskStatus, TaskStatusAction, pretty_value
+from daikanban.model import Board, DuplicateProjectNameError, DuplicateTaskNameError, Id, KanbanError, Model, Project, Task, TaskStatus, TaskStatusAction
 from daikanban.prompt import FieldPrompter, Prompter, model_from_prompt, simple_input
 from daikanban.settings import Settings
-from daikanban.utils import StrEnum, UserInputError, err_style, fuzzy_match_names, get_current_time, handle_error, parse_duration, prefix_match, style_str, to_snake_case
+from daikanban.utils import StrEnum, UserInputError, err_style, fuzzy_match_names, get_current_time, handle_error, prefix_match, style_str, to_snake_case
 
 
 M = TypeVar('M', bound=BaseModel)
@@ -132,10 +132,14 @@ def parse_string_set(s: str) -> Optional[set[str]]:
 def parse_date_as_string(s: str) -> Optional[str]:
     """Parses a string into a timestamp string.
     The input string can either specify a datetime directly, or a time duration from the present moment."""
-    if s is None:
+    if not s.strip():
         return None
     settings = Settings.global_settings().time
     return settings.render_datetime(settings.parse_datetime(s))
+
+def parse_duration(s: str) -> Optional[float]:
+    """Parses a duration string into a number of days."""
+    return Settings.global_settings().time.parse_duration(s) if s.strip() else None
 
 
 ###################
@@ -172,8 +176,9 @@ def make_table(tp: type[M], rows: Iterable[M], **kwargs: Any) -> Table:
             title = info.title or name
             kw = cast(dict, info.json_schema_extra) or {}
             table.add_column(title, **kw)
+    settings = Settings.global_settings()
     for row in rows:
-        vals = [pretty_value(val) for (flag, (_, val)) in zip(flags, row) if flag]
+        vals = [settings.pretty_value(val) for (flag, (_, val)) in zip(flags, row) if flag]
         table.add_row(*vals)
     return table
 

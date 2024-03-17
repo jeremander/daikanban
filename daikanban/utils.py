@@ -6,7 +6,6 @@ import sys
 from typing import Any, Iterator, Optional
 
 import pendulum
-import pytimeparse
 import rich
 
 
@@ -71,15 +70,6 @@ def get_current_time() -> datetime:
 def get_duration_between(dt1: datetime, dt2: datetime) -> float:
     """Gets the duration (in days) between two datetimes."""
     return (dt2 - dt1).total_seconds() / SECS_PER_DAY
-
-def parse_duration(s: str) -> Optional[float]:
-    """Parses a string into a time duration (number of days)."""
-    if not s.strip():
-        return None
-    secs = pytimeparse.parse(s)
-    if (secs is None):
-        raise UserInputError('Invalid time duration')
-    return secs / SECS_PER_DAY
 
 def human_readable_duration(days: float) -> str:
     """Given a duration (in days), converts it to a human-readable string.
