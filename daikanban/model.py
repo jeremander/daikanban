@@ -1,5 +1,5 @@
 from contextlib import contextmanager
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 import itertools
 import operator
 from typing import Annotated, Any, Callable, ClassVar, Counter, Iterator, Literal, Optional, TypeVar, cast
@@ -9,7 +9,8 @@ import pendulum
 from pydantic import AfterValidator, AnyUrl, BaseModel, BeforeValidator, Field, PlainSerializer, computed_field, model_validator
 from typing_extensions import Self, TypeAlias
 
-from daikanban.utils import DATE_FORMAT, TIME_FORMAT, KanbanError, StrEnum, get_current_time, get_duration_between, human_readable_duration, parse_date, parse_duration
+from daikanban.settings import Settings, TaskStatus
+from daikanban.utils import KanbanError, StrEnum, get_current_time, get_duration_between, human_readable_duration, parse_date, parse_duration
 
 
 T = TypeVar('T')
@@ -36,10 +37,10 @@ def _check_url(url: str) -> str:
     # if scheme is absent, assume https
     return url if parsed.scheme else f'https://{url}'
 
-def _parse_date(obj: str | datetime) -> datetime:
+def _parse_datetime(obj: str | datetime) -> datetime:
     if isinstance(obj, str):
         try:  # prefer the standard datetime format
-            return datetime.strptime(obj, TIME_FORMAT)
+            return datetime.strptime(obj, Settings.global_settings().time.datetime_format)
         except ValueError as e:  # attempt to parse string more flexibly
             try:
                 dt = parse_date(obj)
@@ -48,6 +49,9 @@ def _parse_date(obj: str | datetime) -> datetime:
             except Exception:
                 raise e from None
     return obj
+
+def _render_datetime(dt: datetime) -> str:
+    return dt.strftime(Settings.global_settings().time.datetime_format)
 
 def _parse_duration(obj: str | float) -> Optional[float]:
     return parse_duration(obj) if isinstance(obj, str) else obj
@@ -59,8 +63,8 @@ Url: TypeAlias = Annotated[AnyUrl, BeforeValidator(_check_url)]
 
 Datetime: TypeAlias = Annotated[
     datetime,
-    BeforeValidator(_parse_date),
-    PlainSerializer(lambda dt: dt.strftime(TIME_FORMAT), return_type=str)
+    BeforeValidator(_parse_datetime),
+    PlainSerializer(_render_datetime, return_type=str)
 ]
 
 Duration: TypeAlias = Annotated[
@@ -130,10 +134,12 @@ def pretty_value(val: Any) -> str:
     if isinstance(val, float):
         return str(int(val)) if (int(val) == val) else f'{val:.3g}'
     if isinstance(val, datetime):  # human-readable date
-        # TODO: make time format configurable
         if (get_current_time() - val >= timedelta(days=7)):
-            return val.strftime(DATE_FORMAT)
+            return val.strftime(Settings.global_settings().time.date_format)
         return pendulum.instance(val).diff_for_humans()
+    if isinstance(val, date):
+        tzinfo = get_current_time().tzinfo
+        return pretty_value(datetime(year=val.year, month=val.month, day=val.day, tzinfo=tzinfo))
     if isinstance(val, (list, set)):  # display comma-separated list
         return ', '.join(map(pretty_value, val))
     return str(val)
@@ -160,26 +166,6 @@ class Model(BaseModel):
             **{field: pretty_value(val) for (field, val) in dict(self).items() if val is not None},
             **{field: pretty_value(val) for field in self.model_computed_fields if (val := getattr(self, field)) is not None}
         }
-
-
-class TaskStatus(StrEnum):
-    """Possible status a task can have."""
-    todo = 'todo'
-    active = 'active'
-    paused = 'paused'
-    complete = 'complete'
-
-    @property
-    def color(self) -> str:
-        """Gets a rich color to be associated with the status."""
-        if self == TaskStatus.todo:
-            return 'bright_black'
-        if self == TaskStatus.active:
-            return 'bright_red'
-        if self == TaskStatus.paused:
-            return 'orange3'
-        assert self == 'complete'
-        return 'green'
 
 
 class TaskStatusAction(StrEnum):

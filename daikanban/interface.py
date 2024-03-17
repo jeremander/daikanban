@@ -20,8 +20,8 @@ from rich.table import Table
 
 from daikanban.model import Board, DuplicateProjectNameError, DuplicateTaskNameError, Id, KanbanError, Model, Project, Task, TaskStatus, TaskStatusAction, pretty_value
 from daikanban.prompt import FieldPrompter, Prompter, model_from_prompt, simple_input
-from daikanban.settings import BoardSettings
-from daikanban.utils import DATE_FORMAT, TIME_FORMAT, StrEnum, UserInputError, err_style, fuzzy_match_names, get_current_time, handle_error, parse_date, parse_duration, prefix_match, style_str, to_snake_case
+from daikanban.settings import Settings
+from daikanban.utils import StrEnum, UserInputError, err_style, fuzzy_match_names, get_current_time, handle_error, parse_date, parse_duration, prefix_match, style_str, to_snake_case
 
 
 M = TypeVar('M', bound=BaseModel)
@@ -133,7 +133,7 @@ def parse_date_as_string(s: str) -> Optional[str]:
     """Parses a string into a timestamp string.
     The input string can either specify a datetime directly, or a time duration from the present moment."""
     dt = parse_date(s)
-    return None if (dt is None) else dt.strftime(TIME_FORMAT)
+    return None if (dt is None) else dt.strftime(Settings.global_settings().time.datetime_format)
 
 
 ###################
@@ -247,9 +247,9 @@ class BoardInterface(BaseModel):
         default=None,
         description='current DaiKanban board'
     )
-    settings: BoardSettings = Field(
-        default_factory=BoardSettings,
-        description='board settings'
+    settings: Settings = Field(
+        default_factory=Settings,
+        description='global settings'
     )
 
     def _parse_id_or_name(self, item_type: str, s: str) -> Optional[Id]:
@@ -287,7 +287,7 @@ class BoardInterface(BaseModel):
         return id_
 
     def _model_json(self, model: BaseModel) -> str:
-        return model.model_dump_json(indent=self.settings.json_indent, exclude_none=True)
+        return model.model_dump_json(indent=self.settings.file.json_indent, exclude_none=True)
 
     # HELP/INFO
 
@@ -576,7 +576,7 @@ class BoardInterface(BaseModel):
         def _get_proj(task: Task) -> Optional[str]:
             return None if (task.project_id is None) else self._project_str_from_id(task.project_id)
         def _get_date(dt: Optional[datetime]) -> Optional[str]:
-            return None if (dt is None) else dt.strftime(DATE_FORMAT)
+            return None if (dt is None) else dt.strftime(Settings.global_settings().time.date_format)
         duration = None if (task.expected_duration is None) else pendulum.duration(days=task.expected_duration).in_words()
         return TaskRow(
             id=task_id_style(id_, bold=True),
@@ -690,7 +690,7 @@ class BoardInterface(BaseModel):
         """Given an optional list of statuses to include, returns a pair (group_by_status, group_colors).
         The former is a map from task statuses to status groups.
         The latter is a map from status groups to colors."""
-        status_groups = self.settings.status_groups
+        status_groups = self.settings.display.status_groups
         if statuses:
             status_set = set(statuses)
             valid_statuses = {str(status) for status in TaskStatus}
@@ -735,7 +735,7 @@ class BoardInterface(BaseModel):
             raise BoardNotLoadedError("No board has been loaded.\nRun 'board new' to create a new board or 'board load' to load an existing one.")
         task_filter = self._filter_task_by_project_or_tag(projects=projects, tags=tags)
         if limit is None:
-            limit = self.settings.limit
+            limit = self.settings.display.limit
         if (limit is not None) and (limit <= 0):
             raise UserInputError('Must select a positive number for task limit')
         (group_by_status, group_colors) = self._status_group_info(statuses)

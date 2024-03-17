@@ -41,7 +41,8 @@
 - Settings
   - `settings` subcommand of main CLI to interact with settings
     - Also an option within the shell
-  - Global config file?
+  - Global config file
+  - Global config object (updated by config loading) so that, e.g. datetime I/O is customized
   - Which items to include when making new tasks (priority/difficulty/duration can be omitted, with default)
   - Priority/difficulty upper bounds
   - Age-off for completed tasks to prevent displaying too many in board
