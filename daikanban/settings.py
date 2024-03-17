@@ -134,7 +134,7 @@ class TimeSettings(BaseModel):
             return self.hours_per_work_day * work_days / HOURS_PER_DAY
         pat_work_weeks = float_regex + r'\s+work[-\s]*weeks?'
         def from_work_weeks(work_weeks: float) -> float:
-            return self.days_per_work_week * work_weeks
+            return from_work_days(self.days_per_work_week * work_weeks)
         def _repl(func: Callable[[float], float]) -> Callable[[re.Match], str]:
             def _get_day_str(match: re.Match) -> str:
                 val = float(match.groups(0)[0])

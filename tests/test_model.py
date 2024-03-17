@@ -65,7 +65,7 @@ class TestTask:
         task = Task(name='task', expected_duration='1 month')
         assert task.expected_duration == 30
         task = Task(name='task', expected_duration='1 workweek')
-        assert task.expected_duration == 5
+        assert task.expected_duration == 5 * 8 / 24
         with pytest.raises(ValidationError, match='Invalid time duration'):
             _ = Task(name='task', expected_duration='not a time')
         task = Task(name='task', expected_duration='31 days')

@@ -9,6 +9,12 @@
 - Create a `README` and `CHANGELOG`
 - Upload to PyPI
 
+## `v0.2.0`
+
+- Age-off for completed tasks to prevent displaying too many in board
+  - `archived` status? Like `kanban-python`
+  - Or set `limit=none` to view these in `completed` column
+
 ## Future
 
 - Github Actions for automated code-checking
@@ -43,9 +49,6 @@
   - Global config object (updated by config loading) so that, e.g. datetime I/O is customized
   - Which items to include when making new tasks (priority/difficulty/duration can be omitted, with default)
   - Priority/difficulty upper bounds
-  - Age-off for completed tasks to prevent displaying too many in board
-    - `archived` status? Like `kanban-python`
-    - Or set `limit=none` to view these in `completed` column
   - Store board-specific settings in file itself?
     - To avoid circularity, may have to move BoradSettings class into model.py
   - Size limit, set of statuses to show
@@ -57,6 +60,7 @@
   - Accept "work days," "work weeks," etc. as relative times (not just durations)
     - Would require settings to specify exactly which hours/days are working times
     - (This may be more effort than it's worth)
+    - But currently comparisons are kind of wrong: true durations will be in actual time while expected durations may be in *worked* time
 - Allow custom task status labels?
   - todo/active/paused/complete are still the primary ones; extras would presumably be "sub-statuses" of active
   - What should be the name of this field? "status" would conflict with the existing one. Options:
