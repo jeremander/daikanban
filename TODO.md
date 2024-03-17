@@ -19,6 +19,12 @@
 - Github Actions for automated code-checking
 - Error handling
   - Debug mode: env variable to drop into pdb on unhandled exception
+- Settings customization
+  - Use system default directory for app-specific configs? XDG?
+  - Global config file stored in app folder
+  - `settings` subcommand of main CLI to interact with settings
+    - Also an option within the shell
+  - Updates global `Settings` object whenever it is loaded/updated
 
 ## Future
 
@@ -43,19 +49,13 @@
   - For advancing status, currently prompts user for time(s)
     - If just a single time, could take it as an optional final argument?
 - Settings
-  - `settings` subcommand of main CLI to interact with settings
-    - Also an option within the shell
-  - Global config file
-  - Global config object (updated by config loading) so that, e.g. datetime I/O is customized
   - Which items to include when making new tasks (priority/difficulty/duration can be omitted, with default)
-  - Priority/difficulty upper bounds
+  - Priority/difficulty upper bounds?
   - Store board-specific settings in file itself?
-    - To avoid circularity, may have to move BoradSettings class into model.py
+    - Overrides the global settings
   - Size limit, set of statuses to show
   - Float format for things like scores (rounding, precision)
-  - Date format in tables
   - Show dates as timestamps or human-readable relative times
-  - Use system default directory for app-specific configs? XDG?
   - Make colors configurable?
   - Accept "work days," "work weeks," etc. as relative times (not just durations)
     - Would require settings to specify exactly which hours/days are working times
