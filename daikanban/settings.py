@@ -1,13 +1,13 @@
 from datetime import date, datetime, timedelta
 import re
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 import pendulum
 from pydantic import BaseModel, Field, field_validator
 import pytimeparse
 
 from daikanban.score import TASK_SCORERS, TaskScorer
-from daikanban.utils import SECS_PER_DAY, StrEnum, UserInputError, convert_number_words_to_digits, get_current_time
+from daikanban.utils import HOURS_PER_DAY, SECS_PER_DAY, StrEnum, UserInputError, convert_number_words_to_digits, get_current_time
 
 
 DEFAULT_DATE_FORMAT = '%m/%d/%y'  # USA-based format
@@ -106,10 +106,10 @@ class TimeSettings(BaseModel):
                     td = timedelta(seconds=secs)
                     return get_current_time() + (-td if is_past else td)
                 diff_func = now.subtract if is_past else now.add
-                if (match := re.fullmatch(r'(\d+) months?', s)):
+                if (match := re.fullmatch(r'(\d+)\s+months?', s)):
                     months = int(match.groups(0)[0])
                     return diff_func(months=months)
-                elif (match := re.fullmatch(r'(\d+) years?', s)):
+                elif (match := re.fullmatch(r'(\d+)\s+years?', s)):
                     years = int(match.groups(0)[0])
                     return diff_func(years=years)
                 # TODO: handle work day/week?
@@ -120,14 +120,43 @@ class TimeSettings(BaseModel):
         """Renders a datetime object as a string."""
         return dt.strftime(self.datetime_format)
 
+    def _replace_work_durations(self, s: str) -> str:
+        """Replaces units of "years", "months", "workweeks", or "workdays" with days."""
+        float_regex = r'(\d+(\.\d+)?)'
+        pat_years = float_regex + r'\s+years?'
+        def from_years(years: float) -> float:
+            return 365 * years
+        pat_months = float_regex + r'\s+months?'
+        def from_months(months: float) -> float:
+            return 30 * months
+        pat_work_days = float_regex + r'\s+work[-\s]*days?'
+        def from_work_days(work_days: float) -> float:
+            return self.hours_per_work_day * work_days / HOURS_PER_DAY
+        pat_work_weeks = float_regex + r'\s+work[-\s]*weeks?'
+        def from_work_weeks(work_weeks: float) -> float:
+            return self.days_per_work_week * work_weeks
+        def _repl(func: Callable[[float], float]) -> Callable[[re.Match], str]:
+            def _get_day_str(match: re.Match) -> str:
+                val = float(match.groups(0)[0])
+                return f'{func(val)} days'
+            return _get_day_str
+        for (pat, func) in [(pat_years, from_years), (pat_months, from_months), (pat_work_weeks, from_work_weeks), (pat_work_days, from_work_days)]:
+            s = re.sub(pat, _repl(func), s)
+        return s
+
     def parse_duration(self, s: str) -> float:
         """Parses a duration from a string."""
         s = s.strip()
         if not s:
             raise UserInputError('Empty duration string') from None
-        secs = pytimeparse.parse(s)
-        if (secs is None):
-            raise UserInputError('Invalid time duration')
+        s = self._replace_work_durations(convert_number_words_to_digits(s))
+        try:
+            secs = pytimeparse.parse(s)
+            assert secs is not None
+        except (AssertionError, ValueError):
+            raise UserInputError('Invalid time duration') from None
+        if secs < 0:
+            raise UserInputError('Time duration cannot be negative')
         return secs / SECS_PER_DAY
 
 

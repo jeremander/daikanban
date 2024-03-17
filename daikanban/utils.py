@@ -9,7 +9,10 @@ import pendulum
 import rich
 
 
-SECS_PER_DAY = 3600 * 24
+SECS_PER_HOUR = 3600
+HOURS_PER_DAY = 24
+DAYS_PER_WEEK = 7
+SECS_PER_DAY = SECS_PER_HOUR * HOURS_PER_DAY
 
 
 class StrEnum(str, Enum):

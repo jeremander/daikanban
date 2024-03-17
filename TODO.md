@@ -2,8 +2,6 @@
 
 ## `v0.1.0`
 
-- Small QoL improvements
-  - Accept "work days," "work weeks," etc. as durations
 - Setting for case/whitespace-sensitivity in project/task names
   - For now, only use this for preventing duplicates; keep name matching the same
 - Make priority/difficulty optional

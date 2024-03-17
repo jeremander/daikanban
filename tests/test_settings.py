@@ -4,8 +4,30 @@ from pydantic import ValidationError
 import pytest
 
 from daikanban.score import TASK_SCORERS, TaskScorer
-from daikanban.settings import DEFAULT_DATE_FORMAT, DEFAULT_TASK_SCORER_NAME, Settings, TaskSettings
-from daikanban.utils import UserInputError, get_current_time
+from daikanban.settings import DEFAULT_DATE_FORMAT, DEFAULT_TASK_SCORER_NAME, Settings, TaskSettings, TimeSettings
+from daikanban.utils import HOURS_PER_DAY, SECS_PER_DAY, UserInputError, get_current_time
+
+
+MINS_PER_DAY = 60 * HOURS_PER_DAY
+
+
+def test_work_time_bounds():
+    _ = TimeSettings(hours_per_work_day=0.01)
+    _ = TimeSettings(hours_per_work_day=24)
+    with pytest.raises(ValidationError, match='Input should be greater than 0'):
+        _ = TimeSettings(hours_per_work_day=-1)
+    with pytest.raises(ValidationError, match='Input should be greater than 0'):
+        _ = TimeSettings(hours_per_work_day=0)
+    with pytest.raises(ValidationError, match='Input should be less than or equal to 24'):
+        _ = TimeSettings(hours_per_work_day=24.01)
+    _ = TimeSettings(days_per_work_week=0.01)
+    _ = TimeSettings(days_per_work_week=7)
+    with pytest.raises(ValidationError, match='Input should be greater than 0'):
+        _ = TimeSettings(days_per_work_week=-1)
+    with pytest.raises(ValidationError, match='Input should be greater than 0'):
+        _ = TimeSettings(days_per_work_week=0)
+    with pytest.raises(ValidationError, match='Input should be less than or equal to 7'):
+        _ = TimeSettings(days_per_work_week=7.01)
 
 
 # (time, is_future)
@@ -51,6 +73,58 @@ def test_parse_relative_time(string, is_future, valid):
     else:
         assert dt < now
 
+VALID_DURATIONS = [
+    ('1 second', 1 / SECS_PER_DAY),
+    ('1 seconds', 1 / SECS_PER_DAY),
+    ('1 sec', 1 / SECS_PER_DAY),
+    ('1 secs', 1 / SECS_PER_DAY),
+    ('1 minute', 1 / MINS_PER_DAY),
+    ('1 minutes', 1 / MINS_PER_DAY),
+    ('1 min', 1 / MINS_PER_DAY),
+    ('3 days', 3),
+    ('three days', 3),
+    ('0 days', 0),
+    ('1 week', 7),
+    ('1 weeks', 7),
+    ('1 year', 365),
+    ('1 years', 365),
+    ('1 month', 30),
+    ('1 months', 30),
+    ('1 workweek', 5),
+    ('2 work week', 10),
+    ('1 work-weeks', 5),
+    ('1 workday', 8 / 24),
+    ('3 work days', 1),
+    ('1.5 weeks', 10.5),
+    ('10.1 years', 3686.5),
+]
+
+INVALID_DURATIONS = [
+    'invalid duration',
+    '3',
+    '1 seco',
+    '1 minu',
+    '1 hou',
+    '1 wee',
+    'now',
+    'tomorrow',
+    '1 long workday',
+    '-3 days',
+    '1.2.3 days',
+]
+
+@pytest.mark.parametrize(['string', 'days'], VALID_DURATIONS)
+def test_parse_duration_valid(string, days):
+    settings = Settings.global_settings().time
+    dur = settings.parse_duration(string)
+    assert isinstance(dur, float)
+    assert dur == pytest.approx(days)
+
+@pytest.mark.parametrize('string', INVALID_DURATIONS)
+def test_parse_duration_invalid(string):
+    settings = Settings.global_settings().time
+    with pytest.raises(UserInputError, match='Invalid time duration|Time duration cannot be negative'):
+        _ = settings.parse_duration(string)
 
 def test_global_settings():
     dt = date(2024, 1, 1)
