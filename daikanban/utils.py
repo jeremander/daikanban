@@ -1,12 +1,14 @@
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from enum import Enum
+import operator
 import re
 import sys
-from typing import Any, Iterator, Optional
+from typing import Any, Callable, Iterable, Iterator, Optional
 
 import pendulum
 import rich
+from typing_extensions import TypeAlias
 
 
 SECS_PER_HOUR = 3600
@@ -54,12 +56,28 @@ def convert_number_words_to_digits(s: str) -> str:
     pattern = re.compile(r'\b(' + '|'.join(words_to_numbers.keys()) + r')\b')
     return re.sub(pattern, lambda x: words_to_numbers[x.group()], s)
 
-def fuzzy_match_names(name1: str, name2: str) -> bool:
+# function which matches a queried name against an existing name
+NameMatcher: TypeAlias = Callable[[str, str], bool]
+exact_match: NameMatcher = operator.eq
+
+def whitespace_insensitive_match(name1: str, name2: str) -> bool:
+    """Matches two strings, leading/trailing-whitespace-insensitively."""
+    return name1.strip() == name2.strip()
+
+def case_insensitive_match(name1: str, name2: str) -> bool:
+    """Matches two strings, case- and leading/trailing-whitespace-insensitively."""
+    return name1.strip().casefold() == name2.strip().casefold()
+
+def fuzzy_match(name1: str, name2: str) -> bool:
     """Matches a queried name against a stored name, case-insensitively.
     This allows the first string to be a prefix of the second, if it is at least three characters long."""
-    s1 = name1.strip().lower()
-    s2 = name2.strip().lower()
+    s1 = name1.strip().casefold()
+    s2 = name2.strip().casefold()
     return (s1 == s2) or ((len(s1) >= 3) and s2.startswith(s1))
+
+def first_name_match(matcher: NameMatcher, name1: str, names2: Iterable[str]) -> Optional[str]:
+    """Given a NameMatcher, query name, and an iterable of names to compare against, returns the first name that matches (if there is one), otherwise None."""
+    return next((name2 for name2 in names2 if matcher(name1, name2)), None)
 
 
 ############

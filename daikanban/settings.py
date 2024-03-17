@@ -1,13 +1,14 @@
+from contextlib import contextmanager
 from datetime import date, datetime, timedelta
 import re
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Iterator, Optional
 
 import pendulum
 from pydantic import BaseModel, Field, field_validator
 import pytimeparse
 
 from daikanban.score import TASK_SCORERS, TaskScorer
-from daikanban.utils import HOURS_PER_DAY, SECS_PER_DAY, StrEnum, UserInputError, convert_number_words_to_digits, get_current_time
+from daikanban.utils import HOURS_PER_DAY, SECS_PER_DAY, NameMatcher, StrEnum, UserInputError, case_insensitive_match, convert_number_words_to_digits, get_current_time, whitespace_insensitive_match
 
 
 DEFAULT_DATE_FORMAT = '%m/%d/%y'  # USA-based format
@@ -208,6 +209,7 @@ class DisplaySettings(BaseModel):
 
 class Settings(BaseModel):
     """Collection of global settings."""
+    case_sensitive: bool = Field(default=False, description='whether names are case-sensitive')
     time: TimeSettings = Field(default_factory=TimeSettings, description='time settings')
     file: FileSettings = Field(default_factory=FileSettings, description='file settings')
     task: TaskSettings = Field(default_factory=TaskSettings, description='task settings')
@@ -220,9 +222,23 @@ class Settings(BaseModel):
         return SETTINGS
 
     def update_global_settings(self) -> None:
-        """Updates the global settings object."""
+        """Updates the global settings with this object."""
         global SETTINGS
         SETTINGS = self
+
+    @contextmanager
+    def change_global_settings(self) -> Iterator[None]:
+        """Context manager for temporarily updating the global settings with this object."""
+        try:
+            orig_settings = self.global_settings()
+            self.update_global_settings()
+            yield
+        finally:
+            orig_settings.update_global_settings()
+
+    def get_name_matcher(self) -> NameMatcher:
+        """Gets a function which matches names, with case-sensitivity dependent on the settings."""
+        return whitespace_insensitive_match if self.case_sensitive else case_insensitive_match
 
     def pretty_value(self, val: Any) -> str:
         """Gets a pretty representation of a value as a string.

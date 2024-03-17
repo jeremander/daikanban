@@ -18,10 +18,10 @@ from rich.markup import escape
 from rich.prompt import Confirm
 from rich.table import Table
 
-from daikanban.model import Board, DuplicateProjectNameError, DuplicateTaskNameError, Id, KanbanError, Model, Project, Task, TaskStatus, TaskStatusAction
+from daikanban.model import Board, Id, KanbanError, Model, Project, Task, TaskStatus, TaskStatusAction
 from daikanban.prompt import FieldPrompter, Prompter, model_from_prompt, simple_input
 from daikanban.settings import Settings
-from daikanban.utils import StrEnum, UserInputError, err_style, fuzzy_match_names, get_current_time, handle_error, prefix_match, style_str, to_snake_case
+from daikanban.utils import StrEnum, UserInputError, err_style, fuzzy_match, get_current_time, handle_error, prefix_match, style_str, to_snake_case
 
 
 M = TypeVar('M', bound=BaseModel)
@@ -270,7 +270,7 @@ class BoardInterface(BaseModel):
                 return id_
             raise UserInputError(f'Invalid {item_type} ID: {s!r}')
         method = getattr(self.board, f'get_{item_type}_id_by_name')
-        if ((id_ := method(s, fuzzy_match_names)) is not None):
+        if ((id_ := method(s, fuzzy_match)) is not None):
             return id_
         raise UserInputError(f'Invalid {item_type} name {s!r}')
 
@@ -419,8 +419,7 @@ class BoardInterface(BaseModel):
         assert self.board is not None
         def _parse_name(name: str) -> str:
             # catch duplicate project name early
-            if name in {p.name for p in self.board.projects.values()}:  # type: ignore[union-attr]
-                raise DuplicateProjectNameError(f'Duplicate project name {name!r}')
+            self.board._check_duplicate_project_name(name)  # type: ignore[union-attr]
             return name
         params: dict[str, dict[str, Any]] = {
             'name': {
@@ -521,8 +520,7 @@ class BoardInterface(BaseModel):
         assert self.board is not None
         def _parse_name(name: str) -> str:
             # catch duplicate task name early
-            if name in {t.name for t in self.board.tasks.values() if (t.completed_time is None)}:  # type: ignore[union-attr]
-                raise DuplicateTaskNameError(f'Duplicate task name {name!r}')
+            self.board._check_duplicate_task_name(name)  # type: ignore[union-attr]
             return name
         params: dict[str, dict[str, Any]] = {
             'name': {

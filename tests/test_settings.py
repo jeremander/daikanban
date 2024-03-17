@@ -137,15 +137,14 @@ def test_global_settings():
     new_date_format = '*%Y-%m-%d*'
     new_settings.time.date_format = new_date_format
     assert _pretty_value(dt) == dt.strftime(DEFAULT_DATE_FORMAT)
-    new_settings.update_global_settings()
-    assert _pretty_value(dt) == '*2024-01-01*'
-    assert _pretty_value(dt) == dt.strftime(new_date_format)
-    cur_settings = Settings.global_settings()
-    assert cur_settings != orig_settings
-    assert cur_settings is new_settings
-    assert cur_settings.time.date_format == new_date_format
-    # restore original settings
-    orig_settings.update_global_settings()
+    with new_settings.change_global_settings():
+        assert _pretty_value(dt) == '*2024-01-01*'
+        assert _pretty_value(dt) == dt.strftime(new_date_format)
+        cur_settings = Settings.global_settings()
+        assert cur_settings != orig_settings
+        assert cur_settings is new_settings
+        assert cur_settings.time.date_format == new_date_format
+    # original settings are restored
     cur_settings = Settings.global_settings()
     assert cur_settings != new_settings
     assert cur_settings is orig_settings

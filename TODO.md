@@ -2,8 +2,6 @@
 
 ## `v0.1.0`
 
-- Setting for case/whitespace-sensitivity in project/task names
-  - For now, only use this for preventing duplicates; keep name matching the same
 - Create a `README` and `CHANGELOG`
 - Upload to PyPI
 
@@ -13,6 +11,11 @@
   - `archived` status? Like `kanban-python`
   - Or set `limit=none` to view these in `completed` column
 - Consider having a yes/no user prompt before resetting/deleting a task?
+- Use different scorer for completed tasks?
+  - E.g. `priority-rate` would use actual duration rather than expected duration
+  - Could actually be the same `TaskScorer` object, but it chooses a different field if completed
+  - But then it's less flexible (e.g. might want `completed` board to be chronological
+  - Best solution is to allow different scorers, keyed by `TaskStatus`
 - Github Actions for automated code-checking
 - Error handling
   - Debug mode: env variable to drop into pdb on unhandled exception

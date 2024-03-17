@@ -7,7 +7,10 @@ import pytest
 from daikanban.model import AmbiguousProjectNameError, AmbiguousTaskNameError, Board, DuplicateProjectNameError, DuplicateTaskNameError, Project, ProjectNotFoundError, Task, TaskNotFoundError, TaskStatus, TaskStatusAction, TaskStatusError
 from daikanban.score import TASK_SCORERS
 from daikanban.settings import Settings
-from daikanban.utils import fuzzy_match_names, get_current_time
+from daikanban.utils import case_insensitive_match, fuzzy_match, get_current_time
+
+
+always_match = lambda s1, s2: True
 
 
 class TestProject:
@@ -317,71 +320,127 @@ class TestBoard:
         assert task.status == TaskStatus.active
 
     def test_name_matching(self):
-        always_match = lambda s1, s2: True
-        case_insensitive = lambda s1, s2: s1.lower() == s2.lower()
-        board = Board(name='myboard')
-        # PROJECT NAMES
-        assert board.get_project_id_by_name('abc') is None
-        assert board.get_project_id_by_name('abc', always_match) is None
-        board.create_project(Project(name='proj0'))
-        assert board.get_project_id_by_name('abc') is None
-        assert board.get_project_id_by_name('proj0') == 0
-        assert board.get_project_id_by_name('abc', always_match) == 0
-        assert board.get_project_id_by_name('   proj0', lambda s1, s2: s1.strip() == s2) == 0
-        assert board.get_project_id_by_name('PROJ0', case_insensitive) == 0
-        assert board.get_project_id_by_name('proj', case_insensitive) is None
-        assert board.get_project_id_by_name('proj', fuzzy_match_names) == 0
-        assert board.get_project_id_by_name('PrO', fuzzy_match_names) == 0
-        assert board.get_project_id_by_name('pr', fuzzy_match_names) is None
-        # multiple projects match case-insensitively
-        assert board.create_project(Project(name='PROJ0')) == 1
-        assert board.get_project_id_by_name('proj0') == 0
-        assert board.get_project_id_by_name('PROJ0') == 1
-        assert board.get_project_id_by_name('proj0', case_insensitive) == 0
-        assert board.get_project_id_by_name('PROJ0', case_insensitive) == 1
-        assert board.get_project_id_by_name('proj0', fuzzy_match_names) == 0
-        assert board.get_project_id_by_name('PROJ0', fuzzy_match_names) == 1
-        assert board.get_project_id_by_name('proj0', always_match) == 0
-        assert board.get_project_id_by_name('Proj0') is None
-        with pytest.raises(AmbiguousProjectNameError, match='Ambiguous project name'):
-            _ = board.get_project_id_by_name('Proj0', case_insensitive)
-        with pytest.raises(AmbiguousProjectNameError, match='Ambiguous project name'):
-            _ = board.get_project_id_by_name('Pro', fuzzy_match_names)
-        with pytest.raises(AmbiguousProjectNameError, match='Ambiguous project name'):
-            # this fails because case matching prefix is not given priority over case insensitive prefix
-            _ = board.get_project_id_by_name('pro', fuzzy_match_names)
-        # TASK NAMES
-        assert board.get_task_id_by_name('abc') is None
-        assert board.get_task_id_by_name('abc', always_match) is None
-        board.create_task(Task(name='task0'))
-        # single active task
-        assert board.get_task_id_by_name('abc') is None
-        assert board.get_task_id_by_name('task0') == 0
-        assert board.get_task_id_by_name('abc', always_match) == 0
-        assert board.get_task_id_by_name('TASK0', case_insensitive) == 0
-        assert board.get_task_id_by_name('TAS', fuzzy_match_names) == 0
-        # completed task with duplicate name
-        task = board.apply_status_action(0, TaskStatusAction.complete)
-        assert task.status == TaskStatus.complete
-        assert board.get_task_id_by_name('task0') == 0  # completed task the only one
-        assert board.create_task(Task(name='task0')) == 1
-        assert board.get_task_id_by_name('task0') == 1  # active task chosen, of the two
-        task = board.apply_status_action(1, TaskStatusAction.complete)
-        assert task.status == TaskStatus.complete
-        with pytest.raises(AmbiguousTaskNameError, match='Multiple completed tasks'):
-            _ = board.get_task_id_by_name('task0')
-        assert board.create_task(Task(name='task0')) == 2
-        assert board.get_task_id_by_name('task0') == 2  # active task chosen, of the three
-        # multiple tasks match case-insensitively
-        assert board.create_task(Task(name='TASK0')) == 3
-        assert board.get_task_id_by_name('task0') == 2
-        assert board.get_task_id_by_name('TASK0') == 3
-        assert board.get_task_id_by_name('task0', case_insensitive) == 2
-        assert board.get_task_id_by_name('TASK0', case_insensitive) == 3
-        assert board.get_task_id_by_name('Task0') is None
-        with pytest.raises(AmbiguousTaskNameError, match='Ambiguous task name'):
-            _ = board.get_task_id_by_name('Task0', case_insensitive)
-        assert board.create_task(Task(name='Task0')) == 4
-        board.apply_status_action(4, TaskStatusAction.complete)
-        assert board.get_task_id_by_name('Task0') == 4
-        assert board.get_task_id_by_name('Task0', case_insensitive) == 4
+        settings = Settings.global_settings().model_copy(deep=True)
+        settings.case_sensitive = True
+        with settings.change_global_settings():
+            board = Board(name='myboard')
+            # PROJECT NAMES
+            assert board.get_project_id_by_name('abc') is None
+            assert board.get_project_id_by_name('abc', always_match) is None
+            board.create_project(Project(name='proj0'))
+            assert board.get_project_id_by_name('abc') is None
+            assert board.get_project_id_by_name('proj0') == 0
+            assert board.get_project_id_by_name('abc', always_match) == 0
+            assert board.get_project_id_by_name('   proj0', lambda s1, s2: s1.strip() == s2) == 0
+            assert board.get_project_id_by_name('PROJ0', case_insensitive_match) == 0
+            assert board.get_project_id_by_name('proj', case_insensitive_match) is None
+            assert board.get_project_id_by_name('proj', fuzzy_match) == 0
+            assert board.get_project_id_by_name('PrO', fuzzy_match) == 0
+            assert board.get_project_id_by_name('pr', fuzzy_match) is None
+            # multiple projects match case-insensitively
+            assert board.create_project(Project(name='PROJ0')) == 1
+            assert board.get_project_id_by_name('proj0') == 0
+            assert board.get_project_id_by_name('PROJ0') == 1
+            assert board.get_project_id_by_name('proj0', case_insensitive_match) == 0
+            assert board.get_project_id_by_name('PROJ0', case_insensitive_match) == 1
+            assert board.get_project_id_by_name('proj0', fuzzy_match) == 0
+            assert board.get_project_id_by_name('PROJ0', fuzzy_match) == 1
+            assert board.get_project_id_by_name('proj0', always_match) == 0
+            assert board.get_project_id_by_name('Proj0') is None
+            with pytest.raises(AmbiguousProjectNameError, match='Ambiguous project name'):
+                _ = board.get_project_id_by_name('Proj0', case_insensitive_match)
+            with pytest.raises(AmbiguousProjectNameError, match='Ambiguous project name'):
+                _ = board.get_project_id_by_name('Pro', fuzzy_match)
+            with pytest.raises(AmbiguousProjectNameError, match='Ambiguous project name'):
+                # this fails because case matching prefix is not given priority over case insensitive prefix
+                _ = board.get_project_id_by_name('pro', fuzzy_match)
+            # TASK NAMES
+            assert board.get_task_id_by_name('abc') is None
+            assert board.get_task_id_by_name('abc', always_match) is None
+            board.create_task(Task(name='task0'))
+            # single active task
+            assert board.get_task_id_by_name('abc') is None
+            assert board.get_task_id_by_name('task0') == 0
+            assert board.get_task_id_by_name('abc', always_match) == 0
+            assert board.get_task_id_by_name('TASK0', case_insensitive_match) == 0
+            assert board.get_task_id_by_name('TAS', fuzzy_match) == 0
+            # completed task with duplicate name
+            task = board.apply_status_action(0, TaskStatusAction.complete)
+            assert task.status == TaskStatus.complete
+            assert board.get_task_id_by_name('task0') == 0  # completed task the only one
+            assert board.create_task(Task(name='task0')) == 1
+            assert board.get_task_id_by_name('task0') == 1  # active task chosen, of the two
+            task = board.apply_status_action(1, TaskStatusAction.complete)
+            assert task.status == TaskStatus.complete
+            with pytest.raises(AmbiguousTaskNameError, match='Multiple completed tasks'):
+                _ = board.get_task_id_by_name('task0')
+            assert board.create_task(Task(name='task0')) == 2
+            assert board.get_task_id_by_name('task0') == 2  # active task chosen, of the three
+            # multiple tasks match case-insensitively
+            assert board.create_task(Task(name='TASK0')) == 3
+            assert board.get_task_id_by_name('task0') == 2
+            assert board.get_task_id_by_name('TASK0') == 3
+            assert board.get_task_id_by_name('task0', case_insensitive_match) == 2
+            assert board.get_task_id_by_name('TASK0', case_insensitive_match) == 3
+            assert board.get_task_id_by_name('Task0') is None
+            with pytest.raises(AmbiguousTaskNameError, match='Ambiguous task name'):
+                _ = board.get_task_id_by_name('Task0', case_insensitive_match)
+            assert board.create_task(Task(name='Task0')) == 4
+            board.apply_status_action(4, TaskStatusAction.complete)
+            assert board.get_task_id_by_name('Task0') == 4
+            assert board.get_task_id_by_name('Task0', case_insensitive_match) == 4
+
+    @pytest.mark.parametrize('case_sensitive', [True, False])
+    def test_name_duplication(self, case_sensitive):
+        settings = Settings.global_settings().model_copy(deep=True)
+        settings.case_sensitive = case_sensitive
+        with settings.change_global_settings():
+            board = Board(name='myboard')
+            board.create_project(Project(name='proj'))
+            board.update_project(0, name='proj')  # identity is OK
+            board.update_project(0, name='PROJ')
+            board.update_project(0, name='proj')
+            board = Board(name='myboard')
+            board.create_project(Project(name='proj'))
+            board.create_task(Task(name='task'))
+            # always whitespace-insensitive
+            with pytest.raises(DuplicateProjectNameError, match="Duplicate project name 'proj'"):
+                _ = board.create_project(Project(name=' proj'))
+            with pytest.raises(DuplicateTaskNameError, match="Duplicate task name 'task'"):
+                _ = board.create_task(Task(name=' task'))
+            if case_sensitive:
+                id_ = board.create_project(Project(name='PROJ'))
+                assert board.get_project(id_).name == 'PROJ'
+                id_ = board.create_task(Task(name='TASK'))
+                assert board.get_task(id_).name == 'TASK'
+            else:
+                with pytest.raises(DuplicateProjectNameError, match="Duplicate project name 'proj'"):
+                    _ = board.create_project(Project(name='PROJ'))
+                with pytest.raises(DuplicateTaskNameError, match="Duplicate task name 'task'"):
+                    _ = board.create_task(Task(name='TASK'))
+            board.create_project(Project(name='proj1'))
+            board.create_task(Task(name='task1'))
+            board.update_task(0, name='task')
+            # always whitespace-insensitive
+            with pytest.raises(DuplicateProjectNameError, match="Duplicate project name 'proj'"):
+                board.update_project(1, name=' proj')
+            with pytest.raises(DuplicateTaskNameError, match="Duplicate task name 'task'"):
+                board.update_task(1, name=' task')
+            if case_sensitive:
+                board.update_project(1, name='PROJ')
+                assert board.get_project_id_by_name('proj') == 0
+                assert board.get_project_id_by_name('PROJ') == 1
+                assert board.get_project_id_by_name('proj', case_insensitive_match) == 0
+                assert board.get_project_id_by_name('PROJ', case_insensitive_match) == 1
+                with pytest.raises(AmbiguousProjectNameError, match="Ambiguous project name 'Proj'"):
+                    board.get_project_id_by_name('Proj', case_insensitive_match)
+                board.update_task(1, name='TASK')
+                assert board.get_task_id_by_name('task') == 0
+                assert board.get_task_id_by_name('TASK') == 1
+                with pytest.raises(AmbiguousTaskNameError, match="Ambiguous task name 'Task'"):
+                    board.get_task_id_by_name('Task', case_insensitive_match)
+            else:
+                with pytest.raises(DuplicateProjectNameError, match="Duplicate project name 'proj'"):
+                    board.update_project(1, name='PROJ')
+                with pytest.raises(DuplicateTaskNameError, match="Duplicate task name 'task'"):
+                    board.update_task(1, name='TASK')
