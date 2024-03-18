@@ -1,11 +1,12 @@
-<h1>DaiKanban＜br＞大看板</h1>
+# DaiKanban <br/> 大看板
 
 A command-line Kanban board application that helps you prioritize and organize your projects.
 
 ## Screenshot
-(from v0.1.0)
 
-![Screenshot](docs/screenshot_v0_1_0.png)
+![Screenshot](doc/screenshot_v0_1_0.png)
+
+(*screenshot from `v0.1.0`*)
 
 Inspired by prior projects like the excellent [clikan] and [kanban-python], I've made yet another terminal kanban board in Python. My long-term goals with it are:
 
