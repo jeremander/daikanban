@@ -1,6 +1,6 @@
 # DaiKanban <br/> 大看板
 
-A command-line Kanban board application that helps you prioritize and organize your projects.
+A command-line Kanban board that helps you prioritize and organize your projects.
 
 ## Screenshot
 

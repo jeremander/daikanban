@@ -1,10 +1,5 @@
 # TODO list
 
-## `v0.1.0`
-
-- Create a `README` and `CHANGELOG`
-- Upload to PyPI
-
 ## `v0.2.0`
 
 - Age-off for completed tasks to prevent displaying too many in board

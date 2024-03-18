@@ -219,13 +219,13 @@ class Settings(BaseModel):
     @classmethod
     def global_settings(cls) -> 'Settings':
         """Gets the global settings object."""
-        global SETTINGS
-        return SETTINGS
+        global _SETTINGS
+        return _SETTINGS
 
     def update_global_settings(self) -> None:
         """Updates the global settings with this object."""
-        global SETTINGS
-        SETTINGS = self
+        global _SETTINGS
+        _SETTINGS = self
 
     @contextmanager
     def change_global_settings(self) -> Iterator[None]:
@@ -260,5 +260,5 @@ class Settings(BaseModel):
         return str(val)
 
 
-# global object that may be updated by user's configuration file
-SETTINGS = Settings()
+# global (private) object that may be updated by user's configuration file
+_SETTINGS = Settings()
