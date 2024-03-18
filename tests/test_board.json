@@ -1,5 +1,5 @@
 {
-  "name": "Test",
+  "name": "My Board",
   "description": "Basic DaiKanban for testing.",
   "created_time": "2024-03-06T18:02:12Z-0500",
   "projects": {
@@ -48,7 +48,6 @@
       "priority": 7.0,
       "expected_difficulty": 2.0,
       "expected_duration": 0.0625,
-      "due_date": "2024-03-07T18:36:41Z-0500",
       "project_id": 0,
       "tags": [
         "cleaning"
@@ -56,7 +55,7 @@
       "created_time": "2024-03-06T18:37:04Z-0500",
       "status": "todo",
       "total_time_worked": 0.0,
-      "is_overdue": true
+      "is_overdue": false
     },
     "2": {
       "name": "dust",
@@ -64,7 +63,6 @@
       "priority": 7.0,
       "expected_difficulty": 2.0,
       "expected_duration": 0.03125,
-      "due_date": "2024-03-07T18:37:48Z-0500",
       "project_id": 0,
       "tags": [
         "cleaning"
@@ -72,7 +70,7 @@
       "created_time": "2024-03-06T18:37:58Z-0500",
       "status": "todo",
       "total_time_worked": 0.0,
-      "is_overdue": true
+      "is_overdue": false
     },
     "3": {
       "name": "clean-inbox",
@@ -87,8 +85,9 @@
       "last_started_time": "2024-03-06T18:40:46Z-0500",
       "completed_time": "2024-03-06T22:00:00Z-0500",
       "status": "complete",
-      "total_time_worked": 4.100880176111111,
       "lead_time": 0.13835648148148147,
+      "cycle_time": 0.13835648148148147,
+      "total_time_worked": 0.13835648148148147,
       "is_overdue": false
     },
     "4": {
@@ -108,7 +107,7 @@
       "created_time": "2024-03-06T18:45:12Z-0500",
       "status": "todo",
       "total_time_worked": 0.0,
-      "is_overdue": false
+      "is_overdue": true
     },
     "5": {
       "name": "fix-bugs",
@@ -116,7 +115,6 @@
       "priority": 8.0,
       "expected_difficulty": 3.0,
       "expected_duration": 0.25,
-      "due_date": "2024-03-10T17:00:00Z-0500",
       "project_id": 1,
       "tags": [
         "bugfix"
@@ -124,8 +122,8 @@
       "created_time": "2024-03-09T22:05:04Z-0400",
       "first_started_time": "2024-03-10T22:05:22Z-0400",
       "status": "active",
-      "total_time_worked": 0.00045943630787037033,
-      "is_overdue": true
+      "total_time_worked": 6.951079559224538,
+      "is_overdue": false
     }
   },
   "version": 0
