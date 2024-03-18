@@ -111,3 +111,9 @@ This makes it easy to enter these kinds of fields naturally as a human, without 
 🛠️ Feel free to submit pull requests, ask questions, or make bugfix/feature requests on [Github Issues](https://github.com/jeremander/daikanban/issues).
 
 ✨ This library is built on [pydantic], [typer], and [rich]. Check them out!
+
+[clikan]: https://github.com/kitplummer/clikan
+[kanban-python]: https://github.com/Zaloog/kanban-python
+[pydantic]: https://github.com/pydantic/pydantic
+[rich]: https://github.com/Textualize/rich
+[typer]: https://github.com/tiangolo/typer
