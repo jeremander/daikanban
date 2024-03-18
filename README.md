@@ -6,7 +6,7 @@ A command-line Kanban board application that helps you prioritize and organize y
 
 ![Screenshot](doc/screenshot_v0_1_0.png)
 
-(*screenshot from `v0.1.0`*)
+(*[screenshot](https://github.com/jeremander/daikanban/blob/main/doc/screenshot_v0_1_0.png) from `v0.1.0`*)
 
 Inspired by prior projects like the excellent [clikan] and [kanban-python], I've made yet another terminal kanban board in Python. My long-term goals with it are:
 

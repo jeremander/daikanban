@@ -56,7 +56,9 @@
   - Size limit, set of statuses to show
   - Float format for things like scores (rounding, precision)
   - Show dates as timestamps or human-readable relative times
-  - More flexible datetime parsing: allow things like "next Tuesday"?
+  - More flexible datetime parsing
+    - E.g. "tomorrow at 3 PM"
+    - Allow things like "next Tuesday"?
   - Make colors configurable?
   - Accept "work days," "work weeks," etc. as relative times (not just durations)
     - Would require settings to specify exactly which hours/days are working times

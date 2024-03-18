@@ -66,6 +66,9 @@ dependencies = [
 [tool.hatch.envs.types.scripts]
 check = "mypy --install-types --non-interactive {args:daikanban tests}"
 
+[tool.hatch.publish.index]
+disable = true
+
 [tool.coverage.run]
 source_pkgs = ["daikanban", "tests"]
 branch = true

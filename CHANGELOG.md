@@ -30,3 +30,6 @@ Types of changes:
   - Change task status
   - Help menu
 - [README](README.md) and [CHANGELOG](#changelog)
+
+[unreleased]: https://github.com/jeremander/daikanban/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/jeremander/daikanban/releases/tag/v0.1.0
