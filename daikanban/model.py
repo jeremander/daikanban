@@ -28,8 +28,8 @@ def _check_name(name: str) -> str:
         raise ValueError('Name must have at least one letter')
     return name
 
-def _check_url(url: str) -> str:
-    parsed = urlparse(url)
+def _check_url(url: Any) -> str:
+    parsed = urlparse(str(url))
     if (parsed.scheme in ['', 'http', 'https']) and ('.' not in parsed.netloc) and ('.' not in parsed.path):
         raise ValueError('Invalid URL')
     # if scheme is absent, assume https
@@ -58,6 +58,8 @@ Datetime: TypeAlias = Annotated[
     BeforeValidator(_parse_datetime),
     PlainSerializer(_render_datetime, return_type=str)
 ]
+
+OptionalDatetime: TypeAlias = Annotated[Optional[Datetime], BeforeValidator(_parse_optional)]
 
 Duration: TypeAlias = Annotated[
     float,
@@ -221,7 +223,7 @@ class Task(Model):
         default=None,
         description='Expected number of days to complete task'
     )
-    due_date: Optional[Datetime] = Field(
+    due_date: OptionalDatetime = Field(
         default=None,
         description='Date the task is due'
     )
@@ -241,19 +243,19 @@ class Task(Model):
         default_factory=get_current_time,
         description='Time the task was created'
     )
-    first_started_time: Optional[Datetime] = Field(
+    first_started_time: OptionalDatetime = Field(
         default=None,
         description='Time the task was first started'
     )
-    last_started_time: Optional[Datetime] = Field(
+    last_started_time: OptionalDatetime = Field(
         default=None,
         description='Time the task was last started (if not paused)'
     )
-    last_paused_time: Optional[Datetime] = Field(
+    last_paused_time: OptionalDatetime = Field(
         default=None,
         description='Time the task was last paused'
     )
-    completed_time: Optional[Datetime] = Field(
+    completed_time: OptionalDatetime = Field(
         default=None,
         description='Time the task was completed'
     )
@@ -489,7 +491,7 @@ class Board(Model):
         default=None,
         description='description of the DaiKanban board'
     )
-    created_time: Optional[Datetime] = Field(
+    created_time: OptionalDatetime = Field(
         default_factory=get_current_time,
         description='Time the board was created'
     )

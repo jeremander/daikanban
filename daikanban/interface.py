@@ -335,7 +335,7 @@ class BoardInterface(BaseModel):
         grid.add_row('', f'\[b]egin {id_str}', 'begin a task')
         grid.add_row('', f'\[c]omplete {id_str}', 'complete a started task')
         grid.add_row('', f'\[p]ause {id_str}', 'pause a started task')
-        grid.add_row('', f'\[r]esume {id_str}', 'resume a paused task')
+        grid.add_row('', f'\[r]esume {id_str}', 'resume a paused or completed task')
         grid.add_row('', f'\[t]odo {id_str}', "reset a task to the 'todo' state")
 
     def show_help(self) -> None:
@@ -396,6 +396,7 @@ class BoardInterface(BaseModel):
             raise UserInputError(msg) from e
         field_str = style_str(repr(field), DefaultColor.field_name)
         id_style = task_id_style if is_task else proj_id_style
+        self.save_board()
         print(f'Updated field {field_str} for {name} {name_style(obj.name)} with ID {id_style(id_)}')
 
     # PROJECT
@@ -417,9 +418,10 @@ class BoardInterface(BaseModel):
     def new_project(self) -> None:
         """Creates a new project."""
         assert self.board is not None
-        def _parse_name(name: str) -> str:
-            # catch duplicate project name early
-            self.board._check_duplicate_project_name(name)  # type: ignore[union-attr]
+        def _parse_name(name: Any) -> str:
+            if isinstance(name, str):
+                # catch duplicate project name early
+                self.board._check_duplicate_project_name(name)  # type: ignore[union-attr]
             return name
         params: dict[str, dict[str, Any]] = {
             'name': {
@@ -518,9 +520,10 @@ class BoardInterface(BaseModel):
     def new_task(self) -> None:
         """Creates a new task."""
         assert self.board is not None
-        def _parse_name(name: str) -> str:
-            # catch duplicate task name early
-            self.board._check_duplicate_task_name(name)  # type: ignore[union-attr]
+        def _parse_name(name: Any) -> str:
+            if isinstance(name, str):
+                # catch duplicate task name early
+                self.board._check_duplicate_task_name(name)  # type: ignore[union-attr]
             return name
         params: dict[str, dict[str, Any]] = {
             'name': {

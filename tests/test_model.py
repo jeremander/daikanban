@@ -6,7 +6,7 @@ import pytest
 
 from daikanban.model import AmbiguousProjectNameError, AmbiguousTaskNameError, Board, DuplicateProjectNameError, DuplicateTaskNameError, Project, ProjectNotFoundError, Task, TaskNotFoundError, TaskStatus, TaskStatusAction, TaskStatusError
 from daikanban.score import TASK_SCORERS
-from daikanban.settings import Settings
+from daikanban.settings import DEFAULT_DATETIME_FORMAT, Settings
 from daikanban.utils import case_insensitive_match, fuzzy_match, get_current_time
 
 
@@ -65,6 +65,14 @@ class TestTask:
         assert Task(name='task').expected_duration is None
         assert Task(name='task', expected_duration=None).expected_duration is None
         assert Task(name='task', expected_duration='').expected_duration is None
+
+    def test_due_date(self):
+        dt = Settings.global_settings().time.parse_datetime('2024-01-01')
+        assert Task(name='task').due_date is None
+        assert Task(name='task', due_date=None).due_date is None
+        assert Task(name='task', due_date='').due_date is None
+        assert Task(name='task', due_date=dt).due_date == dt
+        assert Task(name='task', due_date=dt.strftime(DEFAULT_DATETIME_FORMAT)).due_date == dt
 
     def test_replace(self):
         now = get_current_time()

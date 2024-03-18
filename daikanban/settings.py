@@ -87,6 +87,7 @@ class TimeSettings(BaseModel):
                 raise err from None
             now = pendulum.now()
             # for today/yesterday/tomorrow, just assume midnight
+            # TODO: do regex replacements instead, so that times will be allowed
             if s == 'yesterday':
                 s = now.subtract(days=1).to_date_string()
             elif s == 'today':
