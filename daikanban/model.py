@@ -64,12 +64,12 @@ OptionalDatetime: TypeAlias = Annotated[Optional[Datetime], BeforeValidator(_par
 Duration: TypeAlias = Annotated[
     float,
     BeforeValidator(_parse_duration),
-    Field(description='duration (days)', ge=0.0)
+    Field(description='Duration (days)', ge=0.0)
 ]
 
 OptionalDuration: TypeAlias = Annotated[Optional[Duration], BeforeValidator(_parse_optional)]
 
-Score: TypeAlias = Annotated[float, Field(description='a score (positive number)', ge=0.0)]
+Score: TypeAlias = Annotated[float, Field(description='A score (positive number)', ge=0.0)]
 
 OptionalScore: TypeAlias = Annotated[Optional[Score], BeforeValidator(_parse_optional)]
 
@@ -494,10 +494,10 @@ class Task(Model):
 
 class Board(Model):
     """A DaiKanban board (collection of projects and tasks)."""
-    name: str = Field(description='name of DaiKanban board')
+    name: str = Field(description='Name of DaiKanban board')
     description: Optional[str] = Field(
         default=None,
-        description='description of the DaiKanban board'
+        description='Description of the DaiKanban board'
     )
     created_time: OptionalDatetime = Field(
         default_factory=get_current_time,
@@ -505,15 +505,15 @@ class Board(Model):
     )
     projects: dict[Id, Project] = Field(
         default_factory=dict,
-        description='mapping from IDs to projects'
+        description='Mapping from IDs to projects'
     )
     tasks: dict[Id, Task] = Field(
         default_factory=dict,
-        description='mapping from IDs to tasks'
+        description='Mapping from IDs to tasks'
     )
     version: Literal[0] = Field(
         default=0,
-        description='version of the DaiKanban specification',
+        description='Version of the DaiKanban specification',
     )
 
     @model_validator(mode='after')
