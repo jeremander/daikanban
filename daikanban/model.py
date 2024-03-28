@@ -135,12 +135,15 @@ class Model(BaseModel):
             d[key] = val
         return type(self)(**d)
 
+    def _include_field(self, field: str, val: Any) -> bool:
+        return val is not None
+
     def _pretty_dict(self) -> dict[str, str]:
         """Gets a dict from fields to pretty values (as strings)."""
         settings = Settings.global_settings()
         return {
-            **{field: settings.pretty_value(val) for (field, val) in dict(self).items() if val is not None},
-            **{field: settings.pretty_value(val) for field in self.model_computed_fields if (val := getattr(self, field)) is not None}
+            **{field: settings.pretty_value(val) for (field, val) in dict(self).items() if self._include_field(field, val)},
+            **{field: settings.pretty_value(val) for field in self.model_computed_fields if self._include_field(field, (val := getattr(self, field)))}
         }
 
 
@@ -276,6 +279,9 @@ class Task(Model):
     RESET_FIELDS: ClassVar[list[str]] = ['due_date', 'first_started_time', 'last_started_time', 'last_paused_time', 'completed_time', 'completed_time', 'prior_time_worked', 'blocked_by', 'logs']
     DURATION_FIELDS: ClassVar[list[str]] = ['expected_duration', 'prior_time_worked', 'lead_time', 'cycle_time', 'total_time_worked']
 
+    def _include_field(self, field: str, val: Any) -> bool:
+        return (val is not None) or (field == 'project_id')
+
     def _pretty_dict(self) -> dict[str, str]:
         d = super()._pretty_dict()
         for field in self.DURATION_FIELDS:
@@ -288,6 +294,8 @@ class Task(Model):
             if ('cycle_time' in d) and ('total_time_worked' in d) and (d['cycle_time'] == d['total_time_worked']):
                 # remove redundant field since they are equivalent here
                 del d['cycle_time']
+        if self.project_id is None:
+            d['project_id'] = '-'
         return d
 
     @computed_field  # type: ignore[misc]

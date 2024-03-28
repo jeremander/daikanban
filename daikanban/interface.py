@@ -146,25 +146,6 @@ def parse_duration(s: str) -> Optional[float]:
 # PRETTY PRINTING #
 ###################
 
-def model_pretty(obj: Model, id_: Optional[Id] = None) -> Table:
-    """Given a Model object (and optional ID), creates a two-column Table displaying its contents prettily."""
-    table = Table(show_header=False)
-    table.add_column('Field', style='bold')
-    table.add_column('Value')
-    if id_ is not None:
-        if isinstance(obj, Project):
-            id_str = proj_id_style(id_)
-        elif isinstance(obj, Task):
-            id_str = task_id_style(id_)
-        else:
-            id_str = str(id_)
-        table.add_row('ID ', id_str)
-    for (field, pretty) in obj._pretty_dict().items():
-        if field == 'name':
-            pretty = name_style(pretty)
-        table.add_row(f'{field}  ', pretty)
-    return table
-
 def make_table(tp: type[M], rows: Iterable[M], **kwargs: Any) -> Table:
     """Given a BaseModel type and a list of objects of that type, creates a Table displaying the data, with each object being a row."""
     table = Table(**kwargs)
@@ -268,7 +249,7 @@ class BoardInterface(BaseModel):
         if s.isdigit():
             if (id_ := int(s)) in d:
                 return id_
-            raise UserInputError(f'Invalid {item_type} ID: {s!r}')
+            raise UserInputError(f'Invalid {item_type} ID: {s}')
         method = getattr(self.board, f'get_{item_type}_id_by_name')
         if ((id_ := method(s, fuzzy_match)) is not None):
             return id_
@@ -295,6 +276,33 @@ class BoardInterface(BaseModel):
 
     def _model_json(self, model: BaseModel) -> str:
         return model.model_dump_json(indent=self.settings.file.json_indent, exclude_none=True)
+
+    def _model_pretty(self, obj: Model, id_: Optional[Id] = None) -> Table:
+        """Given a Model object (and optional ID), creates a two-column Table displaying its contents prettily."""
+        assert self.board is not None
+        table = Table(show_header=False)
+        table.add_column('Field', style='bold')
+        table.add_column('Value')
+        if id_ is not None:
+            if isinstance(obj, Project):
+                id_str = proj_id_style(id_)
+            elif isinstance(obj, Task):
+                id_str = task_id_style(id_)
+            else:
+                id_str = str(id_)
+            table.add_row('ID ', id_str)
+        for (field, pretty) in obj._pretty_dict().items():
+            if field == 'name':
+                pretty = name_style(pretty)
+            elif field == 'project_id':  # also include the project name
+                assert isinstance(obj, Task)
+                field = 'project'
+                if obj.project_id is not None:
+                    project_name = self.board.get_project(obj.project_id).name
+                    id_str = proj_id_style(int(pretty))
+                    pretty = f'[{id_str}] {project_name}'
+            table.add_row(f'{field}  ', pretty)
+        return table
 
     # HELP/INFO
 
@@ -465,7 +473,7 @@ class BoardInterface(BaseModel):
         id_ = self._parse_project(id_or_name)
         assert id_ is not None
         proj = self.board.get_project(id_)
-        print(model_pretty(proj, id_=id_))
+        print(self._model_pretty(proj, id_=id_))
 
     def update_project(self, id_or_name: str, field: str, value: str) -> None:
         """Updates an attribute of a project."""
@@ -620,10 +628,15 @@ class BoardInterface(BaseModel):
         if id_ is None:
             raise UserInputError('Invalid task')
         task = self.board.get_task(id_)
-        print(model_pretty(task, id_=id_))
+        print(self._model_pretty(task, id_=id_))
 
     def update_task(self, id_or_name: str, field: str, value: str) -> None:
         """Updates an attribute of a task."""
+        if field == 'project':  # allow a name or ID
+            id_ = self._parse_project(value)
+            if id_ is None:
+                raise UserInputError('Invalid project')
+            return self.update_task(id_or_name, 'project_id', str(id_))
         return self._update_project_or_task(id_or_name, field, value, is_task=True)
 
     @require_board

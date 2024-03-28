@@ -4,11 +4,9 @@
 
 - Bugfixes
   - `b s` for empty board: show different error message (e.g. "no tasks exist")
+    - Interface test framework
   - JSON schema case consistency in descriptions
-  - Allow `task set project [NAME/ID]`
-  - Check valid project ID when setting ID on task
-  - Loading board with invalid project ID issues `KeyError`
-    - Test
+  - For new task, prompt for project name/ID by default
 
 ## `v0.2.0`
 
@@ -38,7 +36,6 @@
 - Error handling
   - Debug mode: env variable to drop into pdb on unhandled exception
 - Shell features
-  - For new task, prompt for project name/ID by default
   - Simple option for JSON output in `project/task show`
   - Don't show `total_time_worked` in table if the task has never been started
   - Scrollable TUI-type thing for editing project/task fields

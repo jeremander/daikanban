@@ -47,7 +47,7 @@ DEFAULT_STATUS_GROUPS = {
 
 # which Task fields to query when creating a new task
 # (excluded fields will be set to their defaults)
-DEFAULT_NEW_TASK_FIELDS = ['name', 'description', 'priority', 'expected_duration', 'due_date', 'tags']
+DEFAULT_NEW_TASK_FIELDS = ['name', 'description', 'priority', 'expected_duration', 'due_date', 'tags', 'links']
 DEFAULT_TASK_SCORER_NAME = 'priority-rate'
 
 
