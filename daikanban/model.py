@@ -508,6 +508,15 @@ class Board(Model):
         description='version of the DaiKanban specification',
     )
 
+    @model_validator(mode='after')
+    def check_valid_project_ids(self) -> Self:
+        """Checks that project IDs associated with all tasks are in the set of projects."""
+        for task in self.tasks.values():
+            if task.project_id is not None:
+                if task.project_id not in self.projects:
+                    raise ProjectNotFoundError(task.project_id)
+        return self
+
     def new_project_id(self) -> Id:
         """Gets an available integer as a project ID."""
         return next(filter(lambda id_: id_ not in self.projects, itertools.count()))
@@ -582,6 +591,8 @@ class Board(Model):
 
     def create_task(self, task: Task) -> Id:
         """Adds a new task and returns its ID."""
+        if task.project_id is not None:  # validate project ID
+            _ = self.get_project(task.project_id)
         self._check_duplicate_task_name(task.name)
         id_ = self.new_task_id()
         self.tasks[id_] = task
@@ -627,10 +638,12 @@ class Board(Model):
         task = self.get_task(task_id)
         incomplete_task_names = (t.name for (id_, t) in self.tasks.items() if (id_ != task_id) and (t.completed_time is None))
         task = task._replace(**kwargs)
+        if task.project_id is not None:  # validate project ID
+            _ = self.get_project(task.project_id)
         matcher = Settings.global_settings().get_name_matcher()
         if (duplicate_name := first_name_match(matcher, task.name, incomplete_task_names)) is not None:
             raise DuplicateTaskNameError(f'Duplicate task name {duplicate_name!r}')
-        self.tasks[task_id] = task._replace(**kwargs)
+        self.tasks[task_id] = task
 
     @catch_key_error(TaskNotFoundError)
     def delete_task(self, task_id: Id) -> None:

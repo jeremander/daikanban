@@ -577,7 +577,7 @@ class BoardInterface(BaseModel):
     def _project_str_from_id(self, id_: Id) -> str:
         """Given a project ID, gets a string displaying both the project name and ID."""
         assert self.board is not None
-        return f'\[{proj_id_style(id_)}] {self.board.projects[id_].name}'
+        return f'\[{proj_id_style(id_)}] {self.board.get_project(id_).name}'
 
     def _make_task_row(self, id_: Id, task: Task) -> TaskRow:
         """Given a Task ID and object, gets a TaskRow object used for displaying the task in the task list."""

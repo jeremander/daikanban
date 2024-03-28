@@ -47,8 +47,8 @@ class PriorityDifficultyScorer(TaskScorer):
     """Scores tasks by multiplying priority by difficulty."""
 
     name = 'priority-difficulty'
-    description = 'priority times difficulty'
-    units = 'pri-diff'
+    description = 'priority divided by difficulty'
+    units = 'pri/diff'
 
     default_priority: float = 1.0  # default priority if none is provided
     default_difficulty: float = 1.0  # default difficulty if none is provided
@@ -57,7 +57,7 @@ class PriorityDifficultyScorer(TaskScorer):
     def __call__(self, task: Task) -> float:
         priority = self.default_priority if (task.priority is None) else task.priority
         difficulty = self.default_difficulty if (task.expected_difficulty is None) else task.expected_difficulty
-        return priority * difficulty
+        return priority / difficulty
 
 
 class PriorityRateScorer(TaskScorer):

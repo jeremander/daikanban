@@ -222,7 +222,7 @@ class TestTask:
         # specify various fields
         task = Task(name='task', priority=100, expected_difficulty=5, expected_duration='1 day')
         assert pri(task) == 100
-        assert pri_diff(task) == 500
+        assert pri_diff(task) == 20
         assert pri_rate(task) == 100
 
 
@@ -250,6 +250,20 @@ class TestBoard:
         assert board.new_project_id() == 3
         board.projects[100] = Project(name='proj100')
         assert board.new_project_id() == 3
+
+    def test_invalid_project_id(self):
+        board = Board(name='myboard')
+        board.create_project(Project(name='proj'))
+        task = Task(name='task',project_id=1)
+        with pytest.raises(ProjectNotFoundError, match='Project with id 1 not found'):
+            board.create_task(task)
+        board.tasks[0] = task
+        with pytest.raises(ValidationError, match='Project with id 1 not found'):
+            _ = Board(**board.model_dump())
+        board.delete_task(0)
+        assert board.create_task(Task(name='task', project_id=0)) == 0
+        with pytest.raises(ProjectNotFoundError, match='Project with id 1 not found'):
+            board.update_task(0, project_id=1)
 
     def test_crud_project(self):
         board = Board(name='myboard')
