@@ -166,16 +166,16 @@ def make_table(tp: type[M], rows: Iterable[M], **kwargs: Any) -> Table:
 class ProjectRow(BaseModel):
     """A display table row associated with a project.
     These rows are presented in the project list view."""
-    id: str = Field(justify='right')  # type: ignore[call-arg]
+    id: str = Field(json_schema_extra={'justify': 'right'})  # type: ignore[call-arg]
     name: str
     created: str
-    num_tasks: int = Field(title='# tasks', justify='right')  # type: ignore[call-arg]
+    num_tasks: int = Field(title='# tasks', json_schema_extra={'justify': 'right'})  # type: ignore[call-arg]
 
 class TaskRow(BaseModel):
     """A display table row associated with a task.
     These rows are presented in the task list view."""
-    id: str = Field(justify='right')    # type: ignore[call-arg]
-    name: str = Field(min_width=15)  # type: ignore[call-arg]
+    id: str = Field(json_schema_extra={'justify': 'right'})    # type: ignore[call-arg]
+    name: str = Field(json_schema_extra={'min_width': 15})  # type: ignore[call-arg]
     project: Optional[str]
     priority: Optional[float] = Field(title="pri…ty")
     difficulty: Optional[float] = Field(title="diff…ty")
@@ -192,7 +192,7 @@ def simple_task_row_type(*fields: str) -> type[BaseModel]:
     kwargs: dict[str, Any] = {}
     for field in fields:
         if field == 'id':
-            val: tuple[type, Any] = (str, Field(justify='right'))  # type: ignore[call-arg]
+            val: tuple[type, Any] = (str, Field(json_schema_extra={'justify': 'right'}))  # type: ignore[call-arg]
         elif field == 'name':
             val = (str, ...)
         elif field == 'project':
@@ -202,7 +202,7 @@ def simple_task_row_type(*fields: str) -> type[BaseModel]:
         elif field == 'difficulty':
             val = (Optional[float], Field(title="diff…ty"))  # type: ignore[assignment]
         elif field == 'score':
-            val = (float, Field(justify='right'))  # type: ignore[call-arg]
+            val = (float, Field(json_schema_extra={'justify': 'right'}))  # type: ignore[call-arg]
         # TODO: add more fields
         else:
             raise ValueError(f'Unrecognized Task field {field}')
@@ -218,7 +218,7 @@ def require_board(func):  # noqa
     """Decorator for a method which makes it raise a BoardNotLoadedError if a board path is not set."""
     @wraps(func)
     def wrapped(self, *args, **kwargs):  # noqa
-        if self.board_path is None:
+        if self.board is None:
             raise BoardNotLoadedError("No board has been loaded.\nRun 'board load' to load a board.")
         func(self, *args, **kwargs)
     return wrapped
@@ -797,7 +797,10 @@ class BoardInterface(BaseModel):
             table.add_row(*subtables)
             print(table)
         else:
-            print(style_str('\[No tasks matching criteria]', DefaultColor.faint, bold=True))
+            msg = 'No tasks'
+            if (statuses is not None) or (projects is not None) or (tags is not None) or (limit is not None):
+                msg += ' matching criteria'
+            print(style_str(f'\[{msg}]', DefaultColor.faint, bold=True))
 
     # SHELL
 

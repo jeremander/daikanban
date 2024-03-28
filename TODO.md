@@ -1,12 +1,5 @@
 # TODO list
 
-## `v0.1.1`
-
-- Bugfixes
-  - `b s` for empty board: show different error message (e.g. "no tasks exist")
-    - Interface test framework
-  - JSON schema case consistency in descriptions
-
 ## `v0.2.0`
 
 - Settings customization
