@@ -6,7 +6,6 @@
   - `b s` for empty board: show different error message (e.g. "no tasks exist")
     - Interface test framework
   - JSON schema case consistency in descriptions
-  - For new task, prompt for project name/ID by default
 
 ## `v0.2.0`
 

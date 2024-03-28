@@ -541,6 +541,10 @@ class BoardInterface(BaseModel):
             'description': {
                 'parse': empty_is_none
             },
+            'project_id': {
+                'prompt': 'Project ID or name [not bold]\[optional][/]',
+                'parse': self._parse_project
+            },
             'priority': {
                 'prompt': 'Priority [not bold]\[optional, 0-10][/]',
                 'parse': empty_is_none
@@ -556,10 +560,6 @@ class BoardInterface(BaseModel):
             'due_date': {
                 'prompt': 'Due date [not bold]\[optional][/]',
                 'parse': parse_date_as_string
-            },
-            'project_id': {
-                'prompt': 'Project ID or name [not bold]\[optional][/]',
-                'parse': self._parse_project
             },
             'tags': {
                 'prompt': 'Tags [not bold]\[optional, comma-separated][/]',
