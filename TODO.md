@@ -2,6 +2,11 @@
 
 ## `v0.2.0`
 
+- `--version` option
+- Allow `task new [NAME]` to skip the first prompt for the name
+- Bugs
+  - Allow user to set start time before creation time
+  - Be able to set null value in `task set`?
 - Settings customization
   - Generic pydantic->TOML serialization (rudimentary)
   - Use system default directory for app-specific configs? XDG?
@@ -14,11 +19,15 @@
   - Default size limit, set of statuses to show
   - Show dates as timestamps or human-readable relative times
   - More flexible datetime parsing
-    - E.g. "tomorrow at 3 PM"
+    - E.g. "tomorrow at 3 PM", "yesterday 18:00", "1800 yesterday"
     - Allow things like "next Tuesday"?
 - Age-off for completed tasks to prevent displaying too many in board
   - `archived` status? Like `kanban-python`
   - Or set `limit=none` to view these in `completed` column
+
+## `v0.3.0`
+
+- Default for dark terminal? (E.g. task IDs are too dark)
 - Use different scorer for completed tasks?
   - E.g. `priority-rate` would use actual duration rather than expected duration
   - Could actually be the same `TaskScorer` object, but it chooses a different field if completed

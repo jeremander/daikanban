@@ -418,7 +418,8 @@ class Task(Model):
         if self.status == TaskStatus.todo:
             dt = dt or get_current_time()
             if dt < self.created_time:
-                raise TaskStatusError('cannot start a task before its creation time')
+                dt_str = Settings.global_settings().time.render_datetime(self.created_time)
+                raise TaskStatusError(f'cannot start a task before its creation time ({dt_str})')
             return self.model_copy(update={'first_started_time': dt})
         raise TaskStatusError(f"cannot start task with status '{self.status}'")
 

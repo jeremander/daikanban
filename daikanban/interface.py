@@ -509,7 +509,11 @@ class BoardInterface(BaseModel):
         # prompt user for time of latest status change
         prompt = f'When was the task {action.past_tense()}? [not bold]\[now][/] '
         prompter = Prompter(prompt, _parse_datetime, validate=None, default=get_current_time)
-        dt = prompter.loop_prompt(use_prompt_suffix=False, show_default=False)
+        try:
+            dt = prompter.loop_prompt(use_prompt_suffix=False, show_default=False)
+        except KeyboardInterrupt:  # go back to main REPL
+            print()
+            return
         task = self.board.apply_status_action(id_, action, dt=dt, first_dt=first_dt)
         self.save_board()
         print(f'Changed task {name_style(task.name)} [not bold]\[{task_id_style(id_)}][/] to {status_style(task.status)} state')
