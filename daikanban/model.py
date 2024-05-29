@@ -122,8 +122,7 @@ def catch_key_error(cls: type[Exception]) -> Iterator[None]:
 
 class Model(BaseModel):
     """Base class setting up pydantic configs."""
-    class Config:  # noqa: D106
-        frozen = True
+    model_config = {'frozen': True}
 
     def _replace(self, **kwargs: Any) -> Self:
         """Creates a new copy of the object with the given kwargs replaced.

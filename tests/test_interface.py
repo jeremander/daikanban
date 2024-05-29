@@ -1,11 +1,9 @@
-import re
-
 import pytest
 
 from daikanban.interface import BoardInterface, parse_string_set
 from daikanban.model import Board
 
-from . import patch_stdin
+from . import match_patterns, patch_stdin
 
 
 @pytest.mark.parametrize(['s', 'parsed'],[
@@ -41,13 +39,7 @@ class TestInterface:
                 patch_stdin(monkeypatch, ''.join(f'{line}\n' for line in prompt_input))
             interface.evaluate_prompt(command)
             s = capsys.readouterr().out
-        if not isinstance(expected_output, list):
-            expected_output = [expected_output]
-        for output in expected_output:
-            if isinstance(output, str):
-                output = re.compile(output)
-            assert isinstance(output, re.Pattern)
-            assert output.search(s)
+        match_patterns(expected_output, s)
 
     def test_project_show_empty(self, capsys):
         self._test_output(capsys, None, [('project show', None)], r'\[No projects\]')

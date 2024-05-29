@@ -1,13 +1,20 @@
 # TODO list
 
-## `v0.2.0`
+## `v0.1.2`
 
 - `--version` option
 - Allow `task new [NAME]` to skip the first prompt for the name
 - Bugs
   - Allow user to set start time before creation time
   - Be able to set null value in `task set`?
+- Age-off for completed tasks to prevent displaying too many in board
+  - `archived` status? Like `kanban-python`
+  - Or set `limit=none` to view these in `completed` column
+
+## `v0.2.0`
+
 - Settings customization
+  - Use `fancy_dataclass`
   - Generic pydantic->TOML serialization (rudimentary)
   - Use system default directory for app-specific configs? XDG?
   - Global config file stored in app folder
@@ -21,9 +28,6 @@
   - More flexible datetime parsing
     - E.g. "tomorrow at 3 PM", "yesterday 18:00", "1800 yesterday"
     - Allow things like "next Tuesday"?
-- Age-off for completed tasks to prevent displaying too many in board
-  - `archived` status? Like `kanban-python`
-  - Or set `limit=none` to view these in `completed` column
 - Set up Github Actions, test coverage
 
 ## `v0.3.0`
@@ -32,7 +36,7 @@
 - Use different scorer for completed tasks?
   - E.g. `priority-rate` would use actual duration rather than expected duration
   - Could actually be the same `TaskScorer` object, but it chooses a different field if completed
-  - But then it's less flexible (e.g. might want `completed` board to be chronological
+  - But then it's less flexible (e.g. might want `completed` board to be chronological)
   - Best solution is to allow different scorers, keyed by `TaskStatus`
   - Short-term: don't display the score by default?
 - Error handling

@@ -16,6 +16,18 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.1.2]
+
+### Added
+
+- Various `pre-commit` hooks.
+- Unit tests for prompts, shell, CLI
+
+### Fixed
+
+- Better error messages for invalid prompt input
+- Return to main shell when keyboard-interrupting prompt loop
+
 ## [0.1.1]
 
 ### Added
@@ -24,11 +36,6 @@ Types of changes:
   - Include `project` column in task view
   - Include links in default new task prompt
 - Basic unit tests for shell interface
-
-### Fixed
-
-- Better error messages for invalid prompt input
-- Return to main shell when keyboard-interrupting prompt loop
 
 ## [0.1.0]
 
