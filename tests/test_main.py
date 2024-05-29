@@ -4,6 +4,7 @@ import sys
 
 import pytest
 
+from daikanban import __version__
 from daikanban.main import APP
 from daikanban.model import Board
 
@@ -28,7 +29,11 @@ class TestMain:
 
     def test_help(self, capsys, monkeypatch):
         patterns = ['Commands', r'--help\s+-h\s+Show this message and exit.', r'new\s+create new board']
-        self._test_main(capsys, monkeypatch, ['--help'], patterns)
+        for cmd in [[], ['--help']]:
+            self._test_main(capsys, monkeypatch, cmd, patterns)
+
+    def test_version(self, capsys, monkeypatch):
+        self._test_main(capsys, monkeypatch, ['--version'], f'{__version__}\n', exact=True)
 
     def test_schema(self, capsys, monkeypatch):
         # use regular print instead of rich.print

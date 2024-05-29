@@ -5,13 +5,13 @@ from typing import Annotated, Optional
 
 import typer
 
+from daikanban import __version__
 from daikanban.interface import BoardInterface
 from daikanban.model import Board
 
 
 APP = typer.Typer(
     add_completion=False,
-    no_args_is_help=True,
     context_settings={'help_option_names': ['-h', '--help']}
 )
 
@@ -34,6 +34,18 @@ def shell(
 ) -> None:
     """Launch the DaiKanban shell."""
     BoardInterface().launch_shell(board_path=board)
+
+@APP.callback(invoke_without_command=True)
+def main(
+    ctx: typer.Context,
+    version: Annotated[bool, typer.Option('--version', help='show version number')] = False
+) -> None:
+    """A kanban-style project task queue."""
+    if ctx.invoked_subcommand is None:
+        if version:
+            print(__version__)
+        else:
+            ctx.get_help()
 
 
 if __name__ == '__main__':
