@@ -1,5 +1,9 @@
 # DaiKanban <br/> 大看板
 
+[![PyPI - Version](https://img.shields.io/pypi/v/daikanban)](https://pypi.org/project/daikanban)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://raw.githubusercontent.com/jeremander/daikanban/main/LICENSE)
+[![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
+
 A command-line Kanban board that helps you prioritize and organize your projects.
 
 ## Screenshot

@@ -17,6 +17,7 @@ from rich import print
 from rich.markup import escape
 from rich.prompt import Confirm
 from rich.table import Table
+from typing_extensions import Concatenate, ParamSpec
 
 from daikanban.model import Board, Id, KanbanError, Model, Project, Task, TaskStatus, TaskStatusAction
 from daikanban.prompt import FieldPrompter, Prompter, model_from_prompt, simple_input
@@ -26,6 +27,8 @@ from daikanban.utils import StrEnum, UserInputError, err_style, fuzzy_match, get
 
 M = TypeVar('M', bound=BaseModel)
 T = TypeVar('T')
+BI = TypeVar('BI', bound='BoardInterface')
+P = ParamSpec('P')
 
 PKG_DIR = Path(__file__).parent
 BILLBOARD_ART_PATH = PKG_DIR / 'billboard_art.txt'
@@ -125,9 +128,9 @@ def empty_is_none(s: str) -> Optional[str]:
 
 def parse_string_set(s: str) -> Optional[set[str]]:
     """Parses a comma-separated string into a set of strings.
-    Allows for quote delimiting so that commas can be escaped."""
-    strings = set(list(csv.reader([s]))[0])
-    return strings or None
+    Allows for quote delimiting so that commas can be escaped.
+    Strips any leading or trailing whitespace from each string."""
+    return {string.strip() for string in list(csv.reader([s]))[0]} or None
 
 def parse_date_as_string(s: str) -> Optional[str]:
     """Parses a string into a timestamp string.
@@ -214,10 +217,10 @@ def simple_task_row_type(*fields: str) -> type[BaseModel]:
 # BOARD INTERFACE #
 ###################
 
-def require_board(func):  # noqa
+def require_board(func: Callable[Concatenate[BI, P], None]) -> Callable[Concatenate[BI, P], None]:
     """Decorator for a method which makes it raise a BoardNotLoadedError if a board path is not set."""
     @wraps(func)
-    def wrapped(self, *args, **kwargs):  # noqa
+    def wrapped(self: BI, *args: P.args, **kwargs: P.kwargs) -> None:
         if self.board is None:
             raise BoardNotLoadedError("No board has been loaded.\nRun 'board load' to load a board.")
         func(self, *args, **kwargs)

@@ -16,6 +16,20 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.1.1]
+
+### Added
+
+- Shell:
+  - Include `project` column in task view
+  - Include links in default new task prompt
+- Basic unit tests for shell interface
+
+### Fixed
+
+- Better error messages for invalid prompt input
+- Return to main shell when keyboard-interrupting prompt loop
+
 ## [0.1.0]
 
 ### Added
@@ -32,4 +46,5 @@ Types of changes:
 - [README](README.md) and [CHANGELOG](#changelog)
 
 [unreleased]: https://github.com/jeremander/daikanban/compare/v0.1.0...HEAD
+[0.1.1]: https://github.com/jeremander/daikanban/releases/tag/v0.1.1
 [0.1.0]: https://github.com/jeremander/daikanban/releases/tag/v0.1.0

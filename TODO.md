@@ -24,6 +24,7 @@
 - Age-off for completed tasks to prevent displaying too many in board
   - `archived` status? Like `kanban-python`
   - Or set `limit=none` to view these in `completed` column
+- Set up Github Actions, test coverage
 
 ## `v0.3.0`
 
@@ -80,11 +81,17 @@
   - What should be the name of this field? "status" would conflict with the existing one. Options:
         1) Use "status", rename the old one to "stage"
         2) Use "active_status", keep the old one the same
-- Github/Gitlab/Jira integration
+- External integrations
   - Query APIs
   - Bidirectional syncing
   - Interface to map between external task metadata and DaiKanban Tasks
   - Need to handle issue assignment (i.e. only pull tasks assigned to you)
+  - Platforms
+    - Github
+    - Gitlab
+    - Jira
+    - ICS calendar
+    - Thunderbird sqlite
 - Write more tests
   - Want high coverage of data model, board manipulations
   - Use `hypothesis` to generate random data?

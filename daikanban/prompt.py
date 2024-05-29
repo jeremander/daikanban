@@ -21,7 +21,7 @@ class Console(rich.console.Console):
         - https://github.com/Textualize/rich/issues/2293
         - https://github.com/Textualize/rich/commit/568b9517b63282ac781a907d82b0c2965242be54"""
 
-    def input(self, prompt: TextType = '', password: bool = False, stream: Optional[TextIO] = None) -> str:  # type: ignore  # noqa
+    def input(self, prompt: TextType = '', password: bool = False, stream: Optional[TextIO] = None) -> str:  # type: ignore  # noqa: D102
         prompt_str = ''
         if prompt:
             with self.capture() as capture:

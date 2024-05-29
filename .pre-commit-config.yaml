@@ -16,16 +16,30 @@ repos:
   rev: 'v0.3.0'
   hooks:
     - id: ruff
+- repo: https://github.com/netromdk/vermin
+  rev: v1.6.0
+  hooks:
+    - id: vermin-all
+      args: ['-t=3.9-', '--no-tips', '--violations', '.']
 - repo: https://github.com/commitizen-tools/commitizen
-  rev: v3.16.0
+  rev: v3.25.0
   hooks:
     - id: commitizen
       stages: [commit-msg]
-- repo: local
+- repo: https://github.com/jeremander/gadzooks
+  rev: v0.2.6
   hooks:
-    - id: summarize
-      name: summarize
-      entry: summarize.sh
-      language: script
+    - id: loc-summarize
+      args: ['.']
       pass_filenames: false
       verbose: true
+    - id: check-version
+      args: ['--dist-name', 'py-gadzooks', '--dist-dir', 'dist', '--changelog', 'CHANGELOG.md']
+      pass_filenames: false
+      verbose: true
+      # before pushing, require the git tag match the package version
+    # - id: check-version
+    #   args: ['--check-tag', '--dist-dir', 'dist', '--changelog', 'CHANGELOG.md']
+    #   pass_filenames: false
+    #   verbose: true
+    #   stages: [push]
