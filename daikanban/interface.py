@@ -532,7 +532,7 @@ class BoardInterface(BaseModel):
         print(f'Deleted task {name_style(task.name)} with ID {task_id_style(id_)}')
 
     @require_board
-    def new_task(self) -> None:
+    def new_task(self, name: Optional[str] = None) -> None:
         """Creates a new task."""
         assert self.board is not None
         def _parse_name(name: Any) -> str:
@@ -579,9 +579,15 @@ class BoardInterface(BaseModel):
         }
         # only prompt for the fields specified in the settings
         task_fields = set(self.settings.task.new_task_fields)
+        if name is None:
+            defaults = {}
+        else:
+            self.board._check_duplicate_task_name(name)
+            task_fields.discard('name')
+            defaults = {'name': name}
         prompters: dict[str, FieldPrompter] = {field: FieldPrompter(Task, field, **kwargs) for (field, kwargs) in params.items() if field in task_fields}
         try:
-            task = model_from_prompt(Task, prompters)
+            task = model_from_prompt(Task, prompters, defaults=defaults)
         except KeyboardInterrupt:  # go back to main REPL
             print()
             return
@@ -878,7 +884,7 @@ class BoardInterface(BaseModel):
                 return self.show_task_help()
             tok1 = tokens[1]
             if prefix_match(tok1, 'new'):
-                return self.new_task()
+                return self.new_task(None if (ntokens == 2) else tokens[2])
             if prefix_match(tok1, 'delete'):
                 return self.delete_task(None if (ntokens == 2) else tokens[2])
             if prefix_match(tok1, 'show'):

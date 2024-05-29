@@ -2,8 +2,6 @@
 
 ## `v0.1.2`
 
-- `--version` option
-- Allow `task new [NAME]` to skip the first prompt for the name
 - Bugs
   - Allow user to set start time before creation time
   - Be able to set null value in `task set`?
@@ -13,6 +11,7 @@
 
 ## `v0.2.0`
 
+- Show number of tasks in each board column
 - Settings customization
   - Use `fancy_dataclass`
   - Generic pydantic->TOML serialization (rudimentary)
