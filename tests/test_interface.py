@@ -65,6 +65,22 @@ class TestInterface:
         outputs = [self._table_row(row) for row in [['id', 'name', 'created', '# tasks'], ['0', 'proj', '.*', '0']]]
         self._test_output(capsys, monkeypatch, user_input, outputs)
 
+    def test_project_new_another(self, capsys, monkeypatch):
+        board = new_board()
+        board.create_project(Project(name='proj'))
+        # attempt to add duplicate project
+        user_input = [('project new', ['proj'])]
+        with suppress(EOFError):
+            self._test_output(capsys, monkeypatch, user_input, "Duplicate project name 'proj'", board=board)
+        # add a project with a unique name
+        user_input = [('project new', ['proj1'] + [''] * 2)]
+        self._test_output(capsys, monkeypatch, user_input, 'Created new project proj1 with ID 1', board=board)
+        assert board.get_project(1).name == 'proj1'
+        # add a project with the name given rather than prompted
+        user_input = [('project new proj2', [''] * 2)]
+        self._test_output(capsys, monkeypatch, user_input, 'Created new project proj2 with ID 2', board=board)
+        assert board.get_project(2).name == 'proj2'
+
     def test_project_set(self, capsys, monkeypatch):
         now = get_current_time()
         board = new_board()
@@ -148,8 +164,13 @@ class TestInterface:
         with suppress(EOFError):
             self._test_output(capsys, monkeypatch, user_input, "Duplicate task name 'task'", board=board)
         # add a task with a unique name
-        user_input = [('task new', ['task2'] + [''] * 7)]
-        self._test_output(capsys, monkeypatch, user_input, 'Created new task task2 with ID 1', board=board)
+        user_input = [('task new', ['task1'] + [''] * 7)]
+        self._test_output(capsys, monkeypatch, user_input, 'Created new task task1 with ID 1', board=board)
+        assert board.get_task(1).name == 'task1'
+        # add a task with the name given rather than prompted
+        user_input = [('task new task2', [''] * 7)]
+        self._test_output(capsys, monkeypatch, user_input, 'Created new task task2 with ID 2', board=board)
+        assert board.get_task(2).name == 'task2'
 
     def test_task_begin(self, capsys, monkeypatch):
         now = get_current_time()

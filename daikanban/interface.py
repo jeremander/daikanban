@@ -420,7 +420,7 @@ class BoardInterface(BaseModel):
         print(f'Deleted project {name_style(proj.name)} with ID {proj_id_style(id_)}')
 
     @require_board
-    def new_project(self) -> None:
+    def new_project(self, name: Optional[str] = None) -> None:
         """Creates a new project."""
         assert self.board is not None
         def _parse_name(name: Any) -> str:
@@ -442,8 +442,14 @@ class BoardInterface(BaseModel):
             }
         }
         prompters: dict[str, FieldPrompter] = {field: FieldPrompter(Project, field, **kwargs) for (field, kwargs) in params.items()}
+        if name is None:
+            defaults = {}
+        else:
+            self.board._check_duplicate_project_name(name)
+            del prompters['name']
+            defaults = {'name': name}
         try:
-            proj = model_from_prompt(Project, prompters)
+            proj = model_from_prompt(Project, prompters, defaults=defaults)
         except KeyboardInterrupt:  # go back to main REPL
             print()
             return
@@ -876,7 +882,7 @@ class BoardInterface(BaseModel):
                 return self.show_project_help()
             tok1 = tokens[1]
             if prefix_match(tok1, 'new'):
-                return self.new_project()
+                return self.new_project(None if (ntokens == 2) else tokens[2])
             if prefix_match(tok1, 'delete'):
                 return self.delete_project(None if (ntokens == 2) else tokens[2])
             if prefix_match(tok1, 'show'):

@@ -2,14 +2,13 @@
 
 ## `v0.1.2`
 
-- New project with name
 - Age-off for completed tasks to prevent displaying too many in board
   - `archived` status? Like `kanban-python`
   - Or set `limit=none` to view these in `completed` column
+- Show number of tasks in each board column
 
 ## `v0.2.0`
 
-- Show number of tasks in each board column
 - Settings customization
   - Use `fancy_dataclass`
   - Generic pydantic->TOML serialization (rudimentary)
@@ -22,13 +21,14 @@
   - Priority/difficulty upper bounds?
   - Default size limit, set of statuses to show
   - Show dates as timestamps or human-readable relative times
-  - More flexible datetime parsing
-    - E.g. "tomorrow at 3 PM", "yesterday 18:00", "1800 yesterday"
-    - Allow things like "next Tuesday"?
-- Set up Github Actions, test coverage
+  - `config` subcommand to view configs (at a minimum)
+- More flexible datetime parsing
+  - E.g. "tomorrow at 3 PM", "yesterday 18:00", "1800 yesterday"
+  - Allow things like "next Tuesday"?
 
 ## `v0.3.0`
 
+- Set up Github Actions, test coverage
 - Default for dark terminal? (E.g. task IDs are too dark)
 - Use different scorer for completed tasks?
   - E.g. `priority-rate` would use actual duration rather than expected duration

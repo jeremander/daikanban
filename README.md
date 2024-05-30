@@ -64,6 +64,7 @@ daikanban shell
 | `project show [PROJECT]` | `p s [PROJECT]` | Show project info |
 | `task new` | `t n` | Create new task |
 | `task show [TASK]` | `t s [TASK]` | Show task info |
+| `task set [FIELD] [VALUE]` | `t set [FIELD] [VALUE]` | Update task info (if `VALUE` is omitted, set it to null) |
 
 Projects and tasks can be referred to either by their ID (a unique number assigned at creation) or their name. For ease of use, it is recommended to avoid whitespace characters in names:
 
