@@ -8,6 +8,8 @@ def patch_stdin(monkeypatch, content):
 
 def match_patterns(patterns, string, exact=False):
     """Matches one or more regexes on a string."""
+    if patterns is None:
+        return
     if not isinstance(patterns, (list, tuple)):
         patterns = [patterns]
     for pattern in patterns:

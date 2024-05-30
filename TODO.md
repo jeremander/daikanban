@@ -3,7 +3,6 @@
 ## `v0.1.2`
 
 - Bugs
-  - Allow user to set start time before creation time
   - Be able to set null value in `task set`?
 - Age-off for completed tasks to prevent displaying too many in board
   - `archived` status? Like `kanban-python`

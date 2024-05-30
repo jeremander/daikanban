@@ -3,7 +3,8 @@ from contextlib import suppress
 import pytest
 
 from daikanban.interface import BoardInterface, parse_string_set
-from daikanban.model import Board, Task
+from daikanban.model import Board, Task, TaskStatusError
+from daikanban.utils import get_current_time
 
 from . import match_patterns, patch_stdin
 
@@ -34,7 +35,7 @@ class TestInterface:
     def _table_row(cells):
         return r'[│┃]\s*' + r'\s*[│┃]\s*'.join(cells) + r'\s*[│┃]'
 
-    def _test_output(self, capsys, monkeypatch, user_input, expected_output, board=None):
+    def _test_output(self, capsys, monkeypatch, user_input, expected_output=None, board=None):
         class MockBoardInterface(BoardInterface):
             def save_board(self) -> None:
                 # do not attempt to save board to a file
@@ -83,6 +84,64 @@ class TestInterface:
         # add a task with a unique name
         user_input = [('task new', ['task2'] + [''] * 7)]
         self._test_output(capsys, monkeypatch, user_input, 'Created new task task2 with ID 1', board=board)
+
+    def test_task_begin(self, capsys, monkeypatch):
+        now = get_current_time()
+        board = new_board()
+        board.create_task(Task(name='task0'))
+        user_input = [('task begin 0', [''])]
+        self._test_output(capsys, monkeypatch, user_input, r'\[0\] to active state', board=board)
+        task = board.get_task(0)
+        assert task.first_started_time > task.created_time
+        # attempt to start a task before its creation time, but decline to
+        board.create_task(Task(name='task1'))
+        user_input = [('task begin 1', ['yesterday', 'n', 'now'])]
+        self._test_output(capsys, monkeypatch, user_input, r'\[1\] to active state', board=board)
+        task = board.get_task(1)
+        assert task.first_started_time > task.created_time
+        # start a task before its creation time, overwrite its creation time
+        board.create_task(Task(name='task2'))
+        user_input = [('task begin 2', ['yesterday', 'y'])]
+        self._test_output(capsys, monkeypatch, user_input, r'\[2\] to active state', board=board)
+        task = board.get_task(2)
+        assert task.first_started_time == task.created_time
+        assert task.first_started_time < now
+
+    def test_task_complete(self, capsys, monkeypatch):
+        now = get_current_time()
+        board = new_board()
+        # complete a task without starting it
+        board.create_task(Task(name='task0'))
+        user_input = [('task complete 0', ['now', 'now'])]
+        self._test_output(capsys, monkeypatch, user_input, r'\[0\] to complete state', board=board)
+        task = board.get_task(0)
+        assert task.created_time > now
+        assert task.first_started_time > task.created_time
+        assert task.completed_time > task.first_started_time
+        # complete task before start time, but after creation time
+        board.create_task(Task(name='task1'))
+        user_input = [('task complete 1', ['in 2 days', 'in 1 day'])]
+        with pytest.raises(TaskStatusError, match='cannot complete a task before its last started time'):
+            self._test_output(capsys, monkeypatch, user_input, board=board)
+        # attempt to create a task before creation time, but decline to
+        board.create_task(Task(name='task2'))
+        user_input = [('task complete 2', ['yesterday', 'n'])]
+        with suppress(EOFError):
+            self._test_output(capsys, monkeypatch, user_input, 'Cannot start a task before its creation time', board=board)
+        # complete task before creation time, but after start time
+        board.create_task(Task(name='task3'))
+        user_input = [('task complete 3', ['2 days ago', 'y', 'yesterday'])]
+        outputs = ['Set creation time', r'\[3\] to complete state']
+        self._test_output(capsys, monkeypatch, user_input, outputs, board=board)
+        task = board.get_task(3)
+        assert task.created_time < now
+        assert task.first_started_time == task.created_time
+        assert task.completed_time > task.first_started_time
+        # complete task before creation time and before start time
+        board.create_task(Task(name='task3'))
+        user_input = [('task complete 4', ['yesterday', 'y', '2 days ago', 'y'])]
+        with pytest.raises(TaskStatusError, match='cannot complete a task before its last started time'):
+            self._test_output(capsys, monkeypatch, user_input, board=board)
 
     # BOARD
 

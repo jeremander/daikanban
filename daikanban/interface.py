@@ -14,12 +14,13 @@ import pendulum
 import pendulum.parsing
 from pydantic import BaseModel, Field, ValidationError, create_model
 from rich import print
+from rich.console import Console
 from rich.markup import escape
 from rich.prompt import Confirm
 from rich.table import Table
 from typing_extensions import Concatenate, ParamSpec
 
-from daikanban.model import Board, Id, KanbanError, Model, Project, Task, TaskStatus, TaskStatusAction
+from daikanban.model import Board, Id, KanbanError, Model, Project, Task, TaskStatus, TaskStatusAction, TaskStatusError
 from daikanban.prompt import FieldPrompter, Prompter, model_from_prompt, simple_input
 from daikanban.settings import Settings
 from daikanban.utils import StrEnum, UserInputError, err_style, fuzzy_match, get_current_time, handle_error, prefix_match, style_str, to_snake_case
@@ -488,11 +489,25 @@ class BoardInterface(BaseModel):
     def change_task_status(self, action: TaskStatusAction, id_or_name: Optional[str] = None) -> None:
         """Changes a task to a new stage."""
         assert self.board is not None
+        board: Board = self.board
         id_ = self._prompt_and_parse_task(id_or_name)
-        task = self.board.get_task(id_)
+        task = board.get_task(id_)
         # fail early if the action is invalid for the status
         _ = task.apply_status_action(action)
-        _parse_datetime = Settings.global_settings().time.parse_datetime
+        def parse_datetime(s: str) -> datetime:
+            task = board.get_task(id_)
+            settings = Settings.global_settings()
+            dt = settings.time.parse_datetime(s)
+            if dt < task.created_time:
+                created_str = settings.time.render_datetime(task.created_time)
+                dt_str = settings.time.render_datetime(dt)
+                Console().print(f'Time is earlier than task creation time ({created_str}).', highlight=False)
+                overwrite = Confirm.ask(f'Set creation time to {dt_str}?')
+                if overwrite:
+                    board.update_task(id_, created_time=dt)
+                else:
+                    raise TaskStatusError(f'cannot start a task before its creation time ({created_str})')
+            return dt
         # if valid, prompt the user for when the action took place
         # ask for time of intermediate status change, which occurs if:
         #   todo -> active -> complete
@@ -505,19 +520,19 @@ class BoardInterface(BaseModel):
         }
         if (intermediate := intermediate_action_map.get((task.status, action))):
             prompt = f'When was the task {intermediate.past_tense()}? [not bold]\[now][/] '
-            prompter = Prompter(prompt, _parse_datetime, validate=None, default=get_current_time)
+            prompter = Prompter(prompt, parse_datetime, validate=None, default=get_current_time)
             first_dt = prompter.loop_prompt(use_prompt_suffix=False, show_default=False)
         else:
             first_dt = None
         # prompt user for time of latest status change
         prompt = f'When was the task {action.past_tense()}? [not bold]\[now][/] '
-        prompter = Prompter(prompt, _parse_datetime, validate=None, default=get_current_time)
+        prompter = Prompter(prompt, parse_datetime, validate=None, default=get_current_time)
         try:
             dt = prompter.loop_prompt(use_prompt_suffix=False, show_default=False)
         except KeyboardInterrupt:  # go back to main REPL
             print()
             return
-        task = self.board.apply_status_action(id_, action, dt=dt, first_dt=first_dt)
+        task = board.apply_status_action(id_, action, dt=dt, first_dt=first_dt)
         self.save_board()
         print(f'Changed task {name_style(task.name)} [not bold]\[{task_id_style(id_)}][/] to {status_style(task.status)} state')
 

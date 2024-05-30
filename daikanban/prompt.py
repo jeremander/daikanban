@@ -44,12 +44,13 @@ def simple_input(prompt: str, default: Optional[str] = None, match: str = '.*') 
             break
     return result
 
-def validated_input(prompt: str, validator: Callable[[str], T], default: Any = None, use_prompt_suffix: bool = True, **kwargs: Any) -> T:
+def validated_input(prompt: str, validator: Callable[[str], T], default: Any = None, use_prompt_suffix: bool = True, print_error: bool = True, **kwargs: Any) -> T:
     """Prompts the user with the given string until the user's response passes a validator function with no error.
         prompt: prompt string
         validator: function to parse and validate the input
         default: default value
-        use_prompt_suffix: display the default prompt suffix (colon) after the prompt and default
+        use_prompt_suffix: displays the default prompt suffix (colon) after the prompt and default
+        print_error: if True, displays an error message upon each failed iteration of input
         kwargs: passed to the rich prompt"""
     if default not in (None, PydanticUndefined):
         if isinstance(default, float) and (int(default) == default):
@@ -61,7 +62,8 @@ def validated_input(prompt: str, validator: Callable[[str], T], default: Any = N
         try:
             return validator(result)
         except Exception as e:
-            rich.print(err_style(e))
+            if print_error:
+                rich.print(err_style(e))
 
 
 @dataclass
