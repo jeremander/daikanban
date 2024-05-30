@@ -18,8 +18,8 @@ class TestProject:
     def test_links(self):
         proj = Project(name='proj')
         assert proj.links is None
-        with pytest.raises(ValidationError, match='Input should be a valid set'):
-            proj = Project(name='proj', links='')
+        proj = Project(name='proj', links='')
+        assert proj.links == set()
         proj = Project(name='proj', links=set())
         assert proj.links == set()
         with pytest.raises(ValidationError, match='Invalid URL'):
@@ -36,6 +36,10 @@ class TestProject:
         assert proj.links == {Url('fake://example.com')}
         proj = Project(name='proj', links={'scheme://netloc/path;parameters?query#fragment'})
         assert proj.links == {Url('scheme://netloc/path;parameters?query#fragment')}
+        proj = Project(name='proj', links='link1.com')
+        assert proj.links == {Url('https://link1.com')}
+        proj = Project(name='proj', links='link1.com, link2.org')
+        assert proj.links == {Url('https://link1.com'), Url('https://link2.org')}
 
 
 class TestTask:
@@ -73,6 +77,15 @@ class TestTask:
         assert Task(name='task', due_date='').due_date is None
         assert Task(name='task', due_date=dt).due_date == dt
         assert Task(name='task', due_date=dt.strftime(DEFAULT_DATETIME_FORMAT)).due_date == dt
+
+    def test_tags(self):
+        assert Task(name='task').tags is None
+        assert Task(name='task', tags=None).tags is None
+        assert Task(name='task', tags={'a', 'b'}).tags == {'a', 'b'}
+        assert Task(name='task', tags='').tags == set()
+        assert Task(name='task', tags='a').tags == {'a'}
+        assert Task(name='task', tags='a,b').tags == {'a', 'b'}
+        assert Task(name='task', tags=' a,  b').tags == {'a', 'b'}
 
     def test_replace(self):
         now = get_current_time()

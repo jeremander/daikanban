@@ -1,10 +1,11 @@
 from contextlib import suppress
 
+from pydantic_core import Url
 import pytest
 
 from daikanban.interface import BoardInterface, parse_string_set
-from daikanban.model import Board, Task, TaskStatusError
-from daikanban.utils import get_current_time
+from daikanban.model import Board, DuplicateProjectNameError, DuplicateTaskNameError, Project, Task, TaskStatusError
+from daikanban.utils import UserInputError, get_current_time
 
 from . import match_patterns, patch_stdin
 
@@ -63,6 +64,71 @@ class TestInterface:
         user_input = [('project new', ['proj', 'My project.', '']), ('project show', None)]
         outputs = [self._table_row(row) for row in [['id', 'name', 'created', '# tasks'], ['0', 'proj', '.*', '0']]]
         self._test_output(capsys, monkeypatch, user_input, outputs)
+
+    def test_project_set(self, capsys, monkeypatch):
+        now = get_current_time()
+        board = new_board()
+        board.create_project(Project(name='proj'))
+        # set an invalid field
+        user_input = [('project set 0 fake-field value', None)]
+        with pytest.raises(UserInputError, match="Unknown field 'fake-field'"):
+            self._test_output(capsys, monkeypatch, user_input, None, board=board)
+        # set field on a nonexistent project
+        user_input = [('project set 1 name proj1', None)]
+        with pytest.raises(UserInputError, match='Invalid project ID: 1'):
+            self._test_output(capsys, monkeypatch, user_input, None, board=board)
+        # set the name
+        user_input = [('project set 0 name proj0', None)]
+        self._test_output(capsys, monkeypatch, user_input, "Updated field 'name'", board=board)
+        proj = board.get_project(0)
+        assert proj.name == 'proj0'
+        assert proj.description is None
+        # set description to empty string
+        for c in ["'", '"']:
+            user_input = [(f'project set 0 description {c}{c}', None)]
+            self._test_output(capsys, monkeypatch, user_input, "Updated field 'description'", board=board)
+            assert board.get_project(0).description == ''
+        # set description to null
+        user_input = [('project set 0 description', None)]
+        self._test_output(capsys, monkeypatch, user_input, "Updated field 'description'", board=board)
+        assert board.get_project(0).description is None
+        # set creation time to valid value
+        user_input = [('project set 0 created_time yesterday', None)]
+        self._test_output(capsys, monkeypatch, user_input, "Updated field 'created_time'", board=board)
+        assert board.get_project(0).created_time < now
+        # set the set of links
+        assert board.get_project(0).links is None
+        user_input = [('project set 0 links ""', None)]
+        self._test_output(capsys, monkeypatch, user_input, "Updated field 'links'", board=board)
+        assert board.get_project(0).links == set()
+        user_input = [('project set 0 links link1', None)]
+        with pytest.raises(UserInputError, match='Invalid URL'):
+            self._test_output(capsys, monkeypatch, user_input, None, board=board)
+        user_input = [('project set 0 links link1.com', None)]
+        self._test_output(capsys, monkeypatch, user_input, "Updated field 'links'", board=board)
+        assert board.get_project(0).links == {Url('https://link1.com')}
+        for links in ['link1.com,link2.org', '" link1.com,  link2.org"']:
+            user_input = [(f'project set 0 links {links}', None)]
+            self._test_output(capsys, monkeypatch, user_input, "Updated field 'links'", board=board)
+            assert board.get_project(0).links == {Url('https://link1.com'), Url('https://link2.org')}
+        user_input = [('project set 0 links', None)]
+        self._test_output(capsys, monkeypatch, user_input, "Updated field 'links'", board=board)
+        assert board.get_project(0).links is None
+        # attempt to set fields to invalid values
+        user_input = [('project set 0 name', None)]
+        with pytest.raises(UserInputError, match='Input should be a valid string'):
+            self._test_output(capsys, monkeypatch, user_input, None, board=board)
+        user_input = [('project set 0 created_time', None)]
+        with pytest.raises(UserInputError, match='Input should be a valid datetime'):
+            self._test_output(capsys, monkeypatch, user_input, None, board=board)
+        user_input = [('project set 0 created_time abc', None)]
+        with pytest.raises(UserInputError, match="Invalid time 'abc'"):
+            self._test_output(capsys, monkeypatch, user_input, None, board=board)
+        # attempt to set duplicate project name
+        board.create_project(Project(name='proj'))
+        user_input = [('project set 1 name proj0', None)]
+        with pytest.raises(DuplicateProjectNameError, match="Duplicate project name 'proj0'"):
+            self._test_output(capsys, monkeypatch, user_input, None, board=board)
 
     # TASK
 
@@ -142,6 +208,45 @@ class TestInterface:
         user_input = [('task complete 4', ['yesterday', 'y', '2 days ago', 'y'])]
         with pytest.raises(TaskStatusError, match='cannot complete a task before its last started time'):
             self._test_output(capsys, monkeypatch, user_input, board=board)
+
+    def test_task_set(self, capsys, monkeypatch):
+        now = get_current_time()
+        board = new_board()
+        board.create_task(Task(name='task', description='task'))
+        # set the name
+        user_input = [('task set 0 name task0', None)]
+        self._test_output(capsys, monkeypatch, user_input, "Updated field 'name'", board=board)
+        task = board.get_task(0)
+        assert task.name == 'task0'
+        assert task.description == 'task'
+        # set description to null
+        user_input = [('task set 0 description', None)]
+        self._test_output(capsys, monkeypatch, user_input, "Updated field 'description'", board=board)
+        assert board.get_task(0).description is None
+        # attempt to set start time earlier than created time
+        user_input = [('task set 0 first_started_time yesterday', None)]
+        with pytest.raises(UserInputError, match='Task start time cannot precede created time'):
+            self._test_output(capsys, monkeypatch, user_input, None, board=board)
+        # attempt to set created time later than start time
+        user_input = [('task set 0 first_started_time tomorrow', None)]
+        self._test_output(capsys, monkeypatch, user_input, "Updated field 'first_started_time'", board=board)
+        assert board.get_task(0).first_started_time > now
+        user_input = [('task set 0 created_time "in two days"', None)]
+        with pytest.raises(UserInputError, match='Task start time cannot precede created time'):
+            self._test_output(capsys, monkeypatch, user_input, None, board=board)
+        # attempt to set a computed field
+        user_input = [('task set 0 status todo', None)]
+        with pytest.raises(UserInputError, match="Field 'status' cannot be updated"):
+            self._test_output(capsys, monkeypatch, user_input, "Updated field 'description'", board=board)
+        # attempt to set fields to invalid values
+        user_input = [('task set 0 name', None)]
+        with pytest.raises(UserInputError, match='Input should be a valid string'):
+            self._test_output(capsys, monkeypatch, user_input, None, board=board)
+        # attempt to set duplicate task name
+        board.create_task(Task(name='task'))
+        user_input = [('task set 1 name task0', None)]
+        with pytest.raises(DuplicateTaskNameError, match="Duplicate task name 'task0'"):
+            self._test_output(capsys, monkeypatch, user_input, None, board=board)
 
     # BOARD
 

@@ -2,8 +2,7 @@
 
 ## `v0.1.2`
 
-- Bugs
-  - Be able to set null value in `task set`?
+- New project with name
 - Age-off for completed tasks to prevent displaying too many in board
   - `archived` status? Like `kanban-python`
   - Or set `limit=none` to view these in `completed` column

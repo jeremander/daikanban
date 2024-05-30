@@ -1,4 +1,5 @@
 from contextlib import contextmanager
+import csv
 from datetime import datetime, timezone
 from enum import Enum
 import operator
@@ -78,6 +79,12 @@ def fuzzy_match(name1: str, name2: str) -> bool:
 def first_name_match(matcher: NameMatcher, name1: str, names2: Iterable[str]) -> Optional[str]:
     """Given a NameMatcher, query name, and an iterable of names to compare against, returns the first name that matches (if there is one), otherwise None."""
     return next((name2 for name2 in names2 if matcher(name1, name2)), None)
+
+def parse_string_set(s: str) -> Optional[set[str]]:
+    """Parses a comma-separated string into a set of strings.
+    Allows for quote delimiting so that commas can be escaped.
+    Strips any leading or trailing whitespace from each string."""
+    return {string.strip() for string in list(csv.reader([s]))[0]} or None
 
 
 ############

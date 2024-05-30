@@ -8,7 +8,7 @@ from pydantic import AfterValidator, AnyUrl, BaseModel, BeforeValidator, Field, 
 from typing_extensions import Self, TypeAlias
 
 from daikanban.settings import Settings, TaskStatus
-from daikanban.utils import KanbanError, NameMatcher, StrEnum, exact_match, first_name_match, get_current_time, get_duration_between, human_readable_duration
+from daikanban.utils import KanbanError, NameMatcher, StrEnum, exact_match, first_name_match, get_current_time, get_duration_between, human_readable_duration, parse_string_set
 
 
 T = TypeVar('T')
@@ -49,6 +49,16 @@ def _parse_optional(obj: Any) -> Any:
         return None
     return obj
 
+def _parse_str_set(obj: str | set[str]) -> set[str]:
+    return (parse_string_set(obj) or set()) if isinstance(obj, str) else obj
+
+def _parse_url_set(obj: str | set[str]) -> set[AnyUrl]:
+    if obj == '':
+        return set()
+    strings = parse_string_set(obj) if isinstance(obj, str) else obj
+    return set(map(_check_url, strings))  # type: ignore[arg-type]
+
+
 Name: TypeAlias = Annotated[str, AfterValidator(_check_name)]
 
 Url: TypeAlias = Annotated[AnyUrl, BeforeValidator(_check_url)]
@@ -72,6 +82,10 @@ OptionalDuration: TypeAlias = Annotated[Optional[Duration], BeforeValidator(_par
 Score: TypeAlias = Annotated[float, Field(description='A score (positive number)', ge=0.0)]
 
 OptionalScore: TypeAlias = Annotated[Optional[Score], BeforeValidator(_parse_optional)]
+
+StrSet: TypeAlias = Annotated[set[str], BeforeValidator(_parse_str_set)]
+
+UrlSet: TypeAlias = Annotated[set[Url], BeforeValidator(_parse_url_set)]
 
 
 ##################
@@ -182,7 +196,7 @@ class Project(Model):
         default_factory=get_current_time,
         description='Time the project was created'
     )
-    links: Optional[set[Url]] = Field(
+    links: Optional[UrlSet] = Field(
         default=None,
         description='Links associated with the project'
     )
@@ -233,11 +247,11 @@ class Task(Model):
         default=None,
         description='Project ID'
     )
-    tags: Optional[set[str]] = Field(
+    tags: Optional[StrSet] = Field(
         default=None,
         description='Tags associated with the task'
     )
-    links: Optional[set[Url]] = Field(
+    links: Optional[UrlSet] = Field(
         default=None,
         description='Links associated with the project'
     )

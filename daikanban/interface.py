@@ -1,5 +1,4 @@
 from collections import defaultdict
-import csv
 from datetime import datetime
 from functools import cache, wraps
 import json
@@ -23,7 +22,7 @@ from typing_extensions import Concatenate, ParamSpec
 from daikanban.model import Board, Id, KanbanError, Model, Project, Task, TaskStatus, TaskStatusAction, TaskStatusError
 from daikanban.prompt import FieldPrompter, Prompter, model_from_prompt, simple_input
 from daikanban.settings import Settings
-from daikanban.utils import StrEnum, UserInputError, err_style, fuzzy_match, get_current_time, handle_error, prefix_match, style_str, to_snake_case
+from daikanban.utils import StrEnum, UserInputError, err_style, fuzzy_match, get_current_time, handle_error, parse_string_set, prefix_match, style_str, to_snake_case
 
 
 M = TypeVar('M', bound=BaseModel)
@@ -126,12 +125,6 @@ def status_style(status: TaskStatus) -> str:
 def empty_is_none(s: str) -> Optional[str]:
     """Identity function on strings, except if the string is empty, returns None."""
     return s or None
-
-def parse_string_set(s: str) -> Optional[set[str]]:
-    """Parses a comma-separated string into a set of strings.
-    Allows for quote delimiting so that commas can be escaped.
-    Strips any leading or trailing whitespace from each string."""
-    return {string.strip() for string in list(csv.reader([s]))[0]} or None
 
 def parse_date_as_string(s: str) -> Optional[str]:
     """Parses a string into a timestamp string.
@@ -389,7 +382,7 @@ class BoardInterface(BaseModel):
         print(json.dumps(cls.model_json_schema(mode='serialization'), indent=indent))
 
     @require_board
-    def _update_project_or_task(self, id_or_name: str, field: str, value: str, is_task: bool) -> None:
+    def _update_project_or_task(self, id_or_name: str, field: str, value: Optional[str], is_task: bool) -> None:
         """Updates an attribute of a project or task."""
         assert self.board is not None
         cls = Task if is_task else Project
@@ -479,7 +472,7 @@ class BoardInterface(BaseModel):
         proj = self.board.get_project(id_)
         print(self._model_pretty(proj, id_=id_))
 
-    def update_project(self, id_or_name: str, field: str, value: str) -> None:
+    def update_project(self, id_or_name: str, field: str, value: Optional[str] = None) -> None:
         """Updates an attribute of a project."""
         return self._update_project_or_task(id_or_name, field, value, is_task=False)
 
@@ -658,9 +651,11 @@ class BoardInterface(BaseModel):
         task = self.board.get_task(id_)
         print(self._model_pretty(task, id_=id_))
 
-    def update_task(self, id_or_name: str, field: str, value: str) -> None:
+    def update_task(self, id_or_name: str, field: str, value: Optional[str] = None) -> None:
         """Updates an attribute of a task."""
         if field == 'project':  # allow a name or ID
+            if value is None:
+                raise UserInputError('Must provide a valid project name or ID')
             id_ = self._parse_project(value)
             if id_ is None:
                 raise UserInputError('Invalid project')
@@ -889,7 +884,7 @@ class BoardInterface(BaseModel):
                     return self.show_projects()
                 return self.show_project(tokens[2])
             if tok1 == 'set':
-                if len(tokens) < 5:
+                if len(tokens) < 4:
                     raise UserInputError('Must provide [ID/NAME] [FIELD] [VALUE]')
                 return self.update_project(*tokens[2:5])
         elif prefix_match(tok0, 'quit') or (tok0 == 'exit'):
@@ -907,7 +902,7 @@ class BoardInterface(BaseModel):
                     return self.show_tasks()
                 return self.show_task(tokens[2])
             if tok1 == 'set':
-                if len(tokens) < 5:
+                if len(tokens) < 4:
                     raise UserInputError('Must provide [ID/NAME] [FIELD] [VALUE]')
                 return self.update_task(*tokens[2:5])
             action: Optional[TaskStatusAction] = None
