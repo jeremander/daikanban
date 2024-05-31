@@ -22,7 +22,7 @@ from typing_extensions import Concatenate, ParamSpec
 from daikanban.model import Board, Id, KanbanError, Model, Project, Task, TaskStatus, TaskStatusAction, TaskStatusError
 from daikanban.prompt import FieldPrompter, Prompter, model_from_prompt, simple_input
 from daikanban.settings import Settings
-from daikanban.utils import NotGiven, NotGivenType, StrEnum, UserInputError, err_style, fuzzy_match, get_current_time, handle_error, parse_string_set, prefix_match, style_str, to_snake_case
+from daikanban.utils import NotGiven, NotGivenType, StrEnum, UserInputError, err_style, fuzzy_match, get_current_time, get_duration_between, handle_error, human_readable_duration, parse_string_set, prefix_match, style_str, to_snake_case
 
 
 M = TypeVar('M', bound=BaseModel)
@@ -792,11 +792,14 @@ class BoardInterface(BaseModel):
         return limit
 
     def _get_completed_since(self, since: datetime | None | NotGivenType) -> Optional[datetime]:
+        now = get_current_time()
         if since is NotGiven:
             if isinstance(self.settings.display.completed_age_off, timedelta):
-                now = get_current_time()
-                return now - self.settings.display.completed_age_off
-            return None
+                since = now - self.settings.display.completed_age_off
+            else:
+                return None
+        if since and (since > now):
+            raise UserInputError('Must provide a time in the past')
         return since
 
     def show_board(self,  # noqa: C901
@@ -812,6 +815,7 @@ class BoardInterface(BaseModel):
         task_filter = self._filter_task_by_project_or_tag(projects=projects, tags=tags)
         limit = self._get_task_limit(limit)
         since = self._get_completed_since(since)
+        since_str = human_readable_duration(get_duration_between(since, get_current_time())) if since else None
         (group_by_status, group_colors) = self._status_group_info(statuses)
         # create BaseModel corresponding to a table row summarizing a Task
         # TODO: this class may be customized based on settings
@@ -832,6 +836,8 @@ class BoardInterface(BaseModel):
         # sort by the scoring criterion, in reverse score order
         for task_infos in grouped_task_info.values():
             task_infos.sort(key=attrgetter('score'), reverse=True)
+        # count tasks in each group prior to limiting
+        task_counts = {group: len(task_infos) for (group, task_infos) in grouped_task_info.items()}
         if limit is not None:  # limit the number of tasks in each group
             grouped_task_info = {group: task_infos[:limit] for (group, task_infos) in grouped_task_info.items()}
         # build table
@@ -842,8 +848,13 @@ class BoardInterface(BaseModel):
         subtables = []
         for (group, color) in group_colors.items():
             if group in grouped_task_info:
+                header = style_str(group, color, bold=True)
+                task_count = task_counts[group]
+                header += style_str(f' ({task_count})', 'bright_black')
+                if since_str:
+                    header += style_str(f'\nlast {since_str}', 'bright_black', italic=True) if (group == 'complete') else '\n'
                 # each status group is a main table column
-                table.add_column(group, header_style=color, justify='center')
+                table.add_column(header, justify='center')
                 task_infos = grouped_task_info[group]
                 subtable: Table | str = make_table(TaskInfo, task_infos) if task_infos else ''
                 subtables.append(subtable)

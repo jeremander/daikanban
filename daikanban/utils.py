@@ -125,10 +125,10 @@ def human_readable_duration(days: float) -> str:
 # STYLE #
 #########
 
-def style_str(val: Any, color: str, bold: bool = False) -> str:
-    """Renders a value as a rich-formatted string with a given color.
-    If bold=True, make it bold."""
-    tag = ('' if bold else 'not ') + f'bold {color}'
+def style_str(val: Any, color: str, bold: bool = False, italic: bool = False) -> str:
+    """Renders a value as a rich-formatted string with a given color, bold, and italic settings."""
+    tags = [('' if bold else 'not ') + 'bold', ('' if italic else 'not ') + 'italic', color]
+    tag = ' '.join(tags)
     return f'[{tag}]{val}[/]'
 
 def err_style(obj: object) -> str:

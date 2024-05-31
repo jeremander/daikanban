@@ -304,9 +304,6 @@ class Task(Model):
                 if (val is not None):
                     assert isinstance(val, float)
                     d[field] = '-' if (val == 0) else human_readable_duration(val)
-            if ('cycle_time' in d) and ('total_time_worked' in d) and (d['cycle_time'] == d['total_time_worked']):
-                # remove redundant field since they are equivalent here
-                del d['cycle_time']
         if self.project_id is None:
             d['project_id'] = '-'
         return d

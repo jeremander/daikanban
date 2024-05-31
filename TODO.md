@@ -2,9 +2,6 @@
 
 ## `v0.1.2`
 
-- Column headers
-  - Number of tasks
-  - Time interval (for completed)
 - Only show time of completed task, not score
 
 ## `v0.2.0`

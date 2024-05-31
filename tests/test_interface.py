@@ -276,5 +276,5 @@ class TestInterface:
 
     def test_board_show_one_task(self, capsys, monkeypatch):
         user_input = [('task new', ['task', 'My task.', '', '7', '', '', '', '']), ('board show', None)]
-        outputs = [self._table_row(row) for row in [['id', 'name', 'score'], ['0', 'task', '.*']]]
+        outputs = [r'todo \(1\)'] + [self._table_row(row) for row in [['id', 'name', 'score'], ['0', 'task', '.*']]]
         self._test_output(capsys, monkeypatch, user_input, outputs)
