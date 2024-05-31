@@ -111,12 +111,16 @@ def get_duration_between(dt1: datetime, dt2: datetime) -> float:
     """Gets the duration (in days) between two datetimes."""
     return (dt2 - dt1).total_seconds() / SECS_PER_DAY
 
-def human_readable_duration(days: float) -> str:
+def human_readable_duration(days: float, prefer_days: bool = False) -> str:
     """Given a duration (in days), converts it to a human-readable string.
-    This goes out to minute precision only."""
+    This goes out to minute precision only.
+    If prefer_days=True, show days and not weeks."""
     if days == 0:
         return '0 seconds'
-    s = pendulum.Duration(days=days).in_words()
+    dur = pendulum.Duration(days=days)
+    s = dur.in_words()
+    if prefer_days and ('week' in s):
+        s = re.sub(r'\d+ weeks?( \d+ days?)?', f'{dur.days} days', s)
     # hacky way to truncate the seconds
     return re.sub(r'\s+\d+ seconds?', '', s)
 

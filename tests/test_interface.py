@@ -275,6 +275,13 @@ class TestInterface:
         self._test_output(capsys, None, [('board show', None)], r'\[No tasks\]')
 
     def test_board_show_one_task(self, capsys, monkeypatch):
+        board = new_board()
         user_input = [('task new', ['task', 'My task.', '', '7', '', '', '', '']), ('board show', None)]
         outputs = [r'todo \(1\)'] + [self._table_row(row) for row in [['id', 'name', 'score'], ['0', 'task', '.*']]]
-        self._test_output(capsys, monkeypatch, user_input, outputs)
+        self._test_output(capsys, monkeypatch, user_input, outputs, board=board)
+        user_input = [('task begin 0', ['']), ('board show', None)]
+        outputs = [r'active \(1\)', 'Score:']
+        self._test_output(capsys, monkeypatch, user_input, outputs, board=board)
+        user_input = [('task complete 0', ['']), ('board show', None)]
+        outputs = [r'complete \(1\)', 'last', self._table_row(['id', 'name', 'completed'])]
+        self._test_output(capsys, monkeypatch, user_input, outputs, board=board)

@@ -1,9 +1,5 @@
 # TODO list
 
-## `v0.1.2`
-
-- Only show time of completed task, not score
-
 ## `v0.2.0`
 
 - Settings customization

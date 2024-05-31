@@ -203,7 +203,7 @@ class DisplaySettings(BaseModel):
         ge=0
     )
     completed_age_off: Optional[timedelta] = Field(
-        default=timedelta(days=14),
+        default=timedelta(days=30),
         description='length of time after which to stop displaying completed tasks'
     )
     status_groups: dict[str, list[str]] = Field(
