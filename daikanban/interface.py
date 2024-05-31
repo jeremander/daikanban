@@ -1,5 +1,5 @@
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timedelta
 from functools import cache, wraps
 import json
 from operator import attrgetter
@@ -22,7 +22,7 @@ from typing_extensions import Concatenate, ParamSpec
 from daikanban.model import Board, Id, KanbanError, Model, Project, Task, TaskStatus, TaskStatusAction, TaskStatusError
 from daikanban.prompt import FieldPrompter, Prompter, model_from_prompt, simple_input
 from daikanban.settings import Settings
-from daikanban.utils import StrEnum, UserInputError, err_style, fuzzy_match, get_current_time, handle_error, parse_string_set, prefix_match, style_str, to_snake_case
+from daikanban.utils import NotGiven, NotGivenType, StrEnum, UserInputError, err_style, fuzzy_match, get_current_time, handle_error, parse_string_set, prefix_match, style_str, to_snake_case
 
 
 M = TypeVar('M', bound=BaseModel)
@@ -75,8 +75,11 @@ def split_comma_list(s: str) -> list[str]:
     """Given a comma-separated list, splits it into a list of strings."""
     return [token for token in s.split(',') if token]
 
-def parse_task_limit(s: str) -> int:
-    """Parses an integer task limit, raising a UserInputError if invalid."""
+def parse_task_limit(s: str) -> Optional[int]:
+    """Parses an integer task limit, raising a UserInputError if invalid.
+    If the input string is 'none', returns None."""
+    if s.strip().lower() == 'none':
+        return None
     try:
         return int(s)
     except ValueError:
@@ -313,12 +316,18 @@ class BoardInterface(BaseModel):
 
     def add_board_help(self, grid: Table) -> None:
         """Adds entries to help menu related to boards."""
+        statuses = ', '.join(TaskStatus)
         grid.add_row('\[b]oard', '\[d]elete', 'delete current board')
         grid.add_row('', '\[n]ew', 'create new board')
         grid.add_row('', '\[l]oad [not bold]\[FILENAME][/]', 'load board from file')
         grid.add_row('', 'schema', 'show board JSON schema')
         grid.add_row('', '\[s]how', 'show current board, can provide extra filters like:')
-        grid.add_row('', '', '  status=\[STATUSES] project=\[PROJECT_IDS] tag=\[TAGS] limit=\[SIZE]')
+        # grid.add_row('', '', '  status=\[STATUSES] project=\[PROJECT_IDS] tag=\[TAGS] limit=\[SIZE] since=\[WHEN]')
+        grid.add_row('', '', f'  status=\[STATUSES]  | list of statuses ({statuses})')
+        grid.add_row('', '', '  project=\[PROJECTS] | list of project names or IDs')
+        grid.add_row('', '', '  tag=\[TAGS]         | list of tags')
+        grid.add_row('', '', '  limit=\[SIZE]       | max number of tasks to show per column (a number, or "none" for no limit)')
+        grid.add_row('', '', '  since=\[WHEN]       | date/time expression (or "anytime" for no time limit), used to limit completed tasks only')
 
     def add_project_help(self, grid: Table) -> None:
         """Adds entries to help menu related to projects."""
@@ -775,20 +784,34 @@ class BoardInterface(BaseModel):
         # no filters, so permit any task
         return lambda _: True
 
+    def _get_task_limit(self, limit: int | None | NotGivenType) -> Optional[int]:
+        if limit is NotGiven:
+            limit = self.settings.display.max_tasks
+        if (limit is not None) and (limit <= 0):
+            raise UserInputError('Must select a positive number for task limit')
+        return limit
+
+    def _get_completed_since(self, since: datetime | None | NotGivenType) -> Optional[datetime]:
+        if since is NotGiven:
+            if isinstance(self.settings.display.completed_age_off, timedelta):
+                now = get_current_time()
+                return now - self.settings.display.completed_age_off
+            return None
+        return since
+
     def show_board(self,  # noqa: C901
         statuses: Optional[list[str]] = None,
         projects: Optional[list[str]] = None,
         tags: Optional[list[str]] = None,
-        limit: Optional[int] = None
+        limit: int | None | NotGivenType = NotGiven,
+        since: datetime | None | NotGivenType = NotGiven,
     ) -> None:
         """Displays the board to the screen using the current configurations."""
         if self.board is None:
             raise BoardNotLoadedError("No board has been loaded.\nRun 'board new' to create a new board or 'board load' to load an existing one.")
         task_filter = self._filter_task_by_project_or_tag(projects=projects, tags=tags)
-        if limit is None:
-            limit = self.settings.display.limit
-        if (limit is not None) and (limit <= 0):
-            raise UserInputError('Must select a positive number for task limit')
+        limit = self._get_task_limit(limit)
+        since = self._get_completed_since(since)
         (group_by_status, group_colors) = self._status_group_info(statuses)
         # create BaseModel corresponding to a table row summarizing a Task
         # TODO: this class may be customized based on settings
@@ -797,6 +820,8 @@ class BoardInterface(BaseModel):
         grouped_task_info: dict[str, list[BaseModel]] = defaultdict(list)
         for (id_, task) in self.board.tasks.items():
             if not task_filter(task):
+                continue
+            if since and (task.status == TaskStatus.complete) and (cast(datetime, task.completed_time) < since):
                 continue
             proj_str = None if (task.project_id is None) else self._project_str_from_id(task.project_id)
             icons = task.status_icons
@@ -858,17 +883,22 @@ class BoardInterface(BaseModel):
                 kwargs: dict[str, Any] = {}
                 _keys = set()
                 for (singular, plural) in [('status', 'statuses'), ('project', 'projects'), ('tag', 'tags')]:
-                    for key in d:
+                    for (key, val) in d.items():
                         key_lower = key.lower()
                         if prefix_match(key_lower, singular, minlen=3) or prefix_match(key_lower, plural, minlen=3):
-                            values = split_comma_list(d[key])
-                            _keys.add(key)
+                            values = split_comma_list(val)
                             if not values:
                                 raise UserInputError(f'Must provide at least one {singular}')
                             kwargs[plural] = values
                         elif prefix_match(key_lower, 'limit', minlen=3):
-                            kwargs['limit'] = parse_task_limit(d[key])
-                            _keys.add(key)
+                            kwargs['limit'] = parse_task_limit(val)
+                        elif key_lower == 'since':
+                            none_vals = ['all', 'always', 'any', 'anytime']
+                            since = None if (val.strip().lower() in none_vals) else self.settings.time.parse_datetime(val)
+                            kwargs['since'] = since
+                        else:
+                            continue
+                        _keys.add(key)
                 for key in d:
                     if key not in _keys:  # reject unknown keys
                         raise UserInputError(f'Invalid option: {key}')

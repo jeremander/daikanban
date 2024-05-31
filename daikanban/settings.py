@@ -197,10 +197,14 @@ class TaskSettings(BaseModel):
 
 class DisplaySettings(BaseModel):
     """Display settings."""
-    limit: Optional[int] = Field(
+    max_tasks: Optional[int] = Field(
         default=None,
-        description='max number of tasks to display',
+        description='max number of tasks to display per column',
         ge=0
+    )
+    completed_age_off: Optional[timedelta] = Field(
+        default=timedelta(days=14),
+        description='length of time after which to stop displaying completed tasks'
     )
     status_groups: dict[str, list[str]] = Field(
         default=DEFAULT_STATUS_GROUPS,

@@ -2,10 +2,10 @@
 
 ## `v0.1.2`
 
-- Age-off for completed tasks to prevent displaying too many in board
-  - `archived` status? Like `kanban-python`
-  - Or set `limit=none` to view these in `completed` column
-- Show number of tasks in each board column
+- Column headers
+  - Number of tasks
+  - Time interval (for completed)
+- Only show time of completed task, not score
 
 ## `v0.2.0`
 
@@ -35,7 +35,6 @@
   - Could actually be the same `TaskScorer` object, but it chooses a different field if completed
   - But then it's less flexible (e.g. might want `completed` board to be chronological)
   - Best solution is to allow different scorers, keyed by `TaskStatus`
-  - Short-term: don't display the score by default?
 - Error handling
   - Debug mode: env variable to drop into pdb on unhandled exception
 - Shell features

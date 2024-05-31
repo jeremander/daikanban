@@ -18,12 +18,24 @@ DAYS_PER_WEEK = 7
 SECS_PER_DAY = SECS_PER_HOUR * HOURS_PER_DAY
 
 
+#########
+# ENUMS #
+#########
+
 class StrEnum(str, Enum):
     """Enum class whose __str__ representation is just a plain string value.
     NOTE: this class exists in the standard library in Python >= 3.11."""
 
     def __str__(self) -> str:
         return self.value
+
+
+class NotGivenType(Enum):
+    """Sentinel class for a value of "not given," when needed to distinguish it from None."""
+    NotGiven = 'NotGiven'
+
+
+NotGiven = NotGivenType.NotGiven
 
 
 ###################
