@@ -1,4 +1,5 @@
 from collections import defaultdict
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from functools import cache, wraps
 import json
@@ -7,7 +8,7 @@ from pathlib import Path
 import readline  # improves shell interactivity  # noqa: F401
 import shlex
 import sys
-from typing import Any, Callable, Iterable, Optional, TypeVar, cast
+from typing import Any, Callable, Generic, Iterable, Optional, TypeVar, cast
 
 import pendulum
 import pendulum.parsing
@@ -210,6 +211,23 @@ def simple_task_row_type(*fields: str) -> type[BaseModel]:
             raise ValueError(f'Unrecognized Task field {field}')
         kwargs[field] = val
     return create_model('SimpleTaskRow', **kwargs)
+
+
+@dataclass
+class TaskGroupSettings(Generic[M]):
+    """Class responsible for simplifying task info for displaying it in a DaiKanban board subtable."""
+    task_row_type: type[M]  # type of task row to display
+    sort_key: str  # attribute by which to sort the tasks
+    get_task_info: Callable[[Id, Task], dict[str, Any]]  # given ID and task, returns data for task row
+    get_group_header: Callable[[int], str]  # given task count, returns column header for the group
+
+    def get_task_row(self, id_: Id, task: Task) -> M:
+        """Given a task ID and Task, returns a simplified task row object."""
+        return self.task_row_type(**self.get_task_info(id_, task))
+
+    def sort_task_rows(self, task_rows: list[M]) -> None:
+        """Sorts, in-place, a list of task rows."""
+        task_rows.sort(key=attrgetter(self.sort_key), reverse=True)
 
 
 ###################
@@ -804,6 +822,39 @@ class BoardInterface(BaseModel):
             raise UserInputError('Must provide a time in the past')
         return since
 
+    def _get_task_group_settings(self, group: str, color: str, since: Optional[datetime]) -> TaskGroupSettings:
+        # TODO: customize based on settings
+        def _get_task_kwargs(id_: Id, task: Task) -> dict[str, Any]:
+            proj_str = None if (task.project_id is None) else self._project_str_from_id(task.project_id)
+            icons = task.status_icons
+            name = task.name + (f' {icons}' if icons else '')
+            return {'id': task_id_style(id_, bold=True), 'name': name, 'project': proj_str}
+        def _get_group_header(task_count: int) -> str:
+            return style_str(group, color, bold=True) + style_str(f' ({task_count})', 'bright_black')
+        if group == 'complete':
+            fields = ('id', 'name', 'project', 'completed_time')
+            sort_key = 'completed_time'
+            def get_task_info(id_: Id, task: Task) -> dict[str, Any]:
+                return {'completed_time': task.completed_time, **_get_task_kwargs(id_, task)}
+            def get_group_header(task_count: int) -> str:
+                header = _get_group_header(task_count)
+                if since:
+                    dur = get_duration_between(since, get_current_time())
+                    since_str = human_readable_duration(dur, prefer_days=True)
+                    header += style_str(f'\nlast {since_str}', 'bright_black', italic=True)
+                return header
+        else:
+            fields = ('id', 'name', 'project', 'score')
+            sort_key = 'score'
+            def get_task_info(id_: Id, task: Task) -> dict[str, Any]:
+                return {'score': self.settings.task.scorer(task), **_get_task_kwargs(id_, task)}
+            def get_group_header(task_count: int) -> str:
+                header = _get_group_header(task_count)
+                return (header + '\n') if since else header
+        # create BaseModel corresponding to a table row summarizing each Task
+        task_row_type = simple_task_row_type(*fields)
+        return TaskGroupSettings(task_row_type, sort_key, get_task_info, get_group_header)
+
     def show_board(self,  # noqa: C901
         statuses: Optional[list[str]] = None,
         projects: Optional[list[str]] = None,
@@ -816,45 +867,30 @@ class BoardInterface(BaseModel):
             raise BoardNotLoadedError("No board has been loaded.\nRun 'board new' to create a new board or 'board load' to load an existing one.")
         task_filter = self._filter_task_by_project_or_tag(projects=projects, tags=tags)
         limit = self._get_task_limit(limit)
-        if (since := self._get_completed_since(since)):
-            dur = get_duration_between(since, get_current_time())
-            since_str = human_readable_duration(dur, prefer_days=True)
-        else:
-            since_str = None
+        since = self._get_completed_since(since)
         (group_by_status, group_colors) = self._status_group_info(statuses)
-        # create BaseModel corresponding to a table row summarizing a Task
-        # TODO: this class may be customized based on settings
-        TaskInfo = simple_task_row_type('id', 'name', 'project', 'score')
-        CompletedTaskInfo = simple_task_row_type('id', 'name', 'project', 'completed_time')
-        def get_task_info(group: str, id_: Id, task: Task) -> BaseModel:
-            kwargs = {'id': task_id_style(id_, bold=True), 'name': name, 'project': proj_str}
-            if group == 'complete':
-                return CompletedTaskInfo(completed_time=task.completed_time, **kwargs)
-            else:
-                return TaskInfo(score=scorer(task), **kwargs)
+        group_settings_by_group = {group: self._get_task_group_settings(group, group_colors[group], since) for group in group_by_status.values()}
         scorer = self.settings.task.scorer
-        grouped_task_info: dict[str, list[BaseModel]] = defaultdict(list)
+        grouped_task_rows: dict[str, list[BaseModel]] = defaultdict(list)
         for (id_, task) in self.board.tasks.items():
             if not task_filter(task):
                 continue
             if since and (task.status == TaskStatus.complete) and (cast(datetime, task.completed_time) < since):
                 continue
-            proj_str = None if (task.project_id is None) else self._project_str_from_id(task.project_id)
-            icons = task.status_icons
-            name = task.name + (f' {icons}' if icons else '')
             if (group := group_by_status.get(task.status)):
-                task_info = get_task_info(group, id_, task)
-                grouped_task_info[group].append(task_info)
-        # sort by the scoring criterion, in reverse score order
-        for (group, task_infos) in grouped_task_info.items():
-            sort_key = 'completed_time' if (group == 'complete') else 'score'
-            task_infos.sort(key=attrgetter(sort_key), reverse=True)
+                group_settings = group_settings_by_group[group]
+                task_row = group_settings.get_task_row(id_, task)
+                grouped_task_rows[group].append(task_row)
+        # sort by the group's criterion, in reverse score order
+        for (group, task_rows) in grouped_task_rows.items():
+            group_settings = group_settings_by_group[group]
+            group_settings.sort_task_rows(task_rows)
         # count tasks in each group prior to limiting
-        task_counts = {group: len(task_infos) for (group, task_infos) in grouped_task_info.items()}
+        task_counts = {group: len(task_rows) for (group, task_rows) in grouped_task_rows.items()}
         if limit is not None:  # limit the number of tasks in each group
-            grouped_task_info = {group: task_infos[:limit] for (group, task_infos) in grouped_task_info.items()}
+            grouped_task_rows = {group: task_rows[:limit] for (group, task_rows) in grouped_task_rows.items()}
         # build table
-        if {'todo', 'active'} & set(grouped_task_info):  # only show scorer name if showing scores
+        if {'todo', 'active'} & set(grouped_task_rows):  # only show scorer name if showing scores
             caption = f'[not italic]Score[/]: {scorer.name}'
             if scorer.description:
                 caption += f' ({scorer.description})'
@@ -863,18 +899,15 @@ class BoardInterface(BaseModel):
         table = Table(title=self.board.name, title_style='bold italic blue', caption=caption)
         # make a subtable for each status group
         subtables = []
-        for (group, color) in group_colors.items():
-            if group in grouped_task_info:
-                header = style_str(group, color, bold=True)
+        for group in group_colors:
+            if group in grouped_task_rows:
+                group_settings = group_settings_by_group[group]
                 task_count = task_counts[group]
-                header += style_str(f' ({task_count})', 'bright_black')
-                if since_str:
-                    header += style_str(f'\nlast {since_str}', 'bright_black', italic=True) if (group == 'complete') else '\n'
+                header = group_settings.get_group_header(task_count)
                 # each status group is a main table column
                 table.add_column(header, justify='center')
-                task_info_cls = CompletedTaskInfo if (group == 'complete') else TaskInfo
-                task_infos = grouped_task_info[group]
-                subtable: Table | str = make_table(task_info_cls, task_infos) if task_infos else ''
+                task_rows = grouped_task_rows[group]
+                subtable: Table | str = make_table(group_settings.task_row_type, task_rows) if task_rows else ''
                 subtables.append(subtable)
         if subtables:
             table.add_row(*subtables)
