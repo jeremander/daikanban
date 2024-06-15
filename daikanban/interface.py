@@ -225,12 +225,12 @@ def simple_task_row_type(*fields: str) -> type:
 
 
 @dataclass
-class TaskGroupSettings(Generic[M]):
+class TaskColSettings(Generic[M]):
     """Class responsible for simplifying task info for displaying it in a DaiKanban board subtable."""
     task_row_type: type[M]  # type of task row to display
     sort_key: str  # attribute by which to sort the tasks
     get_task_info: Callable[[Id, Task], dict[str, Any]]  # given ID and task, returns data for task row
-    get_group_header: Callable[[int], str]  # given task count, returns column header for the group
+    get_col_header: Callable[[int], str]  # given task count, returns column header
 
     def get_task_row(self, id_: Id, task: Task) -> M:
         """Given a task ID and Task, returns a simplified task row object."""
@@ -765,27 +765,27 @@ class BoardInterface:
             self.save_board()
             print(f'Saved DaiKanban board {name_style(name)} to {path_style(path)}')
 
-    def _status_group_info(self, statuses: Optional[list[str]] = None) -> tuple[dict[str, str], dict[str, str]]:
-        """Given an optional list of statuses to include, returns a pair (group_by_status, group_colors).
-        The former is a map from task statuses to status groups.
-        The latter is a map from status groups to colors."""
-        status_groups = self.config.display.status_groups
+    def _column_info(self, statuses: Optional[list[str]] = None) -> tuple[dict[str, str], dict[str, str]]:
+        """Given an optional list of statuses to include, returns a pair (col_by_status, col_colors).
+        The former is a map from task statuses to columns.
+        The latter is a map from columns to colors."""
+        columns = self.config.display.board_columns
         if statuses:
             status_set = set(statuses)
             valid_statuses = {str(status) for status in TaskStatus}
             for status in status_set:
                 if status not in valid_statuses:
                     raise InvalidTaskStatusError(status)
-            status_groups = {group: [status for status in group_statuses if (status in status_set)] for (group, group_statuses) in status_groups.items()}
-        group_by_status = {}  # map from status to group
-        group_colors = {}  # map from group to color
-        for (group, group_statuses) in status_groups.items():
-            if group_statuses:
+            columns = {col: [status for status in col_statuses if (status in status_set)] for (col, col_statuses) in columns.items()}
+        col_by_status = {}  # map from status to columns
+        col_colors = {}  # map from group to color
+        for (col, col_statuses) in columns.items():
+            if col_statuses:
                 # use the first listed status to define the group color
-                group_colors[group] = cast(str, getattr(group_statuses[0], 'color', None))
-            for status in group_statuses:
-                group_by_status[status] = group
-        return (group_by_status, group_colors)
+                col_colors[col] = cast(str, getattr(col_statuses[0], 'color', None))
+            for status in col_statuses:
+                col_by_status[status] = col
+        return (col_by_status, col_colors)
 
     def _filter_task_by_project_or_tag(self, projects: Optional[list[str]] = None, tags: Optional[list[str]] = None) -> Callable[[Task], bool]:
         """Given project names/IDs and tags, returns a function that filters tasks based on whether their projects or tags match any of the provided values."""
@@ -821,22 +821,22 @@ class BoardInterface:
             raise UserInputError('Must provide a time in the past')
         return since
 
-    def _get_task_group_settings(self, group: str, color: str, since: Optional[datetime]) -> TaskGroupSettings:
+    def _get_task_col_settings(self, col: str, color: str, since: Optional[datetime]) -> TaskColSettings:
         # TODO: customize based on settings
         def _get_task_kwargs(id_: Id, task: Task) -> dict[str, Any]:
             proj_str = None if (task.project_id is None) else self._project_str_from_id(task.project_id)
             icons = task.status_icons
             name = task.name + (f' {icons}' if icons else '')
             return {'id': task_id_style(id_, bold=True), 'name': name, 'project': proj_str}
-        def _get_group_header(task_count: int) -> str:
-            return style_str(group, color, bold=True) + style_str(f' ({task_count})', 'bright_black')
-        if group == 'complete':
+        def _get_col_header(task_count: int) -> str:
+            return style_str(col, color, bold=True) + style_str(f' ({task_count})', 'bright_black')
+        if col == 'complete':
             fields = ('id', 'name', 'project', 'completed_time')
             sort_key = 'completed_time'
             def get_task_info(id_: Id, task: Task) -> dict[str, Any]:
                 return {'completed_time': task.completed_time, **_get_task_kwargs(id_, task)}
-            def get_group_header(task_count: int) -> str:
-                header = _get_group_header(task_count)
+            def get_col_header(task_count: int) -> str:
+                header = _get_col_header(task_count)
                 if since:
                     dur = get_duration_between(since, get_current_time())
                     since_str = human_readable_duration(dur, prefer_days=True)
@@ -847,12 +847,12 @@ class BoardInterface:
             sort_key = 'score'
             def get_task_info(id_: Id, task: Task) -> dict[str, Any]:
                 return {'score': self.config.task.scorer(task), **_get_task_kwargs(id_, task)}
-            def get_group_header(task_count: int) -> str:
-                header = _get_group_header(task_count)
+            def get_col_header(task_count: int) -> str:
+                header = _get_col_header(task_count)
                 return (header + '\n') if since else header
         # create dataclass type corresponding to a table row summarizing each Task
         task_row_type = simple_task_row_type(*fields)
-        return TaskGroupSettings(task_row_type, sort_key, get_task_info, get_group_header)
+        return TaskColSettings(task_row_type, sort_key, get_task_info, get_col_header)
 
     def show_board(self,  # noqa: C901
         statuses: Optional[list[str]] = None,
@@ -867,46 +867,45 @@ class BoardInterface:
         task_filter = self._filter_task_by_project_or_tag(projects=projects, tags=tags)
         limit = self._get_task_limit(limit)
         since = self._get_completed_since(since)
-        (group_by_status, group_colors) = self._status_group_info(statuses)
-        group_settings_by_group = {group: self._get_task_group_settings(group, group_colors[group], since) for group in group_by_status.values()}
+        (col_by_status, col_colors) = self._column_info(statuses)
+        col_settings_by_col = {col: self._get_task_col_settings(col, col_colors[col], since) for col in col_by_status.values()}
         scorer = self.config.task.scorer
-        grouped_task_rows: dict[str, list[Any]] = defaultdict(list)
+        task_rows_by_col: dict[str, list[Any]] = defaultdict(list)
         for (id_, task) in self.board.tasks.items():
             if not task_filter(task):
                 continue
             if since and (task.status == TaskStatus.complete) and (cast(datetime, task.completed_time) < since):
                 continue
-            if (group := group_by_status.get(task.status)):
-                group_settings = group_settings_by_group[group]
-                task_row = group_settings.get_task_row(id_, task)
-                grouped_task_rows[group].append(task_row)
-        # sort by the group's criterion, in reverse score order
-        for (group, task_rows) in grouped_task_rows.items():
-            group_settings = group_settings_by_group[group]
-            group_settings.sort_task_rows(task_rows)
-        # count tasks in each group prior to limiting
-        task_counts = {group: len(task_rows) for (group, task_rows) in grouped_task_rows.items()}
-        if limit is not None:  # limit the number of tasks in each group
-            grouped_task_rows = {group: task_rows[:limit] for (group, task_rows) in grouped_task_rows.items()}
+            if (col := col_by_status.get(task.status)):
+                col_settings = col_settings_by_col[col]
+                task_row = col_settings.get_task_row(id_, task)
+                task_rows_by_col[col].append(task_row)
+        # sort by the column's criterion, in reverse score order
+        for (col, task_rows) in task_rows_by_col.items():
+            col_settings = col_settings_by_col[col]
+            col_settings.sort_task_rows(task_rows)
+        # count tasks in each column prior to limiting
+        task_counts = {col: len(task_rows) for (col, task_rows) in task_rows_by_col.items()}
+        if limit is not None:  # limit the number of tasks in each column
+            task_rows_by_col = {col: task_rows[:limit] for (col, task_rows) in task_rows_by_col.items()}
         # build table
-        if {'todo', 'active'} & set(grouped_task_rows):  # only show scorer name if showing scores
+        if {'todo', 'active'} & set(task_rows_by_col):  # only show scorer name if showing scores
             caption = f'[not italic]Score[/]: {scorer.name}'
             if scorer.description:
                 caption += f' ({scorer.description})'
         else:
             caption = None
         table = Table(title=self.board.name, title_style='bold italic blue', caption=caption)
-        # make a subtable for each status group
+        # make a subtable for each status column
         subtables = []
-        for group in group_colors:
-            if group in grouped_task_rows:
-                group_settings = group_settings_by_group[group]
-                task_count = task_counts[group]
-                header = group_settings.get_group_header(task_count)
-                # each status group is a main table column
+        for col in col_colors:
+            if col in task_rows_by_col:
+                col_settings = col_settings_by_col[col]
+                task_count = task_counts[col]
+                header = col_settings.get_col_header(task_count)
                 table.add_column(header, justify='center')
-                task_rows = grouped_task_rows[group]
-                subtable: Table | str = make_table(group_settings.task_row_type, task_rows) if task_rows else ''
+                task_rows = task_rows_by_col[col]
+                subtable: Table | str = make_table(col_settings.task_row_type, task_rows) if task_rows else ''
                 subtables.append(subtable)
         if subtables:
             table.add_row(*subtables)

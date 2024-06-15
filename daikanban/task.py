@@ -41,7 +41,7 @@ class TaskStatus(StrEnum):
 
 
 # columns of DaiKanban board, and which task statuses are included
-DEFAULT_TASK_STATUS_GROUPS = {
+DEFAULT_TASK_COLUMNS = {
     'todo': [TaskStatus.todo],
     'active': [TaskStatus.active, TaskStatus.paused],
     'complete': [TaskStatus.complete]

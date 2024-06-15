@@ -3,7 +3,6 @@
 ## `v0.2.0`
 
 - Config customization
-  - Rename `display.status_groups` to `display.columns`
   - Generic pydantic->TOML serialization (rudimentary)
     - `fancy_dataclass` should soon support Doc annotations...
   - Global config file stored in app folder

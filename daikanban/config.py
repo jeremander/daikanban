@@ -11,7 +11,7 @@ import pytimeparse
 from typing_extensions import Doc
 
 from daikanban import PROG
-from daikanban.task import DEFAULT_TASK_STATUS_GROUPS, TaskConfig
+from daikanban.task import DEFAULT_TASK_COLUMNS, TaskConfig
 from daikanban.utils import HOURS_PER_DAY, SECS_PER_DAY, NameMatcher, UserInputError, case_insensitive_match, convert_number_words_to_digits, get_current_time, replace_relative_time_expression, whitespace_insensitive_match
 
 
@@ -156,10 +156,10 @@ class DisplayConfig(TOMLDataclass):
         Optional[float],
         Doc('length of time (in days) after which to stop displaying completed tasks')
     ] = Field(default=30, ge=0)
-    status_groups: Annotated[
+    board_columns: Annotated[
         dict[str, list[str]],
-        Doc('map from board columns (groups) to task statuses')
-    ] = Field(default=DEFAULT_TASK_STATUS_GROUPS)
+        Doc('map from board columns to task statuses')
+    ] = Field(default=DEFAULT_TASK_COLUMNS)
 
 @dataclass
 class Config(ConfigDataclass, TOMLDataclass):  # type: ignore[misc]
