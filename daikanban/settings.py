@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field, field_validator
 import pytimeparse
 
 from daikanban.score import TASK_SCORERS, TaskScorer
-from daikanban.utils import HOURS_PER_DAY, SECS_PER_DAY, NameMatcher, StrEnum, UserInputError, case_insensitive_match, convert_number_words_to_digits, get_current_time, whitespace_insensitive_match
+from daikanban.utils import HOURS_PER_DAY, SECS_PER_DAY, NameMatcher, StrEnum, UserInputError, case_insensitive_match, convert_number_words_to_digits, get_current_time, replace_relative_time_expression, whitespace_insensitive_match
 
 
 DEFAULT_DATE_FORMAT = '%m/%d/%y'  # USA-based format
@@ -74,32 +74,21 @@ class TimeSettings(BaseModel):
         le=7
     )
 
-    def parse_datetime(self, s: str) -> datetime:  # noqa: C901
+    def parse_datetime(self, s: str) -> datetime:
         """Parses a datetime from a string."""
+        s = s.lower().strip()
+        if not s:
+            raise UserInputError('Empty date string') from None
+        s = convert_number_words_to_digits(s)
+        err = UserInputError(f'Invalid time {s!r}')
+        if s.isdigit():
+            raise err from None
+        if (replaced := replace_relative_time_expression(s)) != s:
+            # replace yesterday/today/tomorrow with date
+            return self.parse_datetime(replaced)
         try:  # prefer the standard datetime format
             return datetime.strptime(s, self.datetime_format)
         except ValueError:  # attempt to parse string more flexibly
-            err = UserInputError(f'Invalid time {s!r}')
-            s = s.lower().strip()
-            if not s:
-                raise UserInputError('Empty date string') from None
-            if s.isdigit():
-                raise err from None
-            now = pendulum.now()
-            r = re.compile(r'(yesterday|today|tomorrow)(\s+)?(.*)')
-            if (match := r.match(s)):
-                groups = match.groups()
-                day_str = groups[0]
-                if day_str == 'yesterday':
-                    day = now.subtract(days=1)
-                elif day_str == 'today':
-                    day = now
-                else:  # tomorrow
-                    day = now.add(days=1)
-                s = day.to_date_string()
-                if (remainder := groups[2].strip()):  # replace relative day with exact day, and parse the rest
-                    return self.parse_datetime(f'{s} {remainder}')
-                # otherwise, just assume midnight
             # pendulum doesn't allow single-digit hours for some reason, so pad it with a zero
             tokens = s.split()
             if (len(tokens) >= 2) and (tok := tokens[-1]).isdigit() and (len(tok) == 1):
@@ -109,21 +98,6 @@ class TimeSettings(BaseModel):
                 assert isinstance(dt, datetime)
                 return dt
             except (AssertionError, pendulum.parsing.ParserError):
-                # parse as a duration from now
-                s = convert_number_words_to_digits(s.strip())
-                is_past = s.endswith(' ago')
-                s = s.removeprefix('in ').removesuffix(' from now').removesuffix(' ago').strip()
-                secs = pytimeparse.parse(s)
-                if secs is not None:
-                    td = timedelta(seconds=secs)
-                    return get_current_time() + (-td if is_past else td)
-                diff_func = now.subtract if is_past else now.add
-                if (match := re.fullmatch(r'(\d+)\s+months?', s)):
-                    months = int(match.groups(0)[0])
-                    return diff_func(months=months)
-                elif (match := re.fullmatch(r'(\d+)\s+years?', s)):
-                    years = int(match.groups(0)[0])
-                    return diff_func(years=years)
                 # TODO: handle work day/week?
                 # (difficult since calculating relative times requires knowing which hours/days are work times
                 raise err from None

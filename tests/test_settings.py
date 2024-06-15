@@ -38,6 +38,7 @@ VALID_RELATIVE_TIMES = [
     ('in 0 days', False),
     ('4 weeks ago', False),
     ('five days ago', False),
+    ('2 hrs from now', True),
     ('3 days', True),
     ('3 day', True),
     ('yesterday', False),
@@ -55,11 +56,20 @@ VALID_RELATIVE_TIMES = [
     ('in 2 years', True),
     ('2 months ago', False),
     ('2 years ago', False),
+    ('in 2 days at 3PM', True),
+    ('3 months ago 1700', False),
+    ('in 1 yr, 12:00', True),
+    ('2 years from now at 8 am', True),
+    ('last wed', False),
+    ('next Tuesday', True),
+    ('next sun, 9', True),
 ]
 
 INVALID_RELATIVE_TIMES = [
     ('invalid time', True),
     ('3', True),
+    ('in 1 year ago', True),
+    # ('in 2 mins, 5:00', True),
 ]
 
 @pytest.mark.parametrize(['string', 'is_future', 'valid'], [

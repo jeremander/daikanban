@@ -124,6 +124,66 @@ def human_readable_duration(days: float, prefer_days: bool = False) -> str:
     # hacky way to truncate the seconds
     return re.sub(r'\s+\d+ seconds?', '', s)
 
+def replace_relative_day(s: str) -> str:
+    """Given a time string containing yesterday/today/tomorrow, or an expression like "last Friday" or "next Tuesday", replaces it with the appropriate date."""
+    pattern1 = '(yesterday|today|tomorrow)'
+    def replace1(match: re.Match) -> str:
+        now = pendulum.now()
+        expr = match.group(0)
+        if expr == 'yesterday':
+            day = now.subtract(days=1)
+        elif expr == 'today':
+            day = now
+        else:  # tomorrow
+            day = now.add(days=1)
+        return day.to_date_string()
+    pattern2 = r'(last|next)\s+(mon|tues?|wed(nes)?|thu(rs?)?|fri|sat(ur)?|sun)(day)?'
+    weekday_map = {day: i for (i, day) in enumerate(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'])}
+    def replace2(match: re.Match) -> str:
+        now = pendulum.now()
+        groups = match.groups()
+        past = (groups[0] == 'last')
+        i = weekday_map[groups[1][:3]]
+        diff = now.weekday() - i
+        if past:
+            diff = -diff if (diff > 0) else -(7 + diff)
+        else:
+            diff = (7 - diff) if (diff >= 0) else -diff
+        return now.add(days=diff).to_date_string()
+    return re.sub(pattern2, replace2, re.sub(pattern1, replace1, s))
+
+def replace_relative_time_expression(s: str) -> str:
+    """Resolves a relative time expression to an absolute one."""
+    s = replace_relative_day(s)
+    pattern = r'(in\s+)?(\d+)\s+(sec(ond)?|min(ute)?|hr|hour|day|week|month|yr|year)s?(\s+(ago|from\s+now))?'
+    def replace(match: re.Match) -> str:
+        groups = match.groups()
+        is_future = (groups[0] is not None) and ('in' in groups[0])
+        is_past = (groups[-1] == 'ago')
+        is_future |= (groups[-1] is not None) and ('from' in groups[-1])
+        if is_past and is_future:  # invalid, so bail
+            return match.string
+        amount = int(groups[1])
+        unit = groups[2]
+        now = pendulum.now()
+        diff_func = now.subtract if is_past else now.add
+        if unit == 'sec':
+            return diff_func(seconds=amount).to_datetime_string()
+        elif unit == 'min':
+            return diff_func(minutes=amount).to_datetime_string()
+        elif unit in ['hr', 'hour']:
+            return diff_func(hours=amount).to_datetime_string()
+        elif unit == 'day':
+            return diff_func(days=amount).to_date_string()
+        elif unit == 'week':
+            return diff_func(weeks=amount).to_date_string()
+        elif unit == 'month':
+            return diff_func(months=amount).to_date_string()
+        else:
+            assert unit in ['yr', 'year']
+            return diff_func(years=amount).to_date_string()
+    return re.sub(pattern, replace, s)
+
 
 #########
 # STYLE #

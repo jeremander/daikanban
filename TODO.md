@@ -15,14 +15,11 @@
   - Default size limit, set of statuses to show
   - Show dates as timestamps or human-readable relative times
   - `config` subcommand to view configs (at a minimum)
-- More flexible datetime parsing
-  - E.g. "tomorrow at 3 PM", "yesterday 18:00", "1800 yesterday"
-  - Allow things like "next Tuesday"?
+- Default for dark terminal? (E.g. project IDs are too dark)
 
 ## `v0.3.0`
 
 - Set up Github Actions, test coverage
-- Default for dark terminal? (E.g. task IDs are too dark)
 - Use different scorer for completed tasks?
   - E.g. `priority-rate` would use actual duration rather than expected duration
   - Could actually be the same `TaskScorer` object, but it chooses a different field if completed

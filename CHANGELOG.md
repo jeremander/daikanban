@@ -16,6 +16,10 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- More flexible datetime parsing. Now accepts things like "yesterday at 8", "2 days from now at 5 PM", and "last Tuesday".
+
 ## [0.1.2]
 
 ### Added
