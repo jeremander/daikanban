@@ -1,5 +1,5 @@
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import Field, dataclass, field, fields, make_dataclass
 from datetime import datetime, timedelta
 from functools import cache, wraps
 import json
@@ -8,17 +8,17 @@ from pathlib import Path
 import readline  # improves shell interactivity  # noqa: F401
 import shlex
 import sys
-from typing import Any, Callable, Generic, Iterable, Optional, Type, TypeVar, cast
+from typing import TYPE_CHECKING, Annotated, Any, Callable, Generic, Iterable, Optional, Type, TypeVar, cast
 
 import pendulum
 import pendulum.parsing
-from pydantic import BaseModel, Field, ValidationError, create_model
+from pydantic import ValidationError
 from rich import print
 from rich.console import Console
 from rich.markup import escape
 from rich.prompt import Confirm
 from rich.table import Table
-from typing_extensions import Concatenate, ParamSpec
+from typing_extensions import Concatenate, Doc, ParamSpec
 
 from daikanban.model import Board, Id, KanbanError, Model, Project, Task, TaskStatus, TaskStatusAction, TaskStatusError
 from daikanban.prompt import FieldPrompter, Prompter, model_from_prompt, simple_input
@@ -26,7 +26,11 @@ from daikanban.settings import Settings
 from daikanban.utils import NotGiven, NotGivenType, StrEnum, UserInputError, err_style, fuzzy_match, get_current_time, get_duration_between, handle_error, human_readable_duration, parse_string_set, prefix_match, style_str, to_snake_case
 
 
-M = TypeVar('M', bound=BaseModel)
+if TYPE_CHECKING:
+    from _typeshed import DataclassInstance
+
+
+M = TypeVar('M')
 T = TypeVar('T')
 BI = TypeVar('BI', bound='BoardInterface')
 P = ParamSpec('P')
@@ -64,7 +68,7 @@ def get_billboard_art() -> str:
 
 def parse_option_value_pair(s: str) -> tuple[str, str]:
     """Parses a string of the form [OPTION]=[VALUE] and returns a tuple (OPTION, VALUE)."""
-    err = UserInputError(f'Invalid argument {s!r}\n\texpected format \[OPTION]=\[VALUE]')
+    err = UserInputError(f'Invalid argument {s!r}\n\texpected format \\[OPTION]=\\[VALUE]')
     if '=' not in s:
         raise err
     tup = tuple(map(str.strip, s.split('=', maxsplit=1)))
@@ -147,39 +151,44 @@ def parse_duration(s: str) -> Optional[float]:
 # PRETTY PRINTING #
 ###################
 
-def make_table(tp: type[M], rows: Iterable[M], **kwargs: Any) -> Table:
-    """Given a BaseModel type and a list of objects of that type, creates a Table displaying the data, with each object being a row."""
+def make_table(tp: type['DataclassInstance'], rows: Iterable[M], **kwargs: Any) -> Table:
+    """Given a model type and a list of objects of that type, creates a Table displaying the data, with each object being a row."""
     table = Table(**kwargs)
     flags = []  # indicates whether each field has any nontrivial element
-    for (name, info) in tp.model_fields.items():
-        flag = any(getattr(row, name) is not None for row in rows)
+    field_names = []
+    for fld in fields(tp):
+        field_names.append(fld.name)
+        flag = any(getattr(row, fld.name) is not None for row in rows)
         flags.append(flag)
         if flag:  # skip column if all values are trivial
-            title = info.title or name
-            kw = cast(dict, info.json_schema_extra) or {}
+            metadata = fld.metadata or {}  # type: ignore[var-annotated]
+            title = metadata.get('title', fld.name)
+            kw = {key: val for (key, val) in metadata.items() if (key != 'title')}
             table.add_column(title, **kw)
     settings = Settings.global_settings()
     for row in rows:
-        vals = [settings.pretty_value(val) for (flag, (_, val)) in zip(flags, row) if flag]
+        vals = [settings.pretty_value(getattr(row, name)) for (flag, name) in zip(flags, field_names) if flag]
         table.add_row(*vals)
     return table
 
-class ProjectRow(BaseModel):
+@dataclass
+class ProjectRow:
     """A display table row associated with a project.
     These rows are presented in the project list view."""
-    id: str = Field(json_schema_extra={'justify': 'right'})  # type: ignore[call-arg]
+    id: str = field(metadata={'justify': 'right'})
     name: str
     created: str
-    num_tasks: int = Field(title='# tasks', json_schema_extra={'justify': 'right'})  # type: ignore[call-arg]
+    num_tasks: int = field(metadata={'title': '# tasks', 'justify': 'right'})
 
-class TaskRow(BaseModel):
+@dataclass
+class TaskRow:
     """A display table row associated with a task.
     These rows are presented in the task list view."""
-    id: str = Field(json_schema_extra={'justify': 'right'})    # type: ignore[call-arg]
-    name: str = Field(json_schema_extra={'min_width': 15})  # type: ignore[call-arg]
+    id: str = field(metadata={'justify': 'right'})
+    name: str = field(metadata={'min_width': 15})
     project: Optional[str]
-    priority: Optional[float] = Field(title="pri…ty")
-    difficulty: Optional[float] = Field(title="diff…ty")
+    priority: Optional[float] = field(metadata={'title': 'pri…ty'})
+    difficulty: Optional[float] = field(metadata={'title': 'diff…ty'})
     duration: Optional[str]
     create: str
     start: Optional[str]
@@ -187,30 +196,31 @@ class TaskRow(BaseModel):
     due: Optional[str]
     status: str
 
-def simple_task_row_type(*fields: str) -> type[BaseModel]:
-    """Given a list of fields associated with a task, creates a BaseModel subclass that will be used to display a simplified row for each task.
+def simple_task_row_type(*fields: str) -> type:
+    """Given a list of fields associated with a task, creates a dataclass that will be used to display a simplified row for each task.
     These rows are presented in the DaiKanban board view."""
     kwargs: dict[str, Any] = {}
-    for field in fields:
-        if field == 'id':
-            val: tuple[Any, Any] = (str, Field(json_schema_extra={'justify': 'right'}))
-        elif field == 'name':
-            val = (str, ...)
-        elif field == 'project':
-            val = (Optional[str], ...)
-        elif field == 'priority':
-            val = (Optional[float], Field(title="pri…ty"))
-        elif field == 'difficulty':
-            val = (Optional[float], Field(title="diff…ty"))
-        elif field == 'completed_time':
-            val = (Optional[datetime], Field(title='completed'))
-        elif field == 'score':
-            val = (float, Field(json_schema_extra={'justify': 'right'}))
+    for name in fields:
+        if name == 'id':
+            val: tuple[Any, Optional[Field]] = (str, field(metadata={'justify': 'right'}))
+        elif name == 'name':
+            val = (str, None)
+        elif name == 'project':
+            val = (Optional[str], None)
+        elif name == 'priority':
+            val = (Optional[float], field(metadata={'title': 'pri…ty'}))
+        elif name == 'difficulty':
+            val = (Optional[float], field(metadata={'title': 'diff…ty'}))
+        elif name == 'completed_time':
+            val = (Optional[datetime], field(metadata={'title': 'completed'}))
+        elif name == 'score':
+            val = (float, field(metadata={'justify': 'right'}))
         # TODO: add more fields
         else:
-            raise ValueError(f'Unrecognized Task field {field}')
-        kwargs[field] = val
-    return create_model('SimpleTaskRow', **kwargs)
+            raise ValueError(f'Unrecognized Task field {name}')
+        kwargs[name] = val
+    items = [(name, tp) if (fld is None) else (name, tp, fld) for (name, (tp, fld)) in kwargs.items()]
+    return make_dataclass('SimpleTaskRow', items)
 
 
 @dataclass
@@ -244,21 +254,13 @@ def require_board(func: Callable[Concatenate[BI, P], None]) -> Callable[Concaten
     return wrapped
 
 
-class BoardInterface(BaseModel):
+@dataclass
+class BoardInterface:
     """Interactive user interface to view and manipulate a DaiKanban board.
     This object maintains a state containing the currently loaded board and configurations."""
-    board_path: Optional[Path] = Field(
-        default=None,
-        description='path of current board'
-    )
-    board: Optional[Board] = Field(
-        default=None,
-        description='current DaiKanban board'
-    )
-    settings: Settings = Field(
-        default_factory=Settings,
-        description='global settings'
-    )
+    board_path: Annotated[Optional[Path], Doc('path of current board')] = None
+    board: Annotated[Optional[Board], Doc('current DaiKanban board')] = None
+    settings: Annotated[Settings, Doc('global settings')] = field(default_factory=Settings)
 
     def _parse_id_or_name(self, item_type: str, s: str) -> Optional[Id]:
         assert self.board is not None
@@ -308,17 +310,17 @@ class BoardInterface(BaseModel):
             else:
                 id_str = str(id_)
             table.add_row('ID ', id_str)
-        for (field, pretty) in obj._pretty_dict().items():
-            if field == 'name':
+        for (fld, pretty) in obj._pretty_dict().items():
+            if fld == 'name':
                 pretty = name_style(pretty)
-            elif field == 'project_id':  # also include the project name
+            elif fld == 'project_id':  # also include the project name
                 assert isinstance(obj, Task)
-                field = 'project'
+                fld = 'project'
                 if obj.project_id is not None:
                     project_name = self.board.get_project(obj.project_id).name
                     id_str = proj_id_style(int(pretty))
                     pretty = f'[{id_str}] {project_name}'
-            table.add_row(f'{field}  ', pretty)
+            table.add_row(f'{fld}  ', pretty)
         return table
 
     # HELP/INFO
@@ -334,46 +336,46 @@ class BoardInterface(BaseModel):
     def add_board_help(self, grid: Table) -> None:
         """Adds entries to help menu related to boards."""
         statuses = ', '.join(TaskStatus)
-        grid.add_row('\[b]oard', '\[d]elete', 'delete current board')
-        grid.add_row('', '\[n]ew', 'create new board')
-        grid.add_row('', '\[l]oad [not bold]\[FILENAME][/]', 'load board from file')
+        grid.add_row('\\[b]oard', '\\[d]elete', 'delete current board')
+        grid.add_row('', '\\[n]ew', 'create new board')
+        grid.add_row('', '\\[l]oad [not bold]\\[FILENAME][/]', 'load board from file')
         grid.add_row('', 'schema', 'show board JSON schema')
-        grid.add_row('', '\[s]how', 'show current board, can provide extra filters like:')
-        # grid.add_row('', '', '  status=\[STATUSES] project=\[PROJECT_IDS] tag=\[TAGS] limit=\[SIZE] since=\[WHEN]')
-        grid.add_row('', '', f'  status=\[STATUSES]  | list of statuses ({statuses})')
-        grid.add_row('', '', '  project=\[PROJECTS] | list of project names or IDs')
-        grid.add_row('', '', '  tag=\[TAGS]         | list of tags')
-        grid.add_row('', '', '  limit=\[SIZE]       | max number of tasks to show per column (a number, or "none" for no limit)')
-        grid.add_row('', '', '  since=\[WHEN]       | date/time expression (or "anytime" for no time limit), used to limit completed tasks only')
+        grid.add_row('', '\\[s]how', 'show current board, can provide extra filters like:')
+        # grid.add_row('', '', '  status=\\[STATUSES] project=\\[PROJECT_IDS] tag=\\[TAGS] limit=\\[SIZE] since=\\[WHEN]')
+        grid.add_row('', '', f'  status=\\[STATUSES]  | list of statuses ({statuses})')
+        grid.add_row('', '', '  project=\\[PROJECTS] | list of project names or IDs')
+        grid.add_row('', '', '  tag=\\[TAGS]         | list of tags')
+        grid.add_row('', '', '  limit=\\[SIZE]       | max number of tasks to show per column (a number, or "none" for no limit)')
+        grid.add_row('', '', '  since=\\[WHEN]       | date/time expression (or "anytime" for no time limit), used to limit completed tasks only')
 
     def add_project_help(self, grid: Table) -> None:
         """Adds entries to help menu related to projects."""
-        id_str = '[not bold]\[ID/NAME][/]'
-        grid.add_row('\[p]roject', f'\[d]elete {id_str}', 'delete a project')
-        grid.add_row('', '\[n]ew', 'create new project')
-        grid.add_row('', '\[s]how', 'show project list')
-        grid.add_row('', f'\[s]how {id_str}', 'show project info')
-        grid.add_row('', f'set {id_str} [not bold]\[FIELD] \[VALUE][/]', 'change a project attribute')
+        id_str = '[not bold]\\[ID/NAME][/]'
+        grid.add_row('\\[p]roject', f'\\[d]elete {id_str}', 'delete a project')
+        grid.add_row('', '\\[n]ew', 'create new project')
+        grid.add_row('', '\\[s]how', 'show project list')
+        grid.add_row('', f'\\[s]how {id_str}', 'show project info')
+        grid.add_row('', f'set {id_str} [not bold]\\[FIELD] \\[VALUE][/]', 'change a project attribute')
 
     def add_task_help(self, grid: Table) -> None:
         """Adds entries to help menu related to tasks."""
-        id_str = '[not bold]\[ID/NAME][/]'
-        grid.add_row('\[t]ask', f'\[d]elete {id_str}', 'delete a task')
-        grid.add_row('', '\[n]ew', 'create new task')
-        grid.add_row('', '\[s]how', 'show task list')
-        grid.add_row('', f'\[s]how {id_str}', 'show task info')
-        grid.add_row('', f'set {id_str} [not bold]\[FIELD] \[VALUE][/]', 'change a task attribute')
-        grid.add_row('', f'\[b]egin {id_str}', 'begin a task')
-        grid.add_row('', f'\[c]omplete {id_str}', 'complete a started task')
-        grid.add_row('', f'\[p]ause {id_str}', 'pause a started task')
-        grid.add_row('', f'\[r]esume {id_str}', 'resume a paused or completed task')
-        grid.add_row('', f'\[t]odo {id_str}', "reset a task to the 'todo' state")
+        id_str = '[not bold]\\[ID/NAME][/]'
+        grid.add_row('\\[t]ask', f'\\[d]elete {id_str}', 'delete a task')
+        grid.add_row('', '\\[n]ew', 'create new task')
+        grid.add_row('', '\\[s]how', 'show task list')
+        grid.add_row('', f'\\[s]how {id_str}', 'show task info')
+        grid.add_row('', f'set {id_str} [not bold]\\[FIELD] \\[VALUE][/]', 'change a task attribute')
+        grid.add_row('', f'\\[b]egin {id_str}', 'begin a task')
+        grid.add_row('', f'\\[c]omplete {id_str}', 'complete a started task')
+        grid.add_row('', f'\\[p]ause {id_str}', 'pause a started task')
+        grid.add_row('', f'\\[r]esume {id_str}', 'resume a paused or completed task')
+        grid.add_row('', f'\\[t]odo {id_str}', "reset a task to the 'todo' state")
 
     def show_help(self) -> None:
         """Displays the main help menu listing various commands."""
         grid = self.make_new_help_table()
-        grid.add_row('\[h]elp', '', 'show help menu')
-        grid.add_row('\[q]uit', '', 'exit the shell')
+        grid.add_row('\\[h]elp', '', 'show help menu')
+        grid.add_row('\\[q]uit', '', 'exit the shell')
         # TODO: global settings?
         # grid.add_row('settings', 'view/edit the settings')
         self.add_board_help(grid)
@@ -463,7 +465,7 @@ class BoardInterface(BaseModel):
                 'parse': empty_is_none
             },
             'links': {
-                'prompt': 'Links [not bold]\[optional, comma-separated][/]',
+                'prompt': 'Links [not bold]\\[optional, comma-separated][/]',
                 'parse': parse_string_set
             }
         }
@@ -493,7 +495,7 @@ class BoardInterface(BaseModel):
             table = make_table(ProjectRow, rows)
             print(table)
         else:
-            print(style_str('\[No projects]', DefaultColor.faint, bold=True))
+            print(style_str('\\[No projects]', DefaultColor.faint, bold=True))
 
     @require_board
     def show_project(self, id_or_name: str) -> None:
@@ -544,13 +546,13 @@ class BoardInterface(BaseModel):
             (TaskStatus.paused, TaskStatusAction.complete): TaskStatusAction.resume
         }
         if (intermediate := intermediate_action_map.get((task.status, action))):
-            prompt = f'When was the task {intermediate.past_tense()}? [not bold]\[now][/] '
+            prompt = f'When was the task {intermediate.past_tense()}? [not bold]\\[now][/] '
             prompter = Prompter(prompt, parse_datetime, validate=None, default=get_current_time)
             first_dt = prompter.loop_prompt(use_prompt_suffix=False, show_default=False)
         else:
             first_dt = None
         # prompt user for time of latest status change
-        prompt = f'When was the task {action.past_tense()}? [not bold]\[now][/] '
+        prompt = f'When was the task {action.past_tense()}? [not bold]\\[now][/] '
         prompter = Prompter(prompt, parse_datetime, validate=None, default=get_current_time)
         try:
             dt = prompter.loop_prompt(use_prompt_suffix=False, show_default=False)
@@ -559,7 +561,7 @@ class BoardInterface(BaseModel):
             return
         task = board.apply_status_action(id_, action, dt=dt, first_dt=first_dt)
         self.save_board()
-        print(f'Changed task {name_style(task.name)} [not bold]\[{task_id_style(id_)}][/] to {status_style(task.status)} state')
+        print(f'Changed task {name_style(task.name)} [not bold]\\[{task_id_style(id_)}][/] to {status_style(task.status)} state')
 
     @require_board
     def delete_task(self, id_or_name: Optional[str] = None) -> None:
@@ -589,31 +591,31 @@ class BoardInterface(BaseModel):
                 'parse': empty_is_none
             },
             'project_id': {
-                'prompt': 'Project ID or name [not bold]\[optional][/]',
+                'prompt': 'Project ID or name [not bold]\\[optional][/]',
                 'parse': self._parse_project
             },
             'priority': {
-                'prompt': 'Priority [not bold]\[optional, 0-10][/]',
+                'prompt': 'Priority [not bold]\\[optional, 0-10][/]',
                 'parse': empty_is_none
             },
             'expected_difficulty': {
-                'prompt': 'Expected difficulty [not bold]\[optional, 0-10][/]',
+                'prompt': 'Expected difficulty [not bold]\\[optional, 0-10][/]',
                 'parse': empty_is_none
             },
             'expected_duration': {
-                'prompt': 'Expected duration [not bold]\[optional, e.g. "3 days", "2 months"][/]',
+                'prompt': 'Expected duration [not bold]\\[optional, e.g. "3 days", "2 months"][/]',
                 'parse': parse_duration
             },
             'due_date': {
-                'prompt': 'Due date [not bold]\[optional][/]',
+                'prompt': 'Due date [not bold]\\[optional][/]',
                 'parse': parse_date_as_string
             },
             'tags': {
-                'prompt': 'Tags [not bold]\[optional, comma-separated][/]',
+                'prompt': 'Tags [not bold]\\[optional, comma-separated][/]',
                 'parse': parse_string_set
             },
             'links': {
-                'prompt': 'Links [not bold]\[optional, comma-separated][/]',
+                'prompt': 'Links [not bold]\\[optional, comma-separated][/]',
                 'parse': parse_string_set
             }
         }
@@ -638,7 +640,7 @@ class BoardInterface(BaseModel):
     def _project_str_from_id(self, id_: Id) -> str:
         """Given a project ID, gets a string displaying both the project name and ID."""
         assert self.board is not None
-        return f'\[{proj_id_style(id_)}] {self.board.get_project(id_).name}'
+        return f'\\[{proj_id_style(id_)}] {self.board.get_project(id_).name}'
 
     def _make_task_row(self, id_: Id, task: Task) -> TaskRow:
         """Given a Task ID and object, gets a TaskRow object used for displaying the task in the task list."""
@@ -671,7 +673,7 @@ class BoardInterface(BaseModel):
             table = make_table(TaskRow, rows)
             print(table)
         else:
-            print(style_str('\[No tasks]', DefaultColor.faint, bold=True))
+            print(style_str('\\[No tasks]', DefaultColor.faint, bold=True))
 
     @require_board
     def show_task(self, id_or_name: str) -> None:
@@ -847,7 +849,7 @@ class BoardInterface(BaseModel):
             def get_group_header(task_count: int) -> str:
                 header = _get_group_header(task_count)
                 return (header + '\n') if since else header
-        # create BaseModel corresponding to a table row summarizing each Task
+        # create dataclass type corresponding to a table row summarizing each Task
         task_row_type = simple_task_row_type(*fields)
         return TaskGroupSettings(task_row_type, sort_key, get_task_info, get_group_header)
 
@@ -867,7 +869,7 @@ class BoardInterface(BaseModel):
         (group_by_status, group_colors) = self._status_group_info(statuses)
         group_settings_by_group = {group: self._get_task_group_settings(group, group_colors[group], since) for group in group_by_status.values()}
         scorer = self.settings.task.scorer
-        grouped_task_rows: dict[str, list[BaseModel]] = defaultdict(list)
+        grouped_task_rows: dict[str, list[Any]] = defaultdict(list)
         for (id_, task) in self.board.tasks.items():
             if not task_filter(task):
                 continue
@@ -912,7 +914,7 @@ class BoardInterface(BaseModel):
             msg = 'No tasks'
             if (statuses is not None) or (projects is not None) or (tags is not None) or (limit is not None):
                 msg += ' matching criteria'
-            print(style_str(f'\[{msg}]', DefaultColor.faint, bold=True))
+            print(style_str(f'\\[{msg}]', DefaultColor.faint, bold=True))
 
     # SHELL
 

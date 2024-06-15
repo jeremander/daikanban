@@ -127,7 +127,7 @@ class FieldPrompter(Generic[M, T]):
 
 
 def model_from_prompt(model_type: type[M], prompters: dict[str, FieldPrompter] = {}, defaults: dict[str, Any] = {}) -> M:  # noqa: B006
-    """Given a BaseModel type and collection of FieldPrompters, constructs an instance of the type from a sequence of user prompts.
+    """Given a model type and collection of FieldPrompters, constructs an instance of the type from a sequence of user prompts.
     A collection of defaults may also be provided for any fields which are missing a prompter."""
     kwargs: dict[str, Any] = dict(defaults)
     for (field, prompter) in prompters.items():
