@@ -2,20 +2,21 @@
 
 ## `v0.2.0`
 
-- Settings customization
-  - Use `fancy_dataclass`
+- Config customization
   - Generic pydantic->TOML serialization (rudimentary)
   - Use system default directory for app-specific configs? XDG?
   - Global config file stored in app folder
-  - `settings` subcommand of main CLI to interact with settings
+  - `config` subcommand of main CLI to interact with configs
     - Also an option within the shell
-  - Updates global `Settings` object whenever it is loaded/updated
-  - Which items to include when making new tasks (priority/difficulty/duration can be omitted, with default)
-  - Priority/difficulty upper bounds?
-  - Default size limit, set of statuses to show
-  - Show dates as timestamps or human-readable relative times
-  - `config` subcommand to view configs (at a minimum)
-- Default for dark terminal? (E.g. project IDs are too dark)
+  - Updates global `Config` object whenever it is loaded/updated
+  - `ConfigManager` class
+  - Particular configs:
+    - Which items to include when making new tasks (priority/difficulty/duration can be omitted, with default)
+    - Priority/difficulty upper bounds?
+    - Default size limit, set of statuses to show
+    - Show dates as timestamps or human-readable relative times
+    - Default colors (E.g. project IDs are too dark on dark terminal)
+      - Can we detect terminal color?
 
 ## `v0.3.0`
 

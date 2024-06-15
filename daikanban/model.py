@@ -10,7 +10,7 @@ from pydantic import AfterValidator, AnyUrl, BeforeValidator, Field, PlainSerial
 from pydantic.dataclasses import dataclass
 from typing_extensions import Self, TypeAlias
 
-from daikanban.settings import Settings, TaskStatus
+from daikanban.config import TaskStatus, get_config
 from daikanban.utils import KanbanError, NameMatcher, StrEnum, exact_match, first_name_match, get_current_time, get_duration_between, human_readable_duration, parse_string_set
 
 
@@ -39,13 +39,13 @@ def _check_url(url: Any) -> str:
     return url if parsed.scheme else f'https://{url}'
 
 def _parse_datetime(obj: str | datetime) -> datetime:
-    return Settings.global_settings().time.parse_datetime(obj) if isinstance(obj, str) else obj
+    return get_config().time.parse_datetime(obj) if isinstance(obj, str) else obj
 
 def _render_datetime(dt: datetime) -> str:
-    return Settings.global_settings().time.render_datetime(dt)
+    return get_config().time.render_datetime(dt)
 
 def _parse_duration(obj: str | float) -> float:
-    return Settings.global_settings().time.parse_duration(obj) if isinstance(obj, str) else obj
+    return get_config().time.parse_duration(obj) if isinstance(obj, str) else obj
 
 def _parse_optional(obj: Any) -> Any:
     if (obj is None) or (isinstance(obj, str) and (not obj)):
@@ -166,10 +166,10 @@ class Model(JSONBaseDataclass):
 
     def _pretty_dict(self) -> dict[str, str]:
         """Gets a dict from fields to pretty values (as strings)."""
-        settings = Settings.global_settings()
+        config = get_config()
         return {
-            **{field: settings.pretty_value(val) for (field, val) in self.to_dict().items() if self._include_field(field, val)},
-            **{field: settings.pretty_value(val) for field in self._computed_fields() if self._include_field(field, (val := getattr(self, field)))}
+            **{field: config.pretty_value(val) for (field, val) in self.to_dict().items() if self._include_field(field, val)},
+            **{field: config.pretty_value(val) for field in self._computed_fields() if self._include_field(field, (val := getattr(self, field)))}
         }
 
     @classmethod
@@ -457,7 +457,7 @@ class Task(Model):
         if self.status == TaskStatus.todo:
             dt = dt or get_current_time()
             if dt < self.created_time:
-                dt_str = Settings.global_settings().time.render_datetime(self.created_time)
+                dt_str = get_config().time.render_datetime(self.created_time)
                 raise TaskStatusError(f'cannot start a task before its creation time ({dt_str})')
             return self._replace(first_started_time=dt)
         raise TaskStatusError(f"cannot start task with status '{self.status}'")
@@ -577,7 +577,7 @@ class Board(Model):
     def _check_duplicate_project_name(self, name: str) -> None:
         """Checks whether the given project name matches an existing one.
         If so, raises a DuplicateProjectNameError."""
-        matcher = Settings.global_settings().get_name_matcher()
+        matcher = get_config().name_matcher
         project_names = (p.name for p in self.projects.values())
         if (duplicate_name := first_name_match(matcher, name, project_names)) is not None:
             raise DuplicateProjectNameError(f'Duplicate project name {duplicate_name!r}')
@@ -614,7 +614,7 @@ class Board(Model):
         """Updates a project with the given keyword arguments."""
         proj = self.get_project(project_id)
         if 'name' in kwargs:
-            matcher = Settings.global_settings().get_name_matcher()
+            matcher = get_config().name_matcher
             project_names = (p.name for (id_, p) in self.projects.items() if (id_ != project_id))
             if (duplicate_name := first_name_match(matcher, kwargs['name'], project_names)) is not None:
                 raise DuplicateProjectNameError(f'Duplicate project name {duplicate_name!r}')
@@ -633,7 +633,7 @@ class Board(Model):
     def _check_duplicate_task_name(self, name: str) -> None:
         """Checks whether the given task name matches an existing name of an incomplete task.
         If so, raises a DuplicateTaskNameError."""
-        matcher = Settings.global_settings().get_name_matcher()
+        matcher = get_config().name_matcher
         incomplete_task_names = (t.name for t in self.tasks.values() if (t.completed_time is None))
         if (duplicate_name := first_name_match(matcher, name, incomplete_task_names)) is not None:
             raise DuplicateTaskNameError(f'Duplicate task name {duplicate_name!r}')
@@ -689,7 +689,7 @@ class Board(Model):
         task = task._replace(**kwargs)
         if task.project_id is not None:  # validate project ID
             _ = self.get_project(task.project_id)
-        matcher = Settings.global_settings().get_name_matcher()
+        matcher = get_config().name_matcher
         if (duplicate_name := first_name_match(matcher, task.name, incomplete_task_names)) is not None:
             raise DuplicateTaskNameError(f'Duplicate task name {duplicate_name!r}')
         self.tasks[task_id] = task

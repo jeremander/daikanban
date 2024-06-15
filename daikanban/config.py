@@ -1,11 +1,13 @@
-from contextlib import contextmanager
 from datetime import date, datetime, timedelta
 import re
-from typing import Any, Callable, Iterator, Optional
+from typing import Annotated, Any, Callable, Optional
 
+from fancy_dataclass import ConfigDataclass
 import pendulum
-from pydantic import BaseModel, Field, field_validator
+from pydantic import Field, field_validator
+from pydantic.dataclasses import dataclass
 import pytimeparse
+from typing_extensions import Doc
 
 from daikanban.score import TASK_SCORERS, TaskScorer
 from daikanban.utils import HOURS_PER_DAY, SECS_PER_DAY, NameMatcher, StrEnum, UserInputError, case_insensitive_match, convert_number_words_to_digits, get_current_time, replace_relative_time_expression, whitespace_insensitive_match
@@ -51,8 +53,9 @@ DEFAULT_NEW_TASK_FIELDS = ['name', 'description', 'project_id', 'priority', 'exp
 DEFAULT_TASK_SCORER_NAME = 'priority-rate'
 
 
-class TimeSettings(BaseModel):
-    """Time settings."""
+@dataclass
+class TimeConfig:
+    """Time configurations."""
     date_format: str = Field(
         default=DEFAULT_DATE_FORMAT,
         description='preferred format for representing dates'
@@ -146,16 +149,18 @@ class TimeSettings(BaseModel):
         return secs / SECS_PER_DAY
 
 
-class FileSettings(BaseModel):
-    """File settings."""
+@dataclass
+class FileConfig:
+    """File configurations."""
     json_indent: Optional[int] = Field(
         default=2,
         description='indentation level for formatting JSON'
     )
 
 
-class TaskSettings(BaseModel):
-    """Task settings."""
+@dataclass
+class TaskConfig:
+    """Task configurations."""
     new_task_fields: list[str] = Field(
         default_factory=lambda: DEFAULT_NEW_TASK_FIELDS,
         description='which fields to prompt for when creating a new task'
@@ -179,8 +184,9 @@ class TaskSettings(BaseModel):
         return TASK_SCORERS[self.scorer_name]
 
 
-class DisplaySettings(BaseModel):
-    """Display settings."""
+@dataclass
+class DisplayConfig:
+    """Display configurations."""
     max_tasks: Optional[int] = Field(
         default=None,
         description='max number of tasks to display per column',
@@ -196,42 +202,23 @@ class DisplaySettings(BaseModel):
     )
 
 
-class Settings(BaseModel):
-    """Collection of global settings."""
-    case_sensitive: bool = Field(default=False, description='whether names are case-sensitive')
-    time: TimeSettings = Field(default_factory=TimeSettings, description='time settings')
-    file: FileSettings = Field(default_factory=FileSettings, description='file settings')
-    task: TaskSettings = Field(default_factory=TaskSettings, description='task settings')
-    display: DisplaySettings = Field(default_factory=DisplaySettings, description='display settings')
+@dataclass
+class Config(ConfigDataclass):
+    """Collection of global configurations."""
+    case_sensitive: Annotated[bool, Doc('whether names are case-sensitive')] = Field(default=False)
+    time: Annotated[TimeConfig, Doc('time configs')] = Field(default_factory=TimeConfig)
+    file: Annotated[FileConfig, Doc('file configs')] = Field(default_factory=FileConfig)
+    task: Annotated[TaskConfig, Doc('task configs')] = Field(default_factory=TaskConfig)
+    display: Annotated[DisplayConfig, Doc('display configs')] = Field(default_factory=DisplayConfig)
 
-    @classmethod
-    def global_settings(cls) -> 'Settings':
-        """Gets the global settings object."""
-        global _SETTINGS
-        return _SETTINGS
-
-    def update_global_settings(self) -> None:
-        """Updates the global settings with this object."""
-        global _SETTINGS
-        _SETTINGS = self
-
-    @contextmanager
-    def change_global_settings(self) -> Iterator[None]:
-        """Context manager for temporarily updating the global settings with this object."""
-        try:
-            orig_settings = self.global_settings()
-            self.update_global_settings()
-            yield
-        finally:
-            orig_settings.update_global_settings()
-
-    def get_name_matcher(self) -> NameMatcher:
-        """Gets a function which matches names, with case-sensitivity dependent on the settings."""
+    @property
+    def name_matcher(self) -> NameMatcher:
+        """Gets a function which matches names, with case-sensitivity dependent on the configs."""
         return whitespace_insensitive_match if self.case_sensitive else case_insensitive_match
 
     def pretty_value(self, val: Any) -> str:
         """Gets a pretty representation of a value as a string.
-        The representation will depend on its type and the settings."""
+        The representation will depend on its type and the configs."""
         if val is None:
             return '-'
         if isinstance(val, float):
@@ -248,5 +235,11 @@ class Settings(BaseModel):
         return str(val)
 
 
-# global (private) object that may be updated by user's configuration file
-_SETTINGS = Settings()
+def get_config() -> Config:
+    """Gets the current global configurations."""
+    config = Config.get_config()
+    if config is None:
+        # TODO: load from user's config file, if exists
+        config = Config()
+        config.update_config()
+    return config

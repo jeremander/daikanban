@@ -5,9 +5,9 @@ from pydantic import ValidationError
 from pydantic_core import Url
 import pytest
 
+from daikanban.config import DEFAULT_DATETIME_FORMAT, get_config
 from daikanban.model import AmbiguousProjectNameError, AmbiguousTaskNameError, Board, DuplicateProjectNameError, DuplicateTaskNameError, Project, ProjectNotFoundError, Task, TaskNotFoundError, TaskStatus, TaskStatusAction, TaskStatusError
 from daikanban.score import TASK_SCORERS
-from daikanban.settings import DEFAULT_DATETIME_FORMAT, Settings
 from daikanban.utils import case_insensitive_match, fuzzy_match, get_current_time
 
 
@@ -72,7 +72,7 @@ class TestTask:
         assert Task(name='task', expected_duration='').expected_duration is None
 
     def test_due_date(self):
-        dt = Settings.global_settings().time.parse_datetime('2024-01-01')
+        dt = get_config().time.parse_datetime('2024-01-01')
         assert Task(name='task').due_date is None
         assert Task(name='task', due_date=None).due_date is None
         assert Task(name='task', due_date='').due_date is None
@@ -97,7 +97,7 @@ class TestTask:
         with pytest.raises(TypeError, match="Unknown field 'fake'"):
             _ = task._replace(fake='value')
         # types are coerced
-        assert isinstance(task._replace(due_date=get_current_time().strftime(Settings.global_settings().time.datetime_format)).due_date, datetime)
+        assert isinstance(task._replace(due_date=get_current_time().strftime(get_config().time.datetime_format)).due_date, datetime)
         assert task._replace(priority='').priority is None
 
     def test_valid_name(self):
@@ -209,7 +209,7 @@ class TestTask:
         task = Task(name='task', due_date=(dt - timedelta(days=90)))
         assert task.is_overdue
         # date parsing is flexible
-        for val in [dt, dt.isoformat(), dt.strftime(Settings.global_settings().time.datetime_format), '2024-01-01', '1/1/2024', 'Jan 1, 2024', 'Jan 1']:
+        for val in [dt, dt.isoformat(), dt.strftime(get_config().time.datetime_format), '2024-01-01', '1/1/2024', 'Jan 1, 2024', 'Jan 1']:
             task = Task(name='task', created_time=val)
             assert isinstance(task.created_time, datetime)
         # invalid timestamps
@@ -221,7 +221,7 @@ class TestTask:
         pri = TASK_SCORERS['priority']
         pri_diff = TASK_SCORERS['priority-difficulty']
         pri_rate = TASK_SCORERS['priority-rate']
-        # default settings
+        # default configs
         task = Task(name='task')
         assert task.priority is None
         assert task.expected_difficulty is None
@@ -357,9 +357,8 @@ class TestBoard:
         assert task.status == TaskStatus.active
 
     def test_name_matching(self):
-        settings = deepcopy(Settings.global_settings())
-        settings.case_sensitive = True
-        with settings.change_global_settings():
+        config = deepcopy(get_config())._replace(case_sensitive=True)
+        with config.as_config():
             board = Board(name='myboard')
             # PROJECT NAMES
             assert board.get_project_id_by_name('abc') is None
@@ -429,9 +428,8 @@ class TestBoard:
 
     @pytest.mark.parametrize('case_sensitive', [True, False])
     def test_name_duplication(self, case_sensitive):
-        settings = deepcopy(Settings.global_settings())
-        settings.case_sensitive = case_sensitive
-        with settings.change_global_settings():
+        config = deepcopy(get_config())._replace(case_sensitive=case_sensitive)
+        with config.as_config():
             board = Board(name='myboard')
             board.create_project(Project(name='proj'))
             board.update_project(0, name='proj')  # identity is OK

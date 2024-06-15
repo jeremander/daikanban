@@ -20,9 +20,9 @@ from rich.prompt import Confirm
 from rich.table import Table
 from typing_extensions import Concatenate, Doc, ParamSpec
 
+from daikanban.config import Config, get_config
 from daikanban.model import Board, Id, KanbanError, Model, Project, Task, TaskStatus, TaskStatusAction, TaskStatusError
 from daikanban.prompt import FieldPrompter, Prompter, model_from_prompt, simple_input
-from daikanban.settings import Settings
 from daikanban.utils import NotGiven, NotGivenType, StrEnum, UserInputError, err_style, fuzzy_match, get_current_time, get_duration_between, handle_error, human_readable_duration, parse_string_set, prefix_match, style_str, to_snake_case
 
 
@@ -139,12 +139,12 @@ def parse_date_as_string(s: str) -> Optional[str]:
     The input string can either specify a datetime directly, or a time duration from the present moment."""
     if not s.strip():
         return None
-    settings = Settings.global_settings().time
-    return settings.render_datetime(settings.parse_datetime(s))
+    config = get_config().time
+    return config.render_datetime(config.parse_datetime(s))
 
 def parse_duration(s: str) -> Optional[float]:
     """Parses a duration string into a number of days."""
-    return Settings.global_settings().time.parse_duration(s) if s.strip() else None
+    return get_config().time.parse_duration(s) if s.strip() else None
 
 
 ###################
@@ -165,9 +165,9 @@ def make_table(tp: type['DataclassInstance'], rows: Iterable[M], **kwargs: Any) 
             title = metadata.get('title', fld.name)
             kw = {key: val for (key, val) in metadata.items() if (key != 'title')}
             table.add_column(title, **kw)
-    settings = Settings.global_settings()
+    config = get_config()
     for row in rows:
-        vals = [settings.pretty_value(getattr(row, name)) for (flag, name) in zip(flags, field_names) if flag]
+        vals = [config.pretty_value(getattr(row, name)) for (flag, name) in zip(flags, field_names) if flag]
         table.add_row(*vals)
     return table
 
@@ -260,7 +260,7 @@ class BoardInterface:
     This object maintains a state containing the currently loaded board and configurations."""
     board_path: Annotated[Optional[Path], Doc('path of current board')] = None
     board: Annotated[Optional[Board], Doc('current DaiKanban board')] = None
-    settings: Annotated[Settings, Doc('global settings')] = field(default_factory=Settings)
+    config: Annotated[Config, Doc('global configurations')] = field(default_factory=Config)
 
     def _parse_id_or_name(self, item_type: str, s: str) -> Optional[Id]:
         assert self.board is not None
@@ -376,8 +376,8 @@ class BoardInterface:
         grid = self.make_new_help_table()
         grid.add_row('\\[h]elp', '', 'show help menu')
         grid.add_row('\\[q]uit', '', 'exit the shell')
-        # TODO: global settings?
-        # grid.add_row('settings', 'view/edit the settings')
+        # TODO: global config?
+        # grid.add_row('config', 'view/edit the configurations')
         self.add_board_help(grid)
         self.add_project_help(grid)
         self.add_task_help(grid)
@@ -523,11 +523,11 @@ class BoardInterface:
         _ = task.apply_status_action(action)
         def parse_datetime(s: str) -> datetime:
             task = board.get_task(id_)
-            settings = Settings.global_settings()
-            dt = settings.time.parse_datetime(s)
+            config = get_config()
+            dt = config.time.parse_datetime(s)
             if dt < task.created_time:
-                created_str = settings.time.render_datetime(task.created_time)
-                dt_str = settings.time.render_datetime(dt)
+                created_str = config.time.render_datetime(task.created_time)
+                dt_str = config.time.render_datetime(dt)
                 Console().print(f'Time is earlier than task creation time ({created_str}).', highlight=False)
                 overwrite = Confirm.ask(f'Set creation time to {dt_str}?')
                 if overwrite:
@@ -619,8 +619,8 @@ class BoardInterface:
                 'parse': parse_string_set
             }
         }
-        # only prompt for the fields specified in the settings
-        task_fields = set(self.settings.task.new_task_fields)
+        # only prompt for the fields specified in the configs
+        task_fields = set(self.config.task.new_task_fields)
         if name is None:
             defaults = {}
         else:
@@ -648,7 +648,7 @@ class BoardInterface:
         def _get_proj(task: Task) -> Optional[str]:
             return None if (task.project_id is None) else self._project_str_from_id(task.project_id)
         def _get_date(dt: Optional[datetime]) -> Optional[str]:
-            return None if (dt is None) else dt.strftime(Settings.global_settings().time.date_format)
+            return None if (dt is None) else dt.strftime(get_config().time.date_format)
         duration = None if (task.expected_duration is None) else pendulum.duration(days=task.expected_duration).in_words()
         return TaskRow(
             id=task_id_style(id_, bold=True),
@@ -743,7 +743,7 @@ class BoardInterface:
             assert self.board_path is not None
             # TODO: save in background if file size starts to get large?
             try:
-                self.board.save(self.board_path, indent=self.settings.file.json_indent)
+                self.board.save(self.board_path, indent=self.config.file.json_indent)
             except OSError as e:
                 raise BoardFileError(str(e)) from None
 
@@ -768,7 +768,7 @@ class BoardInterface:
         """Given an optional list of statuses to include, returns a pair (group_by_status, group_colors).
         The former is a map from task statuses to status groups.
         The latter is a map from status groups to colors."""
-        status_groups = self.settings.display.status_groups
+        status_groups = self.config.display.status_groups
         if statuses:
             status_set = set(statuses)
             valid_statuses = {str(status) for status in TaskStatus}
@@ -804,7 +804,7 @@ class BoardInterface:
 
     def _get_task_limit(self, limit: int | None | NotGivenType) -> Optional[int]:
         if limit is NotGiven:
-            limit = self.settings.display.max_tasks
+            limit = self.config.display.max_tasks
         if (limit is not None) and (limit <= 0):
             raise UserInputError('Must select a positive number for task limit')
         return limit
@@ -812,8 +812,8 @@ class BoardInterface:
     def _get_completed_since(self, since: datetime | None | NotGivenType) -> Optional[datetime]:
         now = get_current_time()
         if since is NotGiven:
-            if isinstance(self.settings.display.completed_age_off, timedelta):
-                since = now - self.settings.display.completed_age_off
+            if isinstance(self.config.display.completed_age_off, timedelta):
+                since = now - self.config.display.completed_age_off
             else:
                 return None
         if since and (since > now):
@@ -845,7 +845,7 @@ class BoardInterface:
             fields = ('id', 'name', 'project', 'score')
             sort_key = 'score'
             def get_task_info(id_: Id, task: Task) -> dict[str, Any]:
-                return {'score': self.settings.task.scorer(task), **_get_task_kwargs(id_, task)}
+                return {'score': self.config.task.scorer(task), **_get_task_kwargs(id_, task)}
             def get_group_header(task_count: int) -> str:
                 header = _get_group_header(task_count)
                 return (header + '\n') if since else header
@@ -868,7 +868,7 @@ class BoardInterface:
         since = self._get_completed_since(since)
         (group_by_status, group_colors) = self._status_group_info(statuses)
         group_settings_by_group = {group: self._get_task_group_settings(group, group_colors[group], since) for group in group_by_status.values()}
-        scorer = self.settings.task.scorer
+        scorer = self.config.task.scorer
         grouped_task_rows: dict[str, list[Any]] = defaultdict(list)
         for (id_, task) in self.board.tasks.items():
             if not task_filter(task):
@@ -954,7 +954,7 @@ class BoardInterface:
                             kwargs['limit'] = parse_task_limit(val)
                         elif key_lower == 'since':
                             none_vals = ['all', 'always', 'any', 'anytime']
-                            since = None if (val.strip().lower() in none_vals) else self.settings.time.parse_datetime(val)
+                            since = None if (val.strip().lower() in none_vals) else self.config.time.parse_datetime(val)
                             kwargs['since'] = since
                         else:
                             continue
