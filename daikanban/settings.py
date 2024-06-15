@@ -86,14 +86,24 @@ class TimeSettings(BaseModel):
             if s.isdigit():
                 raise err from None
             now = pendulum.now()
-            # for today/yesterday/tomorrow, just assume midnight
-            # TODO: do regex replacements instead, so that times will be allowed
-            if s == 'yesterday':
-                s = now.subtract(days=1).to_date_string()
-            elif s == 'today':
-                s = now.to_date_string()
-            elif s == 'tomorrow':
-                s = now.add(days=1).to_date_string()
+            r = re.compile(r'(yesterday|today|tomorrow)(\s+)?(.*)')
+            if (match := r.match(s)):
+                groups = match.groups()
+                day_str = groups[0]
+                if day_str == 'yesterday':
+                    day = now.subtract(days=1)
+                elif day_str == 'today':
+                    day = now
+                else:  # tomorrow
+                    day = now.add(days=1)
+                s = day.to_date_string()
+                if (remainder := groups[2].strip()):  # replace relative day with exact day, and parse the rest
+                    return self.parse_datetime(f'{s} {remainder}')
+                # otherwise, just assume midnight
+            # pendulum doesn't allow single-digit hours for some reason, so pad it with a zero
+            tokens = s.split()
+            if (len(tokens) >= 2) and (tok := tokens[-1]).isdigit() and (len(tok) == 1):
+                s = ' '.join(tokens[:-1] + ['0' + tok])
             try:
                 dt: datetime = pendulum.parse(s, strict=False, tz=pendulum.local_timezone())  # type: ignore
                 assert isinstance(dt, datetime)
