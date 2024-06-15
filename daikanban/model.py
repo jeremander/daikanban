@@ -1,10 +1,13 @@
 from contextlib import contextmanager
+from dataclasses import fields
 from datetime import datetime, timedelta
 import itertools
 from typing import Annotated, Any, ClassVar, Counter, Iterator, Literal, Optional, TypeVar, cast
 from urllib.parse import urlparse
 
-from pydantic import AfterValidator, AnyUrl, BaseModel, BeforeValidator, Field, PlainSerializer, computed_field, model_validator
+from fancy_dataclass import JSONBaseDataclass
+from pydantic import AfterValidator, AnyUrl, BeforeValidator, Field, PlainSerializer, TypeAdapter, computed_field, model_validator
+from pydantic.dataclasses import dataclass
 from typing_extensions import Self, TypeAlias
 
 from daikanban.settings import Settings, TaskStatus
@@ -12,7 +15,7 @@ from daikanban.utils import KanbanError, NameMatcher, StrEnum, exact_match, firs
 
 
 T = TypeVar('T')
-M = TypeVar('M', bound=BaseModel)
+M = TypeVar('M')
 
 NEARLY_DUE_THRESH = timedelta(days=1)
 
@@ -134,30 +137,54 @@ def catch_key_error(cls: type[Exception]) -> Iterator[None]:
 # MODEL #
 #########
 
-class Model(BaseModel):
+@dataclass(frozen=True)
+class Model(JSONBaseDataclass):
     """Base class setting up pydantic configs."""
-    model_config = {'frozen': True}
 
-    def _replace(self, **kwargs: Any) -> Self:
-        """Creates a new copy of the object with the given kwargs replaced.
-        Validation will be performed."""
-        d = dict(self)
-        for (key, val) in kwargs.items():
-            if key not in d:  # do not allow extra fields
-                raise TypeError(f'Unknown field {key!r}')
-            d[key] = val
-        return type(self)(**d)
+    # def __init_subclass__(cls, **kwargs: Any) -> None:
+    #     # store a list of the class's computed fields (ones marked with `computed_field` decorator)
+    #     schema = TypeAdapter(cls).core_schema['schema']
+    #     cls._computed_fields = [d['property_name'] for d in schema.get('computed_fields', [])]
+
+    def to_dict(self, **kwargs: Any) -> dict[str, Any]:  # noqa: D102
+        d = super().to_dict(**kwargs)
+        # type field not needed to disambiguate subclasses
+        del d['type']
+        # suppress null values (TODO: could become a setting within DictDataclass?)
+        return {key: val for (key, val) in d.items() if (val is not None)}
 
     def _include_field(self, field: str, val: Any) -> bool:
         return val is not None
+
+    @classmethod
+    def _computed_fields(cls) -> list[str]:
+        """Gets the list of computed fields (properties marked with the `computed_field` decorator)."""
+        schema = TypeAdapter(cls).core_schema['schema']
+        while 'schema' in schema:  # weirdly, 'dataclass-args' schema may be nested in a 'dataclass' schema
+            schema = schema['schema']
+        return [d['property_name'] for d in schema.get('computed_fields', [])]
 
     def _pretty_dict(self) -> dict[str, str]:
         """Gets a dict from fields to pretty values (as strings)."""
         settings = Settings.global_settings()
         return {
-            **{field: settings.pretty_value(val) for (field, val) in dict(self).items() if self._include_field(field, val)},
-            **{field: settings.pretty_value(val) for field in self.model_computed_fields if self._include_field(field, (val := getattr(self, field)))}
+            **{field: settings.pretty_value(val) for (field, val) in self.to_dict().items() if self._include_field(field, val)},
+            **{field: settings.pretty_value(val) for field in self._computed_fields() if self._include_field(field, (val := getattr(self, field)))}
         }
+
+    @classmethod
+    def json_schema(cls, **kwargs: Any) -> dict[str, Any]:
+        """Produces a JSON schema based on the Model subtype."""
+        return TypeAdapter(cls).json_schema(**kwargs)
+
+    def _replace(self, **kwargs: Any) -> Self:
+        d = {fld.name: getattr(self, fld.name) for fld in fields(self)}
+        for (key, val) in kwargs.items():
+            if key in d:
+                d[key] = val
+            else:
+                raise TypeError(f'Unknown field {key!r}')
+        return type(self)(**d)
 
 
 class TaskStatusAction(StrEnum):
@@ -183,6 +210,7 @@ STATUS_ACTION_MAP = {
 }
 
 
+@dataclass(frozen=True)
 class Project(Model):
     """A project associated with multiple tasks."""
     name: Name = Field(
@@ -218,6 +246,7 @@ class Log(Model):
     )
 
 
+@dataclass(frozen=True)
 class Task(Model):
     """A task to be performed."""
     name: Name = Field(
@@ -430,7 +459,7 @@ class Task(Model):
             if dt < self.created_time:
                 dt_str = Settings.global_settings().time.render_datetime(self.created_time)
                 raise TaskStatusError(f'cannot start a task before its creation time ({dt_str})')
-            return self.model_copy(update={'first_started_time': dt})
+            return self._replace(first_started_time=dt)
         raise TaskStatusError(f"cannot start task with status '{self.status}'")
 
     def completed(self, dt: Optional[datetime] = None) -> 'Task':
@@ -441,7 +470,7 @@ class Task(Model):
             last_started_time = cast(datetime, self.last_started_time or self.first_started_time)
             if dt < last_started_time:
                 raise TaskStatusError('cannot complete a task before its last started time')
-            return self.model_copy(update={'completed_time': dt})
+            return self._replace(completed_time=dt)
         raise TaskStatusError(f"cannot complete task with status '{self.status}'")
 
     def paused(self, dt: Optional[datetime] = None) -> 'Task':
@@ -454,7 +483,7 @@ class Task(Model):
                 raise TaskStatusError('cannot pause a task before its last started time')
             dur = 0.0 if (self.prior_time_worked is None) else self.prior_time_worked
             dur += get_duration_between(last_started_time, dt)
-            return self.model_copy(update={'last_started_time': None, 'last_paused_time': dt, 'prior_time_worked': dur})
+            return self._replace(last_started_time=None, last_paused_time=dt, prior_time_worked=dur)
         raise TaskStatusError(f"cannot pause task with status '{self.status}'")
 
     def resumed(self, dt: Optional[datetime] = None) -> 'Task':
@@ -467,12 +496,12 @@ class Task(Model):
                 assert self.last_paused_time is not None
                 if dt < self.last_paused_time:
                     raise TaskStatusError('cannot resume a task before its last paused time')
-                return self.model_copy(update={'last_started_time': dt, 'last_paused_time': None})
+                return self._replace(last_started_time=dt, last_paused_time=None)
             else:  # complete
                 assert self.completed_time is not None
                 if dt < self.completed_time:
                     raise TaskStatusError('cannot resume a task before its completed time')
-                return self.model_copy(update={'last_started_time': dt, 'prior_time_worked': self.total_time_worked, 'completed_time': None})
+                return self._replace(last_started_time=dt, prior_time_worked=self.total_time_worked, completed_time=None)
         raise TaskStatusError(f"cannot resume task with status '{self.status}'")
 
     def apply_status_action(self, action: TaskStatusAction, dt: Optional[datetime] = None, first_dt: Optional[datetime] = None) -> 'Task':
@@ -503,6 +532,7 @@ class Task(Model):
         return self._replace(**kwargs)
 
 
+@dataclass(frozen=True)
 class Board(Model):
     """A DaiKanban board (collection of projects and tasks)."""
     name: str = Field(description='Name of DaiKanban board')
@@ -693,7 +723,7 @@ class Board(Model):
         blocked_task = self.get_task(blocked_task_id)
         blocked_by = set(blocked_task.blocked_by) if blocked_task.blocked_by else set()
         blocked_by.add(blocking_task_id)
-        self.tasks[blocked_task_id] = blocked_task.model_copy(update={'blocked_by': blocked_by})
+        self.tasks[blocked_task_id] = blocked_task._replace(blocked_by=blocked_by)
 
     @property
     def num_tasks_by_project(self) -> Counter[Id]:

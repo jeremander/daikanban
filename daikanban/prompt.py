@@ -1,9 +1,8 @@
-from dataclasses import dataclass
+from dataclasses import MISSING, dataclass
 import re
 from typing import Any, Callable, Generic, Optional, TextIO, TypeVar
 
-from pydantic import BaseModel, ValidationError
-from pydantic_core import PydanticUndefined
+from pydantic import TypeAdapter, ValidationError
 import rich
 from rich.prompt import Prompt
 from rich.text import TextType
@@ -11,7 +10,7 @@ from rich.text import TextType
 from daikanban.utils import UserInputError, err_style
 
 
-M = TypeVar('M', bound=BaseModel)
+M = TypeVar('M')
 T = TypeVar('T')
 
 
@@ -52,7 +51,9 @@ def validated_input(prompt: str, validator: Callable[[str], T], default: Any = N
         use_prompt_suffix: displays the default prompt suffix (colon) after the prompt and default
         print_error: if True, displays an error message upon each failed iteration of input
         kwargs: passed to the rich prompt"""
-    if default not in (None, PydanticUndefined):
+    if default == MISSING:
+        default = None
+    if default:
         if isinstance(default, float) and (int(default) == default):
             default = int(default)
         default = str(default)
@@ -90,7 +91,7 @@ class Prompter(Generic[T]):
 
 @dataclass
 class FieldPrompter(Generic[M, T]):
-    """Class which prompts a user for input associated with a given BaseModel field, then parses and validates the response."""
+    """Class which prompts a user for input associated with a given dataclass field, then parses and validates the response."""
     model_type: type[M]
     field: str
     prompter: Prompter[T]
@@ -100,16 +101,22 @@ class FieldPrompter(Generic[M, T]):
         self.field = field
         self.readable_name = self.field.replace('_', ' ').capitalize()
         prompt = prompt or self.readable_name
-        info = model_type.model_fields[field]
+        info = self.field_info
         self.default = info.default if (info.default_factory is None) else info.default_factory
         self.prompter = Prompter(prompt, parse, self.validate, self.default)
 
+    @property
+    def field_info(self) -> Any:
+        """Gets the pydantic Field object associated with the stored field."""
+        return self.model_type.__dataclass_fields__[self.field]  # type: ignore[attr-defined]
+
     def validate(self, val: Any) -> None:
         """Validates the field value."""
-        if val == PydanticUndefined:
+        if val == MISSING:
             raise UserInputError('This field is required')
+        validator = TypeAdapter(self.field_info.type)
         try:
-            self.model_type.__pydantic_validator__.validate_assignment(self.model_type.model_construct(), self.field, val)
+            validator.validate_python(val)
         except ValidationError as e:
             msg = '\n'.join(d['msg'] for d in e.errors())
             raise UserInputError(msg) from None

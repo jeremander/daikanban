@@ -1,3 +1,4 @@
+from copy import deepcopy
 from datetime import datetime, timedelta
 
 from pydantic import ValidationError
@@ -128,9 +129,10 @@ class TestTask:
             _ = Task(name='task', expected_duration=-1)
 
     def test_schema(self):
-        schema = Task.model_json_schema(mode='serialization')
-        # FIXME: computed fields should not be required?
         computed_fields = ['status', 'lead_time', 'cycle_time', 'total_time_worked', 'is_overdue']
+        assert Task._computed_fields() == computed_fields
+        schema = Task.json_schema(mode='serialization')
+        # FIXME: computed fields should not be required?
         assert schema['required'] == ['name'] + computed_fields
         for field in computed_fields:
             assert schema['properties'][field]['readOnly'] is True
@@ -183,10 +185,10 @@ class TestTask:
         todo = Task(name='task')
         assert isinstance(todo.created_time, datetime)
         assert todo.reset() == todo
-        todo2 = todo.model_copy(update={'logs': []})
+        todo2 = todo._replace(logs=[])
         assert todo2 != todo
         assert todo2.reset() == todo
-        todo3 = todo.model_copy(update={'due_date': get_current_time()})
+        todo3 = todo._replace(due_date=get_current_time())
         assert todo3.reset() == todo
         started = todo.started()
         assert started.reset() == todo
@@ -248,8 +250,8 @@ class TestBoard:
         task_id = 0
         board = Board(name='myboard', projects={proj_id: proj}, tasks={task_id: task})
         for obj in [proj, task, board]:
-            d = obj.model_dump()
-            assert type(obj)(**d).model_dump() == d
+            d = obj.to_dict()
+            assert type(obj)(**d).to_dict() == d
 
     def test_project_ids(self):
         board = Board(name='myboard')
@@ -272,7 +274,7 @@ class TestBoard:
             board.create_task(task)
         board.tasks[0] = task
         with pytest.raises(ValidationError, match='Project with id 1 not found'):
-            _ = Board(**board.model_dump())
+            _ = Board(**board.to_dict())
         board.delete_task(0)
         assert board.create_task(Task(name='task', project_id=0)) == 0
         with pytest.raises(ProjectNotFoundError, match='Project with id 1 not found'):
@@ -355,7 +357,7 @@ class TestBoard:
         assert task.status == TaskStatus.active
 
     def test_name_matching(self):
-        settings = Settings.global_settings().model_copy(deep=True)
+        settings = deepcopy(Settings.global_settings())
         settings.case_sensitive = True
         with settings.change_global_settings():
             board = Board(name='myboard')
@@ -427,7 +429,7 @@ class TestBoard:
 
     @pytest.mark.parametrize('case_sensitive', [True, False])
     def test_name_duplication(self, case_sensitive):
-        settings = Settings.global_settings().model_copy(deep=True)
+        settings = deepcopy(Settings.global_settings())
         settings.case_sensitive = case_sensitive
         with settings.change_global_settings():
             board = Board(name='myboard')

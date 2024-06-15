@@ -38,5 +38,5 @@ class TestMain:
     def test_schema(self, capsys, monkeypatch):
         # use regular print instead of rich.print
         monkeypatch.setattr('daikanban.interface.print', print)
-        schema = json.dumps(Board.model_json_schema(mode='serialization'), indent=2) + '\n'
+        schema = json.dumps(Board.json_schema(mode='serialization'), indent=2) + '\n'
         self._test_main(capsys, monkeypatch, ['schema'], schema, exact=True)

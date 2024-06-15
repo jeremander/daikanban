@@ -8,7 +8,7 @@ from pathlib import Path
 import readline  # improves shell interactivity  # noqa: F401
 import shlex
 import sys
-from typing import Any, Callable, Generic, Iterable, Optional, TypeVar, cast
+from typing import Any, Callable, Generic, Iterable, Optional, Type, TypeVar, cast
 
 import pendulum
 import pendulum.parsing
@@ -294,9 +294,6 @@ class BoardInterface(BaseModel):
         assert id_ is not None
         return id_
 
-    def _model_json(self, model: BaseModel) -> str:
-        return model.model_dump_json(indent=self.settings.file.json_indent, exclude_none=True)
-
     def _model_pretty(self, obj: Model, id_: Optional[Id] = None) -> Table:
         """Given a Model object (and optional ID), creates a two-column Table displaying its contents prettily."""
         assert self.board is not None
@@ -406,16 +403,16 @@ class BoardInterface(BaseModel):
         self._show_subgroup_help('task')
 
     @staticmethod
-    def show_schema(cls: type[BaseModel], indent: int = 2) -> None:
+    def show_schema(cls: type[Model], indent: int = 2) -> None:
         """Prints out the JSON schema of the given type."""
-        print(json.dumps(cls.model_json_schema(mode='serialization'), indent=indent))
+        print(json.dumps(cls.json_schema(mode='serialization'), indent=indent))
 
     @require_board
     def _update_project_or_task(self, id_or_name: str, field: str, value: Optional[str], is_task: bool) -> None:
         """Updates an attribute of a project or task."""
         assert self.board is not None
-        cls = Task if is_task else Project
-        if field in cls.model_computed_fields:  # type: ignore[attr-defined]
+        cls: Type[Model] = Task if is_task else Project  # type: ignore[assignment]
+        if field in cls._computed_fields():
             raise UserInputError(f'Field {field!r} cannot be updated')
         name = cls.__name__.lower()
         id_ = getattr(self, f'_parse_{name}')(id_or_name)
@@ -744,8 +741,7 @@ class BoardInterface(BaseModel):
             assert self.board_path is not None
             # TODO: save in background if file size starts to get large?
             try:
-                with open(self.board_path, 'w') as f:
-                    f.write(self._model_json(self.board))
+                self.board.save(self.board_path, indent=self.settings.file.json_indent)
             except OSError as e:
                 raise BoardFileError(str(e)) from None
 
