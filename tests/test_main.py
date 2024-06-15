@@ -5,7 +5,7 @@ import sys
 import pytest
 
 from daikanban import __version__
-from daikanban.main import APP
+from daikanban.cli.main import APP
 from daikanban.model import Board
 
 from . import match_patterns

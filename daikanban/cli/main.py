@@ -6,13 +6,19 @@ from typing import Annotated, Optional
 import typer
 
 from daikanban import __version__
+from daikanban.cli import APP_KWARGS
+import daikanban.cli.config
 from daikanban.interface import BoardInterface
 from daikanban.model import Board
 
 
-APP = typer.Typer(
-    add_completion=False,
-    context_settings={'help_option_names': ['-h', '--help']}
+APP = typer.Typer(**APP_KWARGS)
+
+APP.add_typer(
+    daikanban.cli.config.APP,
+    name='config',
+    help='Manage configurations.',
+    short_help='manage configurations',
 )
 
 

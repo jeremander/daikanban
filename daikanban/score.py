@@ -1,39 +1,43 @@
 from __future__ import annotations  # avoid import cycle with type-checking
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, ClassVar, Optional
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Annotated, ClassVar, Optional
 
-from pydantic import BaseModel, model_serializer
-from typing_extensions import override
+from fancy_dataclass import DictDataclass
+from typing_extensions import Doc, override
 
 
 if TYPE_CHECKING:
     from daikanban.model import Task
 
 
-class TaskScorer(ABC, BaseModel):
+@dataclass
+class TaskScorer(ABC, DictDataclass, suppress_defaults=False):
     """Interface for a class which scores tasks.
     Higher scores represent tasks more deserving of work."""
 
-    name: ClassVar[str]  # name of the scorer
-    description: ClassVar[Optional[str]] = None  # description of scorer
-    units: ClassVar[Optional[str]] = None  # unit of measurement for the scorer
+    name: ClassVar[
+        Annotated[str, Doc('name of scorer')]
+    ] = field(metadata={'suppress': False})
+    description: ClassVar[
+        Annotated[Optional[str], Doc('description of scorer')]
+    ] = field(default=None, metadata={'suppress': False})
+    units: ClassVar[
+        Annotated[Optional[str], Doc('unit of measurement for scorer')]
+    ] = field(default=None, metadata={'suppress': False})
 
     @abstractmethod
     def __call__(self, task: Task) -> float:
         """Override this to implement task scoring."""
 
-    @model_serializer
-    def serialize(self) -> dict[str, Any]:
-        """Serializes the model, including the class variables."""
-        return {'name': self.name, 'units': self.units, **BaseModel.model_dump(self)}
 
-
+@dataclass
 class PriorityScorer(TaskScorer):
     """Scores tasks by their priority only."""
 
     name = 'priority'
-    description = None
+    description = 'priority only'
     units = 'pri'
 
     default_priority: float = 1.0  # default priority if none is provided
@@ -43,6 +47,7 @@ class PriorityScorer(TaskScorer):
         return self.default_priority if (task.priority is None) else task.priority
 
 
+@dataclass
 class PriorityDifficultyScorer(TaskScorer):
     """Scores tasks by multiplying priority by difficulty."""
 
@@ -60,6 +65,7 @@ class PriorityDifficultyScorer(TaskScorer):
         return priority / difficulty
 
 
+@dataclass
 class PriorityRateScorer(TaskScorer):
     """Scores tasks by dividing priority by the expected duration of the task."""
 
