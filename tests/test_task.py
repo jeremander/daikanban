@@ -1,7 +1,7 @@
 import pytest
 
 from daikanban.model import Task
-from daikanban.score import TASK_SCORERS
+from daikanban.task import TASK_SCORERS
 
 
 def test_scorer_dict():

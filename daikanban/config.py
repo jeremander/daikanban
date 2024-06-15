@@ -4,13 +4,13 @@ from typing import Annotated, Any, Callable, Optional
 
 from fancy_dataclass import ConfigDataclass
 import pendulum
-from pydantic import Field, field_validator
+from pydantic import Field
 from pydantic.dataclasses import dataclass
 import pytimeparse
 from typing_extensions import Doc
 
-from daikanban.score import TASK_SCORERS, TaskScorer
-from daikanban.utils import HOURS_PER_DAY, SECS_PER_DAY, NameMatcher, StrEnum, UserInputError, case_insensitive_match, convert_number_words_to_digits, get_current_time, replace_relative_time_expression, whitespace_insensitive_match
+from daikanban.task import DEFAULT_TASK_STATUS_GROUPS, TaskConfig
+from daikanban.utils import HOURS_PER_DAY, SECS_PER_DAY, NameMatcher, UserInputError, case_insensitive_match, convert_number_words_to_digits, get_current_time, replace_relative_time_expression, whitespace_insensitive_match
 
 
 DEFAULT_DATE_FORMAT = '%m/%d/%y'  # USA-based format
@@ -18,39 +18,6 @@ DEFAULT_DATETIME_FORMAT = '%Y-%m-%dT%H:%M:%SZ%z'
 
 DEFAULT_HOURS_PER_WORK_DAY = 8
 DEFAULT_DAYS_PER_WORK_WEEK = 5
-
-
-class TaskStatus(StrEnum):
-    """Possible status a task can have."""
-    todo = 'todo'
-    active = 'active'
-    paused = 'paused'
-    complete = 'complete'
-
-    @property
-    def color(self) -> str:
-        """Gets a rich color to be associated with the status."""
-        if self == TaskStatus.todo:
-            return 'bright_black'
-        if self == TaskStatus.active:
-            return 'bright_red'
-        if self == TaskStatus.paused:
-            return 'orange3'
-        assert self == 'complete'
-        return 'green'
-
-
-# columns of DaiKanban board, and which task statuses are included
-DEFAULT_STATUS_GROUPS = {
-    'todo': [TaskStatus.todo],
-    'active': [TaskStatus.active, TaskStatus.paused],
-    'complete': [TaskStatus.complete]
-}
-
-# which Task fields to query when creating a new task
-# (excluded fields will be set to their defaults)
-DEFAULT_NEW_TASK_FIELDS = ['name', 'description', 'project_id', 'priority', 'expected_duration', 'due_date', 'tags', 'links']
-DEFAULT_TASK_SCORER_NAME = 'priority-rate'
 
 
 @dataclass
@@ -159,32 +126,6 @@ class FileConfig:
 
 
 @dataclass
-class TaskConfig:
-    """Task configurations."""
-    new_task_fields: list[str] = Field(
-        default_factory=lambda: DEFAULT_NEW_TASK_FIELDS,
-        description='which fields to prompt for when creating a new task'
-    )
-    scorer_name: str = Field(
-        default=DEFAULT_TASK_SCORER_NAME,
-        description='name of method used for scoring & sorting tasks'
-    )
-
-    @field_validator('scorer_name')
-    @classmethod
-    def check_scorer(cls, scorer_name: str) -> str:
-        """Checks that the scorer name is valid."""
-        if scorer_name not in TASK_SCORERS:
-            raise ValueError(f'Unknown task scorer {scorer_name!r}')
-        return scorer_name
-
-    @property
-    def scorer(self) -> TaskScorer:
-        """Gets the TaskScorer object used to score tasks."""
-        return TASK_SCORERS[self.scorer_name]
-
-
-@dataclass
 class DisplayConfig:
     """Display configurations."""
     max_tasks: Optional[int] = Field(
@@ -197,7 +138,7 @@ class DisplayConfig:
         description='length of time after which to stop displaying completed tasks'
     )
     status_groups: dict[str, list[str]] = Field(
-        default=DEFAULT_STATUS_GROUPS,
+        default=DEFAULT_TASK_STATUS_GROUPS,
         description='map from board columns (groups) to task statuses'
     )
 

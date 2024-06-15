@@ -4,8 +4,8 @@ from datetime import date, datetime
 from pydantic import ValidationError
 import pytest
 
-from daikanban.config import DEFAULT_DATE_FORMAT, DEFAULT_TASK_SCORER_NAME, TaskConfig, TimeConfig, get_config
-from daikanban.score import TASK_SCORERS, TaskScorer
+from daikanban.config import DEFAULT_DATE_FORMAT, TaskConfig, TimeConfig, get_config
+from daikanban.task import DEFAULT_TASK_SCORER_NAME, TASK_SCORERS, TaskScorer
 from daikanban.utils import HOURS_PER_DAY, SECS_PER_DAY, UserInputError, get_current_time
 
 

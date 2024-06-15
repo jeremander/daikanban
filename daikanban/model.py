@@ -10,7 +10,8 @@ from pydantic import AfterValidator, AnyUrl, BeforeValidator, Field, PlainSerial
 from pydantic.dataclasses import dataclass
 from typing_extensions import Self, TypeAlias
 
-from daikanban.config import TaskStatus, get_config
+from daikanban.config import get_config
+from daikanban.task import TaskStatus
 from daikanban.utils import KanbanError, NameMatcher, StrEnum, exact_match, first_name_match, get_current_time, get_duration_between, human_readable_duration, parse_string_set
 
 

@@ -7,7 +7,7 @@ import pytest
 
 from daikanban.config import DEFAULT_DATETIME_FORMAT, get_config
 from daikanban.model import AmbiguousProjectNameError, AmbiguousTaskNameError, Board, DuplicateProjectNameError, DuplicateTaskNameError, Project, ProjectNotFoundError, Task, TaskNotFoundError, TaskStatus, TaskStatusAction, TaskStatusError
-from daikanban.score import TASK_SCORERS
+from daikanban.task import TASK_SCORERS
 from daikanban.utils import case_insensitive_match, fuzzy_match, get_current_time
 
 

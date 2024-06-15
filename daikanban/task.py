@@ -5,12 +5,57 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Annotated, ClassVar, Optional
 
 from fancy_dataclass import DictDataclass
+from pydantic import Field, field_validator
+import pydantic.dataclasses
 from typing_extensions import Doc, override
+
+from daikanban.utils import StrEnum
 
 
 if TYPE_CHECKING:
     from daikanban.model import Task
 
+
+##########
+# STATUS #
+##########
+
+class TaskStatus(StrEnum):
+    """Possible status a task can have."""
+    todo = 'todo'
+    active = 'active'
+    paused = 'paused'
+    complete = 'complete'
+
+    @property
+    def color(self) -> str:
+        """Gets a rich color to be associated with the status."""
+        if self == TaskStatus.todo:
+            return 'bright_black'
+        if self == TaskStatus.active:
+            return 'bright_red'
+        if self == TaskStatus.paused:
+            return 'orange3'
+        assert self == 'complete'
+        return 'green'
+
+
+# columns of DaiKanban board, and which task statuses are included
+DEFAULT_TASK_STATUS_GROUPS = {
+    'todo': [TaskStatus.todo],
+    'active': [TaskStatus.active, TaskStatus.paused],
+    'complete': [TaskStatus.complete]
+}
+
+# which Task fields to query when creating a new task
+# (excluded fields will be set to their defaults)
+DEFAULT_NEW_TASK_FIELDS = ['name', 'description', 'project_id', 'priority', 'expected_duration', 'due_date', 'tags', 'links']
+DEFAULT_TASK_SCORER_NAME = 'priority-rate'
+
+
+###########
+# SCORING #
+###########
 
 @dataclass
 class TaskScorer(ABC, DictDataclass, suppress_defaults=False):
@@ -86,3 +131,29 @@ class PriorityRateScorer(TaskScorer):
 # registry of available TaskScorers, keyed by name
 _TASK_SCORER_CLASSES: list[type[TaskScorer]] = [PriorityScorer, PriorityDifficultyScorer, PriorityRateScorer]
 TASK_SCORERS = {cls.name: cls() for cls in _TASK_SCORER_CLASSES}
+
+
+@pydantic.dataclasses.dataclass
+class TaskConfig:
+    """Task configurations."""
+    new_task_fields: list[str] = Field(
+        default_factory=lambda: DEFAULT_NEW_TASK_FIELDS,
+        description='which fields to prompt for when creating a new task'
+    )
+    scorer_name: str = Field(
+        default=DEFAULT_TASK_SCORER_NAME,
+        description='name of method used for scoring & sorting tasks'
+    )
+
+    @field_validator('scorer_name')
+    @classmethod
+    def check_scorer(cls, scorer_name: str) -> str:
+        """Checks that the scorer name is valid."""
+        if scorer_name not in TASK_SCORERS:
+            raise ValueError(f'Unknown task scorer {scorer_name!r}')
+        return scorer_name
+
+    @property
+    def scorer(self) -> TaskScorer:
+        """Gets the TaskScorer object used to score tasks."""
+        return TASK_SCORERS[self.scorer_name]
