@@ -3,6 +3,7 @@ from dataclasses import Field, dataclass, field, fields, make_dataclass
 from datetime import datetime, timedelta
 from functools import cache, wraps
 import json
+from numbers import Real
 from operator import attrgetter
 from pathlib import Path
 import readline  # improves shell interactivity  # noqa: F401
@@ -20,6 +21,7 @@ from rich.prompt import Confirm
 from rich.table import Table
 from typing_extensions import Concatenate, Doc, ParamSpec
 
+from daikanban import PKG_DIR
 from daikanban.config import Config, get_config
 from daikanban.model import Board, Id, KanbanError, Model, Project, Task, TaskStatus, TaskStatusAction, TaskStatusError
 from daikanban.prompt import FieldPrompter, Prompter, model_from_prompt, simple_input
@@ -35,7 +37,6 @@ T = TypeVar('T')
 BI = TypeVar('BI', bound='BoardInterface')
 P = ParamSpec('P')
 
-PKG_DIR = Path(__file__).parent
 BILLBOARD_ART_PATH = PKG_DIR / 'billboard_art.txt'
 
 
@@ -812,8 +813,8 @@ class BoardInterface:
     def _get_completed_since(self, since: datetime | None | NotGivenType) -> Optional[datetime]:
         now = get_current_time()
         if since is NotGiven:
-            if isinstance(self.config.display.completed_age_off, timedelta):
-                since = now - self.config.display.completed_age_off
+            if isinstance(self.config.display.completed_age_off, Real):
+                since = now - timedelta(days=self.config.display.completed_age_off)
             else:
                 return None
         if since and (since > now):

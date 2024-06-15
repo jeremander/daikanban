@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Annotated, ClassVar, Optional
 
-from fancy_dataclass import DictDataclass
+from fancy_dataclass import DictDataclass, TOMLDataclass
 from pydantic import Field, field_validator
 import pydantic.dataclasses
 from typing_extensions import Doc, override
@@ -134,16 +134,16 @@ TASK_SCORERS = {cls.name: cls() for cls in _TASK_SCORER_CLASSES}
 
 
 @pydantic.dataclasses.dataclass
-class TaskConfig:
+class TaskConfig(TOMLDataclass):
     """Task configurations."""
-    new_task_fields: list[str] = Field(
-        default_factory=lambda: DEFAULT_NEW_TASK_FIELDS,
-        description='which fields to prompt for when creating a new task'
-    )
-    scorer_name: str = Field(
-        default=DEFAULT_TASK_SCORER_NAME,
-        description='name of method used for scoring & sorting tasks'
-    )
+    new_task_fields: Annotated[
+        list[str],
+        Doc('which fields to prompt for when creating a new task')
+    ] = Field(default_factory=lambda: DEFAULT_NEW_TASK_FIELDS)
+    scorer_name: Annotated[
+        str,
+        Doc('name of method used for scoring & sorting tasks')
+    ] = Field(default=DEFAULT_TASK_SCORER_NAME)
 
     @field_validator('scorer_name')
     @classmethod

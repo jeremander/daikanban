@@ -1,17 +1,23 @@
 from datetime import date, datetime, timedelta
+from pathlib import Path
 import re
 from typing import Annotated, Any, Callable, Optional
 
-from fancy_dataclass import ConfigDataclass
+from fancy_dataclass import ConfigDataclass, TOMLDataclass
 import pendulum
 from pydantic import Field
 from pydantic.dataclasses import dataclass
 import pytimeparse
 from typing_extensions import Doc
 
+from daikanban import PROG
 from daikanban.task import DEFAULT_TASK_STATUS_GROUPS, TaskConfig
 from daikanban.utils import HOURS_PER_DAY, SECS_PER_DAY, NameMatcher, UserInputError, case_insensitive_match, convert_number_words_to_digits, get_current_time, replace_relative_time_expression, whitespace_insensitive_match
 
+
+############
+# DEFAULTS #
+############
 
 DEFAULT_DATE_FORMAT = '%m/%d/%y'  # USA-based format
 DEFAULT_DATETIME_FORMAT = '%Y-%m-%dT%H:%M:%SZ%z'
@@ -20,29 +26,46 @@ DEFAULT_HOURS_PER_WORK_DAY = 8
 DEFAULT_DAYS_PER_WORK_WEEK = 5
 
 
+#########
+# PATHS #
+#########
+
+def user_dir() -> Path:
+    """Gets the path to the user's directory where configs, etc. will be stored."""
+    return Path.home() / f'.{PROG}'
+
+def user_config_path() -> Path:
+    """Gets the path to the user's config file."""
+    return user_dir() / 'config.toml'
+
+def user_config_exists() -> bool:
+    """Returns True if the user's config file exists."""
+    return user_config_path().is_file()
+
+
+##########
+# CONFIG #
+##########
+
 @dataclass
-class TimeConfig:
+class TimeConfig(TOMLDataclass):
     """Time configurations."""
-    date_format: str = Field(
-        default=DEFAULT_DATE_FORMAT,
-        description='preferred format for representing dates'
-    )
-    datetime_format: str = Field(
-        default=DEFAULT_DATETIME_FORMAT,
-        description='preferred format for representing datetimes'
-    )
-    hours_per_work_day: float = Field(
-        default=DEFAULT_HOURS_PER_WORK_DAY,
-        description='number of hours per work day',
-        gt=0,
-        le=24
-    )
-    days_per_work_week: float = Field(
-        default=DEFAULT_DAYS_PER_WORK_WEEK,
-        description='number of days per work week',
-        gt=0,
-        le=7
-    )
+    date_format: Annotated[
+        str,
+        Doc('preferred format for dates')
+    ] = Field(default=DEFAULT_DATE_FORMAT)
+    datetime_format: Annotated[
+        str,
+        Doc('preferred format for datetimes')
+    ] = Field(default=DEFAULT_DATETIME_FORMAT)
+    hours_per_work_day: Annotated[
+        float,
+        Doc('number of hours per work day')
+    ] = Field(default=DEFAULT_HOURS_PER_WORK_DAY, gt=0, le=24)
+    days_per_work_week: Annotated[
+        float,
+        Doc('number of days per work week')
+    ] = Field(default=DEFAULT_DAYS_PER_WORK_WEEK, gt=0, le=7)
 
     def parse_datetime(self, s: str) -> datetime:
         """Parses a datetime from a string."""
@@ -117,40 +140,50 @@ class TimeConfig:
 
 
 @dataclass
-class FileConfig:
+class FileConfig(TOMLDataclass):
     """File configurations."""
-    json_indent: Optional[int] = Field(
-        default=2,
-        description='indentation level for formatting JSON'
-    )
+    json_indent: Annotated[Optional[int], Doc('indentation level for JSON format')] = Field(default=2, ge=0)
 
 
 @dataclass
-class DisplayConfig:
+class DisplayConfig(TOMLDataclass):
     """Display configurations."""
-    max_tasks: Optional[int] = Field(
-        default=None,
-        description='max number of tasks to display per column',
-        ge=0
-    )
-    completed_age_off: Optional[timedelta] = Field(
-        default=timedelta(days=30),
-        description='length of time after which to stop displaying completed tasks'
-    )
-    status_groups: dict[str, list[str]] = Field(
-        default=DEFAULT_TASK_STATUS_GROUPS,
-        description='map from board columns (groups) to task statuses'
-    )
-
+    max_tasks: Annotated[
+        Optional[int],
+        Doc('max number of tasks to display per column')
+    ] = Field(default=None, ge=0)
+    completed_age_off: Annotated[
+        Optional[float],
+        Doc('length of time (in days) after which to stop displaying completed tasks')
+    ] = Field(default=30, ge=0)
+    status_groups: Annotated[
+        dict[str, list[str]],
+        Doc('map from board columns (groups) to task statuses')
+    ] = Field(default=DEFAULT_TASK_STATUS_GROUPS)
 
 @dataclass
-class Config(ConfigDataclass):
+class Config(ConfigDataclass, TOMLDataclass):  # type: ignore[misc]
     """Collection of global configurations."""
-    case_sensitive: Annotated[bool, Doc('whether names are case-sensitive')] = Field(default=False)
-    time: Annotated[TimeConfig, Doc('time configs')] = Field(default_factory=TimeConfig)
-    file: Annotated[FileConfig, Doc('file configs')] = Field(default_factory=FileConfig)
-    task: Annotated[TaskConfig, Doc('task configs')] = Field(default_factory=TaskConfig)
-    display: Annotated[DisplayConfig, Doc('display configs')] = Field(default_factory=DisplayConfig)
+    case_sensitive: Annotated[
+        bool,
+        Doc('whether names are case-sensitive')
+    ] = Field(default=False)
+    time: Annotated[
+        TimeConfig,
+        Doc('time configs')
+    ] = Field(default_factory=TimeConfig)
+    file: Annotated[
+        FileConfig,
+        Doc('file configs')
+    ] = Field(default_factory=FileConfig)
+    task: Annotated[
+        TaskConfig,
+        Doc('task configs')
+    ] = Field(default_factory=TaskConfig)
+    display: Annotated[
+        DisplayConfig,
+        Doc('display configs')
+     ] = Field(default_factory=DisplayConfig)
 
     @property
     def name_matcher(self) -> NameMatcher:
@@ -180,7 +213,10 @@ def get_config() -> Config:
     """Gets the current global configurations."""
     config = Config.get_config()
     if config is None:
-        # TODO: load from user's config file, if exists
-        config = Config()
-        config.update_config()
+        config_path = user_config_path()
+        if config_path.is_file():
+            config = Config.load_config(config_path)
+        else:  # use default config
+            config = Config()
+        config.update_config()  # set global value
     return config

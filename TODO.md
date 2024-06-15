@@ -3,8 +3,9 @@
 ## `v0.2.0`
 
 - Config customization
+  - Rename `display.status_groups` to `display.columns`
   - Generic pydantic->TOML serialization (rudimentary)
-  - Use system default directory for app-specific configs? XDG?
+    - `fancy_dataclass` should soon support Doc annotations...
   - Global config file stored in app folder
   - `config` subcommand of main CLI to interact with configs
     - Also an option within the shell

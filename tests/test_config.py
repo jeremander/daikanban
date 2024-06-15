@@ -4,7 +4,7 @@ from datetime import date, datetime
 from pydantic import ValidationError
 import pytest
 
-from daikanban.config import DEFAULT_DATE_FORMAT, TaskConfig, TimeConfig, get_config
+from daikanban.config import DEFAULT_DATE_FORMAT, Config, TaskConfig, TimeConfig, get_config
 from daikanban.task import DEFAULT_TASK_SCORER_NAME, TASK_SCORERS, TaskScorer
 from daikanban.utils import HOURS_PER_DAY, SECS_PER_DAY, UserInputError, get_current_time
 
@@ -179,3 +179,7 @@ def test_task_scorer():
     assert fake_scorer_name not in TASK_SCORERS
     with pytest.raises(ValidationError, match='Unknown task scorer'):
         _ = TaskConfig(scorer_name=fake_scorer_name)
+
+def test_toml_round_trip():
+    config = get_config()
+    assert Config.from_toml_string(config.to_toml_string()) == config
