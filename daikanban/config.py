@@ -164,26 +164,11 @@ class DisplayConfig(TOMLDataclass):
 @dataclass
 class Config(ConfigDataclass, TOMLDataclass):  # type: ignore[misc]
     """Collection of global configurations."""
-    case_sensitive: Annotated[
-        bool,
-        Doc('whether names are case-sensitive')
-    ] = Field(default=False)
-    time: Annotated[
-        TimeConfig,
-        Doc('time configs')
-    ] = Field(default_factory=TimeConfig)
-    file: Annotated[
-        FileConfig,
-        Doc('file configs')
-    ] = Field(default_factory=FileConfig)
-    task: Annotated[
-        TaskConfig,
-        Doc('task configs')
-    ] = Field(default_factory=TaskConfig)
-    display: Annotated[
-        DisplayConfig,
-        Doc('display configs')
-     ] = Field(default_factory=DisplayConfig)
+    case_sensitive: bool = Field(default=False)
+    time: TimeConfig = Field(default_factory=TimeConfig)
+    file: FileConfig = Field(default_factory=FileConfig)
+    task: TaskConfig = Field(default_factory=TaskConfig)
+    display: DisplayConfig = Field(default_factory=DisplayConfig)
 
     @property
     def name_matcher(self) -> NameMatcher:

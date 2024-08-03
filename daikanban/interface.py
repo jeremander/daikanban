@@ -221,7 +221,7 @@ def simple_task_row_type(*fields: str) -> type:
             raise ValueError(f'Unrecognized Task field {name}')
         kwargs[name] = val
     items = [(name, tp) if (fld is None) else (name, tp, fld) for (name, (tp, fld)) in kwargs.items()]
-    return make_dataclass('SimpleTaskRow', items)
+    return make_dataclass('SimpleTaskRow', items)  # type: ignore[arg-type]
 
 
 @dataclass
@@ -854,22 +854,27 @@ class BoardInterface:
         task_row_type = simple_task_row_type(*fields)
         return TaskColSettings(task_row_type, sort_key, get_task_info, get_col_header)
 
-    def show_board(self,  # noqa: C901
+    def _get_column_settings_by_column(self,
+        statuses: Optional[list[str]] = None,
+        since: datetime | None | NotGivenType = NotGiven,
+    ) -> dict[str, TaskColSettings]:
+        """Gets a mapping from columns to TaskColSettings."""
+        since = self._get_completed_since(since)
+        (col_by_status, col_colors) = self._column_info(statuses)
+        return {col: self._get_task_col_settings(col, col_colors[col], since) for col in col_by_status.values()}
+
+    def _get_task_rows_by_column(self,
         statuses: Optional[list[str]] = None,
         projects: Optional[list[str]] = None,
         tags: Optional[list[str]] = None,
-        limit: int | None | NotGivenType = NotGiven,
         since: datetime | None | NotGivenType = NotGiven,
-    ) -> None:
-        """Displays the board to the screen using the current configurations."""
-        if self.board is None:
-            raise BoardNotLoadedError("No board has been loaded.\nRun 'board new' to create a new board or 'board load' to load an existing one.")
+    ) -> dict[str, list[Any]]:
+        """Gets a mapping from columns to lists of Tasks, sorted based on the current configurations."""
+        assert self.board is not None
         task_filter = self._filter_task_by_project_or_tag(projects=projects, tags=tags)
-        limit = self._get_task_limit(limit)
         since = self._get_completed_since(since)
         (col_by_status, col_colors) = self._column_info(statuses)
-        col_settings_by_col = {col: self._get_task_col_settings(col, col_colors[col], since) for col in col_by_status.values()}
-        scorer = self.config.task.scorer
+        col_settings_by_col = self._get_column_settings_by_column(statuses=statuses, since=since)
         task_rows_by_col: dict[str, list[Any]] = defaultdict(list)
         for (id_, task) in self.board.tasks.items():
             if not task_filter(task):
@@ -884,6 +889,23 @@ class BoardInterface:
         for (col, task_rows) in task_rows_by_col.items():
             col_settings = col_settings_by_col[col]
             col_settings.sort_task_rows(task_rows)
+        return task_rows_by_col
+
+    def show_board(self,
+        statuses: Optional[list[str]] = None,
+        projects: Optional[list[str]] = None,
+        tags: Optional[list[str]] = None,
+        limit: int | None | NotGivenType = NotGiven,
+        since: datetime | None | NotGivenType = NotGiven,
+    ) -> None:
+        """Displays the board to the screen using the current configurations."""
+        if self.board is None:
+            raise BoardNotLoadedError("No board has been loaded.\nRun 'board new' to create a new board or 'board load' to load an existing one.")
+        limit = self._get_task_limit(limit)
+        scorer = self.config.task.scorer
+        (col_by_status, col_colors) = self._column_info(statuses)
+        col_settings_by_col = self._get_column_settings_by_column(statuses=statuses, since=since)
+        task_rows_by_col = self._get_task_rows_by_column(statuses=statuses, projects=projects, tags=tags, since=since)
         # count tasks in each column prior to limiting
         task_counts = {col: len(task_rows) for (col, task_rows) in task_rows_by_col.items()}
         if limit is not None:  # limit the number of tasks in each column

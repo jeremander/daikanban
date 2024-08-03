@@ -2,7 +2,8 @@
 
 ## `v0.2.0`
 
-- Update to new `fancy_dataclass` `store_type` mode, and `suppress_none`
+- Put all paused tasks after unpaused
+  - Configuration to toggle this behavior
 - `project set` or `task set` multiple values at once?
 - Add `notes` field to projects & tasks?
   - Add an icon indicating a note exists
@@ -21,8 +22,6 @@
     - Show dates as timestamps or human-readable relative times
     - Default colors (E.g. project IDs are too dark on dark terminal)
       - Can we detect terminal color?
-- Put all paused tasks after unpaused
-  - Configuration to toggle this behavior
 
 ## `v0.3.0`
 
