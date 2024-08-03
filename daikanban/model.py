@@ -139,20 +139,8 @@ def catch_key_error(cls: type[Exception]) -> Iterator[None]:
 #########
 
 @dataclass(frozen=True)
-class Model(JSONBaseDataclass):
+class Model(JSONBaseDataclass, suppress_none=True, store_type='off', validate=False):
     """Base class setting up pydantic configs."""
-
-    # def __init_subclass__(cls, **kwargs: Any) -> None:
-    #     # store a list of the class's computed fields (ones marked with `computed_field` decorator)
-    #     schema = TypeAdapter(cls).core_schema['schema']
-    #     cls._computed_fields = [d['property_name'] for d in schema.get('computed_fields', [])]
-
-    def to_dict(self, **kwargs: Any) -> dict[str, Any]:  # noqa: D102
-        d = super().to_dict(**kwargs)
-        # type field not needed to disambiguate subclasses
-        del d['type']
-        # suppress null values (TODO: could become a setting within DictDataclass?)
-        return {key: val for (key, val) in d.items() if (val is not None)}
 
     def _include_field(self, field: str, val: Any) -> bool:
         return val is not None
