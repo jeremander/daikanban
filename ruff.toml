@@ -57,9 +57,6 @@ lint.exclude = [
     "tmp*"
 ]
 
-# ignore unused imports in __init__.py files
-lint.ignore-init-module-imports = true
-
 line-length = 10000
 
 # where to search for first-party imports

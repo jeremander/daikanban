@@ -1,4 +1,6 @@
+from collections.abc import Sequence
 from datetime import date, datetime, timedelta
+from operator import attrgetter
 from pathlib import Path
 import re
 from typing import Annotated, Any, Callable, Optional
@@ -11,7 +13,7 @@ import pytimeparse
 from typing_extensions import Doc
 
 from daikanban import PROG
-from daikanban.task import DEFAULT_TASK_COLUMNS, TaskConfig
+from daikanban.task import TaskConfig, TaskStatus
 from daikanban.utils import HOURS_PER_DAY, SECS_PER_DAY, NameMatcher, UserInputError, case_insensitive_match, convert_number_words_to_digits, get_current_time, replace_relative_time_expression, whitespace_insensitive_match
 
 
@@ -41,6 +43,32 @@ def user_config_path() -> Path:
 def user_config_exists() -> bool:
     """Returns True if the user's config file exists."""
     return user_config_path().is_file()
+
+
+################
+# TASK SORTING #
+################
+
+# map from Task fields to default sort ascending flag
+_DEFAULT_ASCENDING_BY_FIELD = {
+    'completed_time': False,
+    'difficulty': True,
+    'priority': False,
+    'score': False,
+    'status': True,
+}
+
+@dataclass
+class TaskSortKey(TOMLDataclass):
+    """Key for sorting tasks."""
+    # field to sort on
+    field: str
+    # whether to sort ascending or not (if None, uses the default for the field)
+    asc: Optional[bool] = None
+
+    def __post_init__(self) -> None:
+        if self.asc is None:
+            self.asc = _DEFAULT_ASCENDING_BY_FIELD.get(self.field, True)
 
 
 ##########
@@ -146,6 +174,27 @@ class FileConfig(TOMLDataclass):
 
 
 @dataclass
+class ColumnConfig(TOMLDataclass):
+    """Configurations for an individual board column."""
+    # task statuses to display in the column
+    statuses: list[str]
+    # criteria to sort tasks by
+    sort_by: str | TaskSortKey | list[str | TaskSortKey]
+
+    def get_sort_keys(self) -> list[TaskSortKey]:
+        """Gets a list of sort keys with which to sort tasks."""
+        keys = self.sort_by if isinstance(self.sort_by, Sequence) else [self.sort_by]
+        return [TaskSortKey(key) if isinstance(key, str) else key for key in keys]
+
+
+DEFAULT_COLUMN_CONFIGS = {
+    'todo': ColumnConfig(statuses=[TaskStatus.todo], sort_by='score'),
+    'active': ColumnConfig(statuses=[TaskStatus.active, TaskStatus.paused], sort_by=['status', 'score']),
+    'complete': ColumnConfig(statuses=[TaskStatus.complete], sort_by='completed_time'),
+}
+
+
+@dataclass
 class DisplayConfig(TOMLDataclass):
     """Display configurations."""
     max_tasks: Annotated[
@@ -156,10 +205,26 @@ class DisplayConfig(TOMLDataclass):
         Optional[float],
         Doc('length of time (in days) after which to stop displaying completed tasks')
     ] = Field(default=30, ge=0)
-    board_columns: Annotated[
-        dict[str, list[str]],
-        Doc('map from board columns to task statuses')
-    ] = Field(default=DEFAULT_TASK_COLUMNS)
+    columns: Annotated[
+        dict[str, ColumnConfig],
+        Doc('settings for each board column')
+    ] = Field(default=DEFAULT_COLUMN_CONFIGS)
+
+    def get_column_sort_keys(self, column: str) -> list[tuple[Callable[[Any], Any], bool]]:
+        """Given a board column, gets a list of (sort_key, ascending) pairs to be used for sorting tasks."""
+        cfg = self.columns[column]
+        sort_keys = cfg.get_sort_keys()
+        pairs: list[tuple[Callable[[Any], Any], bool]] = []
+        idx_by_status = {status: i for (i, status) in enumerate(cfg.statuses)}
+        for sort_key in sort_keys:
+            assert isinstance(sort_key.asc, bool)
+            if sort_key.field == 'status':
+                # sort order depends on board configs
+                pairs.append((lambda obj: idx_by_status[obj.status], sort_key.asc))
+            else:
+                pairs.append((attrgetter(sort_key.field), sort_key.asc))
+        return pairs
+
 
 @dataclass
 class Config(ConfigDataclass, TOMLDataclass):  # type: ignore[misc]

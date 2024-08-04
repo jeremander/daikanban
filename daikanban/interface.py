@@ -4,7 +4,6 @@ from datetime import datetime, timedelta
 from functools import cache, wraps
 import json
 from numbers import Real
-from operator import attrgetter
 from pathlib import Path
 import readline  # improves shell interactivity  # noqa: F401
 import shlex
@@ -216,6 +215,8 @@ def simple_task_row_type(*fields: str) -> type:
             val = (Optional[datetime], field(metadata={'title': 'completed'}))
         elif name == 'score':
             val = (float, field(metadata={'justify': 'right'}))
+        elif name == 'status':
+            val = (TaskStatus, None)
         # TODO: add more fields
         else:
             raise ValueError(f'Unrecognized Task field {name}')
@@ -227,8 +228,8 @@ def simple_task_row_type(*fields: str) -> type:
 @dataclass
 class TaskColSettings(Generic[M]):
     """Class responsible for simplifying task info for displaying it in a DaiKanban board subtable."""
+    column: str  # name of task column
     task_row_type: type[M]  # type of task row to display
-    sort_key: str  # attribute by which to sort the tasks
     get_task_info: Callable[[Id, Task], dict[str, Any]]  # given ID and task, returns data for task row
     get_col_header: Callable[[int], str]  # given task count, returns column header
 
@@ -238,7 +239,11 @@ class TaskColSettings(Generic[M]):
 
     def sort_task_rows(self, task_rows: list[M]) -> None:
         """Sorts, in-place, a list of task rows."""
-        task_rows.sort(key=attrgetter(self.sort_key), reverse=True)
+        config = get_config().display
+        sort_keys = config.get_column_sort_keys(self.column)
+        for (key, asc) in sort_keys[::-1]:
+            # prioritize sort order from left to right (i.e. perform sorts in reverse order)
+            task_rows.sort(key=key, reverse=(not asc))
 
 
 ###################
@@ -769,20 +774,28 @@ class BoardInterface:
         """Given an optional list of statuses to include, returns a pair (col_by_status, col_colors).
         The former is a map from task statuses to columns.
         The latter is a map from columns to colors."""
-        columns = self.config.display.board_columns
+        column_config = self.config.display.columns
         if statuses:
             status_set = set(statuses)
             valid_statuses = {str(status) for status in TaskStatus}
             for status in status_set:
                 if status not in valid_statuses:
                     raise InvalidTaskStatusError(status)
-            columns = {col: [status for status in col_statuses if (status in status_set)] for (col, col_statuses) in columns.items()}
+            columns = {col: [status for status in cfg.statuses if (status in status_set)] for (col, cfg) in column_config.items()}
+        else:
+            columns = {col: cfg.statuses for (col, cfg) in column_config.items()}
         col_by_status = {}  # map from status to columns
         col_colors = {}  # map from group to color
         for (col, col_statuses) in columns.items():
             if col_statuses:
                 # use the first listed status to define the group color
-                col_colors[col] = cast(str, getattr(col_statuses[0], 'color', None))
+                status = col_statuses[0]
+                try:
+                    status = TaskStatus(status)
+                    color = status.color
+                except ValueError:
+                    color = 'black'
+                col_colors[col] = color
             for status in col_statuses:
                 col_by_status[status] = col
         return (col_by_status, col_colors)
@@ -822,17 +835,15 @@ class BoardInterface:
         return since
 
     def _get_task_col_settings(self, col: str, color: str, since: Optional[datetime]) -> TaskColSettings:
-        # TODO: customize based on settings
         def _get_task_kwargs(id_: Id, task: Task) -> dict[str, Any]:
             proj_str = None if (task.project_id is None) else self._project_str_from_id(task.project_id)
             icons = task.status_icons
             name = task.name + (f' {icons}' if icons else '')
-            return {'id': task_id_style(id_, bold=True), 'name': name, 'project': proj_str}
+            return {'id': task_id_style(id_, bold=True), 'name': name, 'project': proj_str, 'status': task.status}
         def _get_col_header(task_count: int) -> str:
             return style_str(col, color, bold=True) + style_str(f' ({task_count})', 'bright_black')
         if col == 'complete':
-            fields = ('id', 'name', 'project', 'completed_time')
-            sort_key = 'completed_time'
+            fields = ('id', 'name', 'project', 'completed_time', 'status')
             def get_task_info(id_: Id, task: Task) -> dict[str, Any]:
                 return {'completed_time': task.completed_time, **_get_task_kwargs(id_, task)}
             def get_col_header(task_count: int) -> str:
@@ -843,8 +854,7 @@ class BoardInterface:
                     header += style_str(f'\nlast {since_str}', 'bright_black', italic=True)
                 return header
         else:
-            fields = ('id', 'name', 'project', 'score')
-            sort_key = 'score'
+            fields = ('id', 'name', 'project', 'score', 'status')
             def get_task_info(id_: Id, task: Task) -> dict[str, Any]:
                 return {'score': self.config.task.scorer(task), **_get_task_kwargs(id_, task)}
             def get_col_header(task_count: int) -> str:
@@ -852,7 +862,7 @@ class BoardInterface:
                 return (header + '\n') if since else header
         # create dataclass type corresponding to a table row summarizing each Task
         task_row_type = simple_task_row_type(*fields)
-        return TaskColSettings(task_row_type, sort_key, get_task_info, get_col_header)
+        return TaskColSettings(col, task_row_type, get_task_info, get_col_header)
 
     def _get_column_settings_by_column(self,
         statuses: Optional[list[str]] = None,
