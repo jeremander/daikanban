@@ -3,8 +3,9 @@ from contextlib import suppress
 from pydantic_core import Url
 import pytest
 
+from daikanban.config import get_config
 from daikanban.interface import BoardInterface, parse_string_set
-from daikanban.model import Board, DuplicateProjectNameError, DuplicateTaskNameError, Project, Task, TaskStatusError
+from daikanban.model import Board, DuplicateProjectNameError, DuplicateTaskNameError, Project, Task, TaskStatusAction, TaskStatusError
 from daikanban.utils import UserInputError, get_current_time
 
 from . import match_patterns, patch_stdin
@@ -285,3 +286,25 @@ class TestInterface:
         user_input = [('task complete 0', ['']), ('board show', None)]
         outputs = [r'complete \(1\)', 'last', self._table_row(['id', 'name', 'completed'])]
         self._test_output(capsys, monkeypatch, user_input, outputs, board=board)
+
+    def test_board_sort_tasks(self, capsys, monkeypatch):
+        board = new_board()
+        for i in range(3):
+            board.create_task(Task(name=f'task{i}'))
+            board.apply_status_action(i, TaskStatusAction.start)
+        board.apply_status_action(1, TaskStatusAction.pause)
+        interface = BoardInterface(board=board)
+        cfg = get_config()
+        task_rows_by_col = interface._get_task_rows_by_column()
+        assert list(task_rows_by_col) == ['active']
+        names = [row.name for row in task_rows_by_col['active']]
+        # active tasks are shown before paused
+        assert names == ['task0', 'task2', 'task1 ⏸️ ']
+        # sort tasks by name instead
+        cfg.display.columns['active'].sort_by = 'name'
+        interface = BoardInterface(board=board, config=cfg)
+        task_rows_by_col = interface._get_task_rows_by_column()
+        names = [row.name for row in task_rows_by_col['active']]
+        # status column should *not* be shown
+        with pytest.raises(AssertionError, match="pattern 'status' not found"):
+            self._test_output(capsys, monkeypatch, [('board show', None)], ['status'], board=board)

@@ -151,14 +151,16 @@ def parse_duration(s: str) -> Optional[float]:
 # PRETTY PRINTING #
 ###################
 
-def make_table(tp: type['DataclassInstance'], rows: Iterable[M], **kwargs: Any) -> Table:
-    """Given a model type and a list of objects of that type, creates a Table displaying the data, with each object being a row."""
+def make_table(tp: type['DataclassInstance'], rows: Iterable[M], suppress_cols: Optional[list[str]] = None, **kwargs: Any) -> Table:
+    """Given a model type and a list of objects of that type, creates a Table displaying the data, with each object being a row.
+    If a suppress_cols list is given, suppresses these columns from the table."""
     table = Table(**kwargs)
     flags = []  # indicates whether each field has any nontrivial element
     field_names = []
+    suppress = set(suppress_cols) if suppress_cols else set()
     for fld in fields(tp):
         field_names.append(fld.name)
-        flag = any(getattr(row, fld.name) is not None for row in rows)
+        flag = (fld.name not in suppress) and any(getattr(row, fld.name) is not None for row in rows)
         flags.append(flag)
         if flag:  # skip column if all values are trivial
             metadata = fld.metadata or {}  # type: ignore[var-annotated]
@@ -937,7 +939,7 @@ class BoardInterface:
                 header = col_settings.get_col_header(task_count)
                 table.add_column(header, justify='center')
                 task_rows = task_rows_by_col[col]
-                subtable: Table | str = make_table(col_settings.task_row_type, task_rows) if task_rows else ''
+                subtable: Table | str = make_table(col_settings.task_row_type, task_rows, suppress_cols=['status']) if task_rows else ''
                 subtables.append(subtable)
         if subtables:
             table.add_row(*subtables)

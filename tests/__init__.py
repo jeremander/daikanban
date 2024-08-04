@@ -17,9 +17,9 @@ def match_patterns(patterns, string, exact=False):
             if isinstance(pattern, str):
                 assert pattern == string
             else:
-                assert re.compile(pattern).fullmatch(string)
+                assert re.compile(pattern).fullmatch(string), f'pattern {pattern.pattern!r} not found'
         else:
             if isinstance(pattern, str):
                 pattern = re.compile(pattern)
             assert isinstance(pattern, re.Pattern)
-            assert pattern.search(string)
+            assert pattern.search(string), f'pattern {pattern.pattern!r} not found'

@@ -1,4 +1,3 @@
-from collections.abc import Sequence
 from datetime import date, datetime, timedelta
 from operator import attrgetter
 from pathlib import Path
@@ -183,7 +182,7 @@ class ColumnConfig(TOMLDataclass):
 
     def get_sort_keys(self) -> list[TaskSortKey]:
         """Gets a list of sort keys with which to sort tasks."""
-        keys = self.sort_by if isinstance(self.sort_by, Sequence) else [self.sort_by]
+        keys = self.sort_by if isinstance(self.sort_by, (list, tuple)) else [self.sort_by]
         return [TaskSortKey(key) if isinstance(key, str) else key for key in keys]
 
 
