@@ -2,19 +2,12 @@
 
 ## `v0.2.0`
 
-- Put all paused tasks after unpaused
-  - Configuration to toggle this behavior
-- `project set` or `task set` multiple values at once?
 - Add `notes` field to projects & tasks?
   - Add an icon indicating a note exists
 - Config customization
-  - Generic pydantic->TOML serialization (rudimentary)
-    - `fancy_dataclass` should soon support Doc annotations...
-  - Global config file stored in app folder
   - `config` subcommand of main CLI to interact with configs
     - Also an option within the shell
-  - Updates global `Config` object whenever it is loaded/updated
-  - `ConfigManager` class
+  - `ConfigManager` class?
   - Particular configs:
     - Which items to include when making new tasks (priority/difficulty/duration can be omitted, with default)
     - Priority/difficulty upper bounds?
@@ -22,6 +15,7 @@
     - Show dates as timestamps or human-readable relative times
     - Default colors (E.g. project IDs are too dark on dark terminal)
       - Can we detect terminal color?
+- `project set` or `task set` multiple values at once?
 
 ## `v0.3.0`
 

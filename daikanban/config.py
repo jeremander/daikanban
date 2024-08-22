@@ -1,3 +1,4 @@
+from dataclasses import field
 from datetime import date, datetime, timedelta
 from operator import attrgetter
 from pathlib import Path
@@ -80,19 +81,21 @@ class TimeConfig(TOMLDataclass):
     date_format: Annotated[
         str,
         Doc('preferred format for dates')
-    ] = Field(default=DEFAULT_DATE_FORMAT)
+    ] = DEFAULT_DATE_FORMAT
     datetime_format: Annotated[
         str,
         Doc('preferred format for datetimes')
-    ] = Field(default=DEFAULT_DATETIME_FORMAT)
+    ] = DEFAULT_DATETIME_FORMAT
     hours_per_work_day: Annotated[
         float,
-        Doc('number of hours per work day')
-    ] = Field(default=DEFAULT_HOURS_PER_WORK_DAY, gt=0, le=24)
+        Doc('number of hours per work day'),
+        Field(gt=0, le=24)
+    ] = DEFAULT_HOURS_PER_WORK_DAY
     days_per_work_week: Annotated[
         float,
-        Doc('number of days per work week')
-    ] = Field(default=DEFAULT_DAYS_PER_WORK_WEEK, gt=0, le=7)
+        Doc('number of days per work week'),
+        Field(gt=0, le=7)
+    ] = DEFAULT_DAYS_PER_WORK_WEEK
 
     def parse_datetime(self, s: str) -> datetime:
         """Parses a datetime from a string."""
@@ -198,16 +201,18 @@ class DisplayConfig(TOMLDataclass):
     """Display configurations."""
     max_tasks: Annotated[
         Optional[int],
-        Doc('max number of tasks to display per column')
-    ] = Field(default=None, ge=0)
+        Doc('max number of tasks to display per column'),
+        Field(ge=0)
+    ] = None
     completed_age_off: Annotated[
         Optional[float],
-        Doc('length of time (in days) after which to stop displaying completed tasks')
-    ] = Field(default=30, ge=0)
+        Doc('length of time (in days) after which to stop displaying completed tasks'),
+        Field(ge=0)
+    ] = 30
     columns: Annotated[
         dict[str, ColumnConfig],
         Doc('settings for each board column')
-    ] = Field(default=DEFAULT_COLUMN_CONFIGS)
+    ] = field(default_factory=lambda: DEFAULT_COLUMN_CONFIGS)
 
     def get_column_sort_keys(self, column: str) -> list[tuple[Callable[[Any], Any], bool]]:
         """Given a board column, gets a list of (sort_key, ascending) pairs to be used for sorting tasks."""
@@ -226,13 +231,13 @@ class DisplayConfig(TOMLDataclass):
 
 
 @dataclass
-class Config(ConfigDataclass, TOMLDataclass):  # type: ignore[misc]
-    """Collection of global configurations."""
-    case_sensitive: bool = Field(default=False)
-    time: TimeConfig = Field(default_factory=TimeConfig)
-    file: FileConfig = Field(default_factory=FileConfig)
-    task: TaskConfig = Field(default_factory=TaskConfig)
-    display: DisplayConfig = Field(default_factory=DisplayConfig)
+class Config(ConfigDataclass, TOMLDataclass, doc_as_comment=True):  # type: ignore[misc]
+    """Global configurations for daikanban"""
+    case_sensitive: bool = False
+    time: TimeConfig = field(default_factory=TimeConfig)
+    file: FileConfig = field(default_factory=FileConfig)
+    task: TaskConfig = field(default_factory=TaskConfig)
+    display: DisplayConfig = field(default_factory=DisplayConfig)
 
     @property
     def name_matcher(self) -> NameMatcher:
