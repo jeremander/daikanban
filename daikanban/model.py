@@ -2,17 +2,20 @@ from contextlib import contextmanager
 from dataclasses import fields
 from datetime import datetime, timedelta
 import itertools
+import json
+from pathlib import Path
 from typing import Annotated, Any, ClassVar, Counter, Iterator, Literal, Optional, TypeVar, cast
 from urllib.parse import urlparse
 
 from fancy_dataclass import JSONBaseDataclass
-from pydantic import AfterValidator, AnyUrl, BeforeValidator, Field, PlainSerializer, TypeAdapter, computed_field, model_validator
+from pydantic import AfterValidator, AnyUrl, BeforeValidator, Field, PlainSerializer, TypeAdapter, ValidationError, computed_field, model_validator
 from pydantic.dataclasses import dataclass
+from rich.markup import escape
 from typing_extensions import Self, TypeAlias
 
-from daikanban.config import get_config
+from daikanban.config import Config, get_config
 from daikanban.task import TaskStatus
-from daikanban.utils import KanbanError, NameMatcher, StrEnum, exact_match, first_name_match, get_current_time, get_duration_between, human_readable_duration, parse_string_set
+from daikanban.utils import KanbanError, NameMatcher, StrEnum, exact_match, first_name_match, get_current_time, get_duration_between, human_readable_duration, parse_string_set, style_str
 
 
 T = TypeVar('T')
@@ -124,6 +127,9 @@ class AmbiguousProjectNameError(KanbanError):
 class AmbiguousTaskNameError(KanbanError):
     """Error that occurs when provided task name matches multiple names."""
 
+class BoardFileError(KanbanError):
+    """Error reading or writing a board file."""
+
 
 @contextmanager
 def catch_key_error(cls: type[Exception]) -> Iterator[None]:
@@ -132,6 +138,41 @@ def catch_key_error(cls: type[Exception]) -> Iterator[None]:
         yield
     except KeyError as e:
         raise cls(e.args[0]) from None
+
+
+##########
+# STYLES #
+##########
+
+class DefaultColor(StrEnum):
+    """Enum for default color map."""
+    name = 'magenta'
+    field_name = 'deep_pink4'
+    proj_id = 'purple4'
+    task_id = 'dark_orange3'
+    path = 'dodger_blue2'
+    error = 'red'
+    faint = 'bright_black'
+
+def name_style(name: str) -> str:
+    """Renders a project/task/board name as a rich-styled string."""
+    return style_str(name, DefaultColor.name)
+
+def proj_id_style(id_: Id, bold: bool = False) -> str:
+    """Renders a project ID as a rich-styled string."""
+    return style_str(id_, DefaultColor.proj_id, bold=bold)
+
+def task_id_style(id_: Id, bold: bool = False) -> str:
+    """Renders a task ID as a rich-styled string."""
+    return style_str(id_, DefaultColor.task_id, bold=bold)
+
+def path_style(path: str | Path, bold: bool = False) -> str:
+    """Renders a path as a rich-styled string."""
+    return style_str(path, DefaultColor.path, bold=bold)
+
+def status_style(status: TaskStatus) -> str:
+    """Renders a TaskStatus as a rich-styled string with the appropriate color."""
+    return style_str(status, status.color)
 
 
 #########
@@ -718,3 +759,17 @@ class Board(Model):
     def num_tasks_by_project(self) -> Counter[Id]:
         """Gets a map from project IDs to the number of tasks associated with it."""
         return Counter(task.project_id for task in self.tasks.values() if task.project_id is not None)
+
+
+def load_board(name_or_path: str | Path, config: Optional[Config] = None) -> Board:
+    """Given a board name or path, loads the board from a JSON file.
+    If none is provided, prompts the user interactively."""
+    config = config or get_config()
+    path = config.resolve_board_name_or_path(name_or_path)
+    try:
+        with open(path) as f:
+            return Board(**json.load(f))
+    except (json.JSONDecodeError, OSError, ValidationError) as e:
+        e_str = escape(str(e)) if isinstance(e, ValidationError) else str(e)
+        msg = f'ERROR loading JSON {path_style(path)}: {e_str}'
+        raise BoardFileError(msg) from None

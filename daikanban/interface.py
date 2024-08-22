@@ -15,16 +15,15 @@ import pendulum.parsing
 from pydantic import ValidationError
 from rich import print
 from rich.console import Console
-from rich.markup import escape
 from rich.prompt import Confirm
 from rich.table import Table
 from typing_extensions import Concatenate, Doc, ParamSpec
 
 from daikanban import PKG_DIR
 from daikanban.config import Config, get_config
-from daikanban.model import Board, Id, KanbanError, Model, Project, Task, TaskStatus, TaskStatusAction, TaskStatusError
+from daikanban.model import Board, BoardFileError, DefaultColor, Id, KanbanError, Model, Project, Task, TaskStatus, TaskStatusAction, TaskStatusError, load_board, name_style, path_style, proj_id_style, status_style, task_id_style
 from daikanban.prompt import FieldPrompter, Prompter, model_from_prompt, simple_input
-from daikanban.utils import NotGiven, NotGivenType, StrEnum, UserInputError, err_style, fuzzy_match, get_current_time, get_duration_between, handle_error, human_readable_duration, parse_string_set, prefix_match, style_str, to_snake_case
+from daikanban.utils import NotGiven, NotGivenType, UserInputError, err_style, fuzzy_match, get_current_time, get_duration_between, handle_error, human_readable_duration, parse_string_set, prefix_match, style_str
 
 
 if TYPE_CHECKING:
@@ -42,9 +41,6 @@ BILLBOARD_ART_PATH = PKG_DIR / 'billboard_art.txt'
 ##########
 # ERRORS #
 ##########
-
-class BoardFileError(KanbanError):
-    """Error reading or writing a board file."""
 
 class BoardNotLoadedError(KanbanError):
     """Error type for when a board has not yet been loaded."""
@@ -89,41 +85,6 @@ def parse_task_limit(s: str) -> Optional[int]:
         return int(s)
     except ValueError:
         raise UserInputError('Must select a positive whole number for task limit') from None
-
-
-##########
-# STYLES #
-##########
-
-class DefaultColor(StrEnum):
-    """Enum for default color map."""
-    name = 'magenta'
-    field_name = 'deep_pink4'
-    proj_id = 'purple4'
-    task_id = 'dark_orange3'
-    path = 'dodger_blue2'
-    error = 'red'
-    faint = 'bright_black'
-
-def name_style(name: str) -> str:
-    """Renders a project/task/board name as a rich-styled string."""
-    return style_str(name, DefaultColor.name)
-
-def proj_id_style(id_: Id, bold: bool = False) -> str:
-    """Renders a project ID as a rich-styled string."""
-    return style_str(id_, DefaultColor.proj_id, bold=bold)
-
-def task_id_style(id_: Id, bold: bool = False) -> str:
-    """Renders a task ID as a rich-styled string."""
-    return style_str(id_, DefaultColor.task_id, bold=bold)
-
-def path_style(path: str | Path, bold: bool = False) -> str:
-    """Renders a path as a rich-styled string."""
-    return style_str(path, DefaultColor.path, bold=bold)
-
-def status_style(status: TaskStatus) -> str:
-    """Renders a TaskStatus as a rich-styled string with the appropriate color."""
-    return style_str(status, status.color)
 
 
 ###########
@@ -730,19 +691,15 @@ class BoardInterface:
             assert self.board is not None
             print(f'Deleted board {name_style(self.board.name)} from {path}')
 
-    def load_board(self, board_path: Optional[str | Path] = None) -> None:
+    def load_board(self, name: Optional[str | Path] = None) -> None:
         """Loads a board from a JSON file.
         If none is provided, prompts the user interactively."""
-        if board_path is None:
-            board_path = simple_input('Board filename', match=r'.*\w.*')
-        try:
-            with open(board_path) as f:
-                self.board = Board(**json.load(f))
-        except (json.JSONDecodeError, OSError, ValidationError) as e:
-            e_str = escape(str(e)) if isinstance(e, ValidationError) else str(e)
-            msg = f'ERROR loading JSON {path_style(board_path)}: {e_str}'
-            raise BoardFileError(msg) from None
-        self.board_path = Path(board_path)
+        if name is None:
+            # TODO: use default board instead of prompting, if one exists
+            name = simple_input('Board name or file', match=r'.*\w.*')
+        path = self.config.resolve_board_name_or_path(name)
+        self.board = load_board(path, config=self.config)
+        self.board_path = path
         print(f'Loaded board from {path_style(self.board_path)}')
 
     def save_board(self) -> None:
@@ -760,7 +717,7 @@ class BoardInterface:
         Implicitly loads that board afterward."""
         print('Creating new DaiKanban board.\n')
         name = simple_input('Board name', match=r'.*[^\s].*')
-        default_path = to_snake_case(name) + '.json'
+        default_path = str(self.config.resolve_board_name_or_path(name))
         path = simple_input('Output filename', default=default_path).strip()
         path = path or default_path
         board_path = Path(path)

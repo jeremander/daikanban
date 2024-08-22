@@ -44,6 +44,8 @@ def user_config_exists() -> bool:
     """Returns True if the user's config file exists."""
     return user_config_path().is_file()
 
+DEFAULT_BOARD_DIR = 'boards'
+
 
 ################
 # TASK SORTING #
@@ -233,11 +235,30 @@ class DisplayConfig(TOMLDataclass):
 @dataclass
 class Config(ConfigDataclass, TOMLDataclass, doc_as_comment=True):  # type: ignore[misc]
     """Global configurations for daikanban"""
+    board_path: Annotated[
+        str,
+        Doc(f'directory for board files (can be a path relative to ~/.{PROG})')
+    ] = DEFAULT_BOARD_DIR
     case_sensitive: bool = False
     time: TimeConfig = field(default_factory=TimeConfig)
     file: FileConfig = field(default_factory=FileConfig)
     task: TaskConfig = field(default_factory=TaskConfig)
     display: DisplayConfig = field(default_factory=DisplayConfig)
+
+    def get_board_dir(self) -> Path:
+        """Gets the absolute path to the board directory."""
+        if (path := Path(self.board_path)).is_absolute():
+            return path
+        return user_dir() / self.board_path
+
+    def resolve_board_name_or_path(self, name: str | Path) -> Path:
+        """Given the name or path to a board file, returns the absolute path."""
+        if not (is_path := Path(name)).suffix:
+            name = str(name) + '.json'
+        if (path := Path(name)).is_absolute() or is_path:
+            return path
+        # user entered a name rather than a path, so resolve it relative to the board directory
+        return self.get_board_dir() / name
 
     @property
     def name_matcher(self) -> NameMatcher:

@@ -39,6 +39,7 @@ def path() -> None:
     """Print out path to the configurations."""
     print(user_config_path())
 
+@APP.callback(invoke_without_command=True)
 @APP.command(short_help='show the configurations')
 def show() -> None:
     """Show the configurations."""
