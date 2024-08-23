@@ -1,6 +1,7 @@
 from collections.abc import Iterator
 from contextlib import contextmanager
 import logging
+import os
 from pathlib import Path
 import sys
 from typing import Optional
@@ -19,6 +20,12 @@ PROG = PKG_DIR.name
 # LOGGING #
 ###########
 
+def is_debug_mode() -> bool:
+    """Returns True if debug mode is active.
+    For now, this means the DKB_DEBUG environment variable is set to true."""
+    return os.getenv('DKB_DEBUG', '').lower() in ['1', 'on', 'true']
+
+
 class Logger(logging.Logger):
     """Custom subclass of logging.Logger."""
 
@@ -34,6 +41,8 @@ class Logger(logging.Logger):
     @contextmanager
     def catch_errors(self, *errtypes: type[Exception], msg: Optional[str] = None) -> Iterator[None]:
         """Context manager for catching an error of a certain type (or types), optionally displaying a message, then exiting the program."""
+        if is_debug_mode():  # let errors proceed to traceback
+            errtypes = ()
         try:
             yield
         except errtypes as e:
