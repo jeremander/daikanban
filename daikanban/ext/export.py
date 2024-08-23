@@ -70,14 +70,15 @@ class BaseExporter(ABC, Generic[FW]):
             self.write_board(board, fp, **kwargs)
 
 
-J = TypeVar('J', bound=JSONWritable)
+JW = TypeVar('JW', bound=JSONWritable)
+JLW = TypeVar('JLW', bound=JSONLinesWritable)
 
 
-class JSONExporter(BaseExporter[J]):
+class JSONExporter(BaseExporter[JW]):
     """Base class for exporting a Board to a JSON file."""
     write_mode = 'w'
 
 
-class JSONLinesExporter(BaseExporter[J]):
+class JSONLinesExporter(BaseExporter[JLW]):
     """Base class for exporting a Board to a JSONL (JSON lines) file."""
     write_mode = 'w'

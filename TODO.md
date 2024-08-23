@@ -2,8 +2,7 @@
 
 ## `v0.2.0`
 
-- Add `notes` field to projects & tasks?
-  - Add an icon indicating a note exists
+- Add an icon indicating a note exists for a project or task
 - Config customization
   - `config` subcommand of main CLI to interact with configs
     - Also an option within the shell
@@ -16,10 +15,30 @@
     - Default colors (E.g. project IDs are too dark on dark terminal)
       - Can we detect terminal color?
 - `project set` or `task set` multiple values at once?
+- Time tracking via logs
+  - Use `type` field to indicate type of status action.
+    - Three types, `start`, `stop`, `done`. The latter two are essentially the same.
+      - Might be simpler to exclude `done`, but then there's no way to distinguish "pause" from "false completion."
+    - Status actions:
+      - `start`: no log, since stored in `first_started_time`
+      - `complete`: no log, since stored in `completed_time`
+      - `pause`: set `last_paused_time`. If there is one already, push it onto log with type `stop`.
+      - `resume`: set `last_started_time`. If there is one already, push it onto log with type `start`.
+        - If status is completed, push the completion time onto log with type `stop` (or `done`).
+    - Figure out what to do when backdating times.
+  - Make `TaskHistory` object to help with calculations
+  - Test for consistency with stored data
+    - Start/stop must *strictly* alternate
+    - First entry must be a stop
+    - Times must be monotonic
+    - Last start log must be <= `last_started_time`
+    - First stop log must be >= `first_started_time`
+    - Last stop log must be <= min(`completed_time`, `last_paused_time`)
 
 ## `v0.3.0`
 
 - Set up Github Actions, test coverage
+- Configurable time exclusion rules for time tracking
 - Use different scorer for completed tasks?
   - E.g. `priority-rate` would use actual duration rather than expected duration
   - Could actually be the same `TaskScorer` object, but it chooses a different field if completed

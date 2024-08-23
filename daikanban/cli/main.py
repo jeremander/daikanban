@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 
 from pathlib import Path
+import sys
 from typing import Annotated, Optional
 
+from rich import print
 import typer
 
 from daikanban import __version__
 from daikanban.cli import APP_KWARGS
 import daikanban.cli.config
-from daikanban.cli.export import EXPORTERS, ExportFormat
+from daikanban.cli.export import ExportFormat
 from daikanban.interface import BoardInterface
 from daikanban.model import Board, load_board
 
@@ -31,11 +33,12 @@ def export(
     # board: Annotated[Optional[Path], typer.Option('--board', '-b', help='DaiKanban board JSON file')] = None
 ) -> None:
     """Export board to another format."""
-    print(f'Loading board: {board}')
+    print(f'Loading board: {board}', file=sys.stderr)
     board_obj = load_board(board)
-    print(f'Exporting to {output_file}')
-    assert format in EXPORTERS, f'invalid format: {format.name}'
-    EXPORTERS[format].export_board(board_obj, output_file)
+    print(f'Exporting to {output_file}', file=sys.stderr)
+    format.exporter.export_board(board_obj, output_file)
+    print('[bold]DONE![/]', file=sys.stderr)
+
 
 @APP.command(short_help='create new board')
 def new() -> None:

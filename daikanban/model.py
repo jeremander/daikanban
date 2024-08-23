@@ -258,13 +258,26 @@ class Project(Model):
         default=None,
         description='Links associated with the project'
     )
+    notes: Optional[list[str]] = Field(
+        default=None,
+        description='Additional notes about the project'
+    )
+    extra: Optional[dict[str, Any]] = Field(
+        default=None,
+        description='Any extra data attached to the task'
+    )
 
 
 class Log(Model):
-    """A piece of information associated with a task at a particular time."""
-    created_time: Datetime = Field(
+    """A piece of information associated with a task at a particular time.
+    This is typically used to record events."""
+    time: Optional[Datetime] = Field(
         default_factory=get_current_time,
         description='Time the log was created'
+    )
+    type: Optional[str] = Field(
+        default=None,
+        description='Type of the log'
     )
     note: Optional[str] = Field(
         default=None,
@@ -345,6 +358,14 @@ class Task(Model):
     logs: Optional[list[Log]] = Field(
         default=None,
         description='List of dated logs related to the task'
+    )
+    notes: Optional[list[str]] = Field(
+        default=None,
+        description='Additional notes about the task'
+    )
+    extra: Optional[dict[str, Any]] = Field(
+        default=None,
+        description='Any extra data attached to the task'
     )
 
     # fields that are reset to None when a Task is reset
