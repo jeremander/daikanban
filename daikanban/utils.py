@@ -8,8 +8,9 @@ import sys
 from typing import Any, Callable, Iterable, Iterator, Optional
 
 import pendulum
-import rich
 from typing_extensions import TypeAlias
+
+from daikanban import logger
 
 
 SECS_PER_HOUR = 3600
@@ -216,7 +217,7 @@ class UserInputError(KanbanError):
 
 def exit_with_error(msg: str) -> None:
     """Exits the program with the given error message."""
-    rich.print(f'[bold red]{msg}[/]', file=sys.stderr)
+    logger.error(f'[bold red]{msg}[/]')
     sys.exit(1)
 
 @contextmanager
