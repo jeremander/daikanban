@@ -258,6 +258,10 @@ class Project(Model):
         default=None,
         description='Links associated with the project'
     )
+    parent: Optional[Id] = Field(
+        default=None,
+        description='ID of parent task, if one exists'
+    )
     notes: Optional[list[str]] = Field(
         default=None,
         description='Additional notes about the project'
@@ -311,9 +315,9 @@ class Task(Model):
         default=None,
         description='Expected number of days to complete task'
     )
-    due_date: OptionalDatetime = Field(
+    due_time: OptionalDatetime = Field(
         default=None,
-        description='Date the task is due'
+        description='Time the task is due'
     )
     project_id: Optional[Id] = Field(
         default=None,
@@ -355,6 +359,10 @@ class Task(Model):
         default=None,
         description='IDs of other tasks that block the completion of this one'
     )
+    parent: Optional[Id] = Field(
+        default=None,
+        description='ID of parent task, if one exists'
+    )
     logs: Optional[list[Log]] = Field(
         default=None,
         description='List of dated logs related to the task'
@@ -369,7 +377,7 @@ class Task(Model):
     )
 
     # fields that are reset to None when a Task is reset
-    RESET_FIELDS: ClassVar[list[str]] = ['due_date', 'first_started_time', 'last_started_time', 'last_paused_time', 'completed_time', 'completed_time', 'prior_time_worked', 'blocked_by', 'logs']
+    RESET_FIELDS: ClassVar[list[str]] = ['due_time', 'first_started_time', 'last_started_time', 'last_paused_time', 'completed_time', 'completed_time', 'prior_time_worked', 'blocked_by', 'parent', 'logs']
     DURATION_FIELDS: ClassVar[list[str]] = ['expected_duration', 'prior_time_worked', 'lead_time', 'cycle_time', 'total_time_worked']
 
     def _include_field(self, field: str, val: Any) -> bool:
@@ -437,23 +445,23 @@ class Task(Model):
     @computed_field  # type: ignore[misc]
     @property
     def is_overdue(self) -> bool:
-        """Returns True if the task is overdue (i.e. it was not completed before the due date)."""
-        if self.due_date is None:
+        """Returns True if the task is overdue (i.e. it was not completed before the due time)."""
+        if self.due_time is None:
             return False
-        eval_date = self.completed_time or get_current_time()
-        return eval_date > self.due_date
+        eval_time = self.completed_time or get_current_time()
+        return eval_time > self.due_time
 
     @property
     def time_till_due(self) -> Optional[timedelta]:
-        """Returns the time interval between the current time and the due date, or None if there is no due date."""
-        if self.due_date is None:
+        """Returns the time interval between the current time and the due time, or None if there is no due time."""
+        if self.due_time is None:
             return None
-        return self.due_date - get_current_time()
+        return self.due_time - get_current_time()
 
     @property
     def status_icons(self, nearly_due_thresh: Optional[timedelta] = None) -> Optional[str]:
         """Gets one or more icons (emoji) representing the status of the task, or None if there is none.
-        If nearly_due_threshold is given, this is the time threshold before the due date within which to show a status warning."""
+        If nearly_due_threshold is given, this is the time threshold before the due time within which to show a status warning."""
         nearly_due_thresh = NEARLY_DUE_THRESH if (nearly_due_thresh is None) else nearly_due_thresh
         status = self.status
         td = self.time_till_due
@@ -463,7 +471,7 @@ class Task(Model):
                 icons.append('🚨')
             elif td < nearly_due_thresh:  # due soon
                 icons.append('👀')
-            else:  # has a future due date
+            else:  # has a future due time
                 icons.append('⏱️ ')
         if status == TaskStatus.paused:
             icons.append('⏸️ ')
@@ -578,7 +586,7 @@ class Task(Model):
 
     def reset(self) -> 'Task':
         """Resets a task to the 'todo' state, regardless of its current state.
-        This will preserve the original creation metadata except for timestamps, due date, blocking tasks, and logs."""
+        This will preserve the original creation metadata except for timestamps, due time, blocking tasks, and logs."""
         kwargs = {field: None for field in self.RESET_FIELDS}
         return self._replace(**kwargs)
 
@@ -753,7 +761,7 @@ class Board(Model):
     @catch_key_error(TaskNotFoundError)
     def reset_task(self, task_id: Id) -> None:
         """Resets a task with the given ID to the 'todo' state, regardless of its current state.
-        This will preserve the original creation metadata except for timestamps, due date, blocking tasks, and logs."""
+        This will preserve the original creation metadata except for timestamps, due time, blocking tasks, and logs."""
         task = self.get_task(task_id)
         self.tasks[task_id] = task.reset()
 

@@ -71,13 +71,13 @@ class TestTask:
         assert Task(name='task', expected_duration=None).expected_duration is None
         assert Task(name='task', expected_duration='').expected_duration is None
 
-    def test_due_date(self):
+    def test_due_time(self):
         dt = get_config().time.parse_datetime('2024-01-01')
-        assert Task(name='task').due_date is None
-        assert Task(name='task', due_date=None).due_date is None
-        assert Task(name='task', due_date='').due_date is None
-        assert Task(name='task', due_date=dt).due_date == dt
-        assert Task(name='task', due_date=dt.strftime(DEFAULT_DATETIME_FORMAT)).due_date == dt
+        assert Task(name='task').due_time is None
+        assert Task(name='task', due_time=None).due_time is None
+        assert Task(name='task', due_time='').due_time is None
+        assert Task(name='task', due_time=dt).due_time == dt
+        assert Task(name='task', due_time=dt.strftime(DEFAULT_DATETIME_FORMAT)).due_time == dt
 
     def test_tags(self):
         assert Task(name='task').tags is None
@@ -97,7 +97,7 @@ class TestTask:
         with pytest.raises(TypeError, match="Unknown field 'fake'"):
             _ = task._replace(fake='value')
         # types are coerced
-        assert isinstance(task._replace(due_date=get_current_time().strftime(get_config().time.datetime_format)).due_date, datetime)
+        assert isinstance(task._replace(due_time=get_current_time().strftime(get_config().time.datetime_format)).due_time, datetime)
         assert task._replace(priority='').priority is None
 
     def test_valid_name(self):
@@ -188,7 +188,7 @@ class TestTask:
         todo2 = todo._replace(logs=[])
         assert todo2 != todo
         assert todo2.reset() == todo
-        todo3 = todo._replace(due_date=get_current_time())
+        todo3 = todo._replace(due_time=get_current_time())
         assert todo3.reset() == todo
         started = todo.started()
         assert started.reset() == todo
@@ -206,7 +206,7 @@ class TestTask:
         with pytest.raises(ValidationError, match='start time cannot precede created time'):
             _ = Task(name='task', created_time=dt, first_started_time=(dt - timedelta(days=90)))
         # due date can be before creation
-        task = Task(name='task', due_date=(dt - timedelta(days=90)))
+        task = Task(name='task', due_time=(dt - timedelta(days=90)))
         assert task.is_overdue
         # date parsing is flexible
         for val in [dt, dt.isoformat(), dt.strftime(get_config().time.datetime_format), '2024-01-01', '1/1/2024', 'Jan 1, 2024', 'Jan 1']:

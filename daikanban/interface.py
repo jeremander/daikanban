@@ -575,7 +575,7 @@ class BoardInterface:
                 'prompt': 'Expected duration [not bold]\\[optional, e.g. "3 days", "2 months"][/]',
                 'parse': parse_duration
             },
-            'due_date': {
+            'due': {
                 'prompt': 'Due date [not bold]\\[optional][/]',
                 'parse': parse_date_as_string
             },
@@ -629,7 +629,7 @@ class BoardInterface:
             create=cast(str, _get_date(task.created_time)),
             start=_get_date(task.first_started_time),
             complete=_get_date(task.completed_time),
-            due=_get_date(task.due_date),
+            due=_get_date(task.due_time),
             status=status_style(task.status)
         )
 

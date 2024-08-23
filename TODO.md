@@ -2,6 +2,8 @@
 
 ## `v0.2.0`
 
+- Set up basic logging
+  - Configurable level
 - Add an icon indicating a note exists for a project or task
 - Config customization
   - `config` subcommand of main CLI to interact with configs
@@ -130,6 +132,14 @@
     - New task field, `parent_task_id` (needs to be updated when task is deleted)
     - All subtasks block their parent task
     - Optionally, the parent task can be automatically completed once the subtasks are
+- Other features from Taskwarrior:
+  - Statuses (not mutually exclusive with the "main" statuses):
+    - Scheduled (when to start working on the task)
+    - Waiting (todo status, but is "hidden" until this time)
+    - Until (delete the task if not done by this time, perhaps call it "expire" instead)
+    - Recurring (just a template for spawning other instance tasks)
+      - See: [How Recurrence Works](https://taskwarrior.org/docs/recurrence/)
+    - Assign UUID to every task at creation time that stays fixed.
 - Import/Export
   - Import
     - Input a task list (e.g. markdown checklist, e.g. Python files with lines matching regex "#\s*TODO")
