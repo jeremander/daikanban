@@ -1,16 +1,12 @@
-from contextlib import contextmanager
 import csv
 from datetime import datetime, timezone
 from enum import Enum
 import operator
 import re
-import sys
-from typing import Any, Callable, Iterable, Iterator, Optional
+from typing import Any, Callable, Iterable, Optional
 
 import pendulum
 from typing_extensions import TypeAlias
-
-from daikanban import logger
 
 
 SECS_PER_HOUR = 3600
@@ -213,18 +209,3 @@ class KanbanError(ValueError):
 
 class UserInputError(KanbanError):
     """Class for user input errors."""
-
-
-def exit_with_error(msg: str) -> None:
-    """Exits the program with the given error message."""
-    logger.error(f'[bold red]{msg}[/]')
-    sys.exit(1)
-
-@contextmanager
-def handle_error(*errtypes: type[Exception], msg: Optional[str] = None) -> Iterator[None]:
-    """Context manager for catching an error of a certain type (or types), optionally displaying a message, then exiting the program."""
-    try:
-        yield
-    except errtypes as e:
-        msg = str(e) if (msg is None) else msg
-        exit_with_error(msg)

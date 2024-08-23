@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 
 from pathlib import Path
-import sys
 from typing import Annotated, Optional
 
 from rich import print
 import typer
 
-from daikanban import __version__
+from daikanban import __version__, logger
 from daikanban.cli import APP_KWARGS
 import daikanban.cli.config
 from daikanban.cli.export import ExportFormat
@@ -26,19 +25,21 @@ APP.add_typer(
 
 @APP.command(short_help='export board')
 def export(
-    output_file: Annotated[Path, typer.Argument()],
     format: Annotated[ExportFormat, typer.Option('-f', '--format', show_default=False, help='Export format')],  # noqa: A002
-    board: Annotated[str, typer.Option('--board', '-b', show_default=False, help='DaiKanban board name or path')]
     # TODO: make this optional once there is a default board
     # board: Annotated[Optional[Path], typer.Option('--board', '-b', help='DaiKanban board JSON file')] = None
+    board: Annotated[str, typer.Option('--board', '-b', show_default=False, help='DaiKanban board name or path')],
+    output_file: Annotated[Optional[Path], typer.Option('-o', '--output-file')] = None,
 ) -> None:
     """Export board to another format."""
-    print(f'Loading board: {board}', file=sys.stderr)
+    logger.info(f'Loading board: {board}')
     board_obj = load_board(board)
-    print(f'Exporting to {output_file}', file=sys.stderr)
-    format.exporter.export_board(board_obj, output_file)
-    print('[bold]DONE![/]', file=sys.stderr)
-
+    if output_file is None:
+        output_file = Path('/dev/stdout')
+    logger.info(f'Exporting to {output_file}')
+    with logger.catch_errors(Exception):
+        format.exporter.export_board(board_obj, output_file)
+    logger.done()
 
 @APP.command(short_help='create new board')
 def new() -> None:

@@ -6,6 +6,7 @@ from daikanban.ext.export import BaseExporter
 
 class ExportFormat(str, Enum):
     """Enumeration of known BoardExporter export formats."""
+    daikanban = 'daikanban'
     taskwarrior = 'taskwarrior'
 
     @property

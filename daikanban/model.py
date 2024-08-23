@@ -796,7 +796,7 @@ def load_board(name_or_path: str | Path, config: Optional[Config] = None) -> Boa
     config = config or get_config()
     path = config.resolve_board_name_or_path(name_or_path)
     if not path.exists():
-        raise BoardFileError(f'{path_style(path)} does not exist')
+        raise BoardFileError(f'Board file {path_style(path)} does not exist')
     try:
         with open(path) as f:
             return Board(**json.load(f))

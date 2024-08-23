@@ -2,9 +2,7 @@
 
 ## `v0.2.0`
 
-- Set up basic logging
-  - Configurable level
-- Add an icon indicating a note exists for a project or task
+- Taskwarrior import/export
 - Config customization
   - `config` subcommand of main CLI to interact with configs
     - Also an option within the shell
@@ -16,7 +14,7 @@
     - Show dates as timestamps or human-readable relative times
     - Default colors (E.g. project IDs are too dark on dark terminal)
       - Can we detect terminal color?
-- `project set` or `task set` multiple values at once?
+  - Configurable logging level
 - Time tracking via logs
   - Use `type` field to indicate type of status action.
     - Three types, `start`, `stop`, `done`. The latter two are essentially the same.
@@ -36,6 +34,11 @@
     - Last start log must be <= `last_started_time`
     - First stop log must be >= `first_started_time`
     - Last stop log must be <= min(`completed_time`, `last_paused_time`)
+
+## `v0.2.1`
+
+- Add an icon indicating a note exists for a project or task
+- `project set` or `task set` multiple values at once?
 
 ## `v0.3.0`
 
@@ -132,7 +135,7 @@
     - New task field, `parent_task_id` (needs to be updated when task is deleted)
     - All subtasks block their parent task
     - Optionally, the parent task can be automatically completed once the subtasks are
-- Other features from Taskwarrior:
+- Other features from [Taskwarrior](https://taskwarrior.org/docs/):
   - Statuses (not mutually exclusive with the "main" statuses):
     - Scheduled (when to start working on the task)
     - Waiting (todo status, but is "hidden" until this time)
@@ -140,6 +143,13 @@
     - Recurring (just a template for spawning other instance tasks)
       - See: [How Recurrence Works](https://taskwarrior.org/docs/recurrence/)
     - Assign UUID to every task at creation time that stays fixed.
+    - More thorough filter system
+    - "Contexts" for applying filters automatically
+      - Since we're in a shell, we could just have a command to activate a filter and stay in it, in addition to named contexts.
+    - +/- syntax for tags
+    - Hooks
+      - Would be cool to be language-agnostic, but will function better if it's just a Python API.
+        - Find functions with a particular name, like `on_add`, in one or more Python modules in configured hooks directory.
 - Import/Export
   - Import
     - Input a task list (e.g. markdown checklist, e.g. Python files with lines matching regex "#\s*TODO")
