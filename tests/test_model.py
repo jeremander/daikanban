@@ -182,19 +182,21 @@ class TestTask:
         assert resumed.completed_time is None
 
     def test_reset(self):
+        def _reset_task_is_equal(task1, task2):
+            return task1.reset().modified(task2.modified_time) == task2
         todo = Task(name='task')
         assert isinstance(todo.created_time, datetime)
-        assert todo.reset() == todo
+        assert _reset_task_is_equal(todo, todo)
         todo2 = todo._replace(logs=[])
         assert todo2 != todo
-        assert todo2.reset() == todo
+        assert _reset_task_is_equal(todo2, todo)
         todo3 = todo._replace(due_time=get_current_time())
-        assert todo3.reset() == todo
+        assert _reset_task_is_equal(todo3, todo)
         started = todo.started()
-        assert started.reset() == todo
+        assert _reset_task_is_equal(started, todo)
         assert started.reset().status == TaskStatus.todo
         completed = started.completed()
-        assert completed.reset() == todo
+        assert _reset_task_is_equal(completed, todo)
         assert completed.reset().status == TaskStatus.todo
 
     def test_timestamps(self):
@@ -208,6 +210,9 @@ class TestTask:
         # due date can be before creation
         task = Task(name='task', due_time=(dt - timedelta(days=90)))
         assert task.is_overdue
+        # modified time can be before creation
+        task = Task(name='task', created_time=(dt + timedelta(days=90)))
+        assert task.modified_time < task.created_time
         # date parsing is flexible
         for val in [dt, dt.isoformat(), dt.strftime(get_config().time.datetime_format), '2024-01-01', '1/1/2024', 'Jan 1, 2024', 'Jan 1']:
             task = Task(name='task', created_time=val)
@@ -216,6 +221,30 @@ class TestTask:
         for val in ['abcde', '2024', '2024-01--01', '2024-01-01T00:00:00Z-400']:
             with pytest.raises(ValidationError, match='Invalid time'):
                 _ = Task(name='task', created_time=val)
+
+    def test_modified_time(self):
+        dt = get_current_time()
+        task = Task(name='task')
+        board = Board(name='myboard', tasks={0: task})
+        mod_dt = task.modified_time
+        assert isinstance(mod_dt, datetime)
+        assert mod_dt >= dt
+        board.reset_task(0)
+        task2 = board.get_task(0)
+        assert task2.modified_time >= mod_dt
+        assert task2.modified_time is not mod_dt
+        assert task2.name is task.name
+        board.update_task(0, name='task3')
+        task3 = board.get_task(0)
+        assert task3.modified_time >= task2.modified_time
+        assert task3.modified_time is not task.modified_time
+        new_time = dt - timedelta(days=90)
+        board.update_task(0, modified_time=new_time)
+        task4 = board.get_task(0)
+        assert task4.modified_time is new_time
+        board.apply_status_action(0, TaskStatusAction.start)
+        task5 = board.get_task(0)
+        assert task5.modified_time >= task3.modified_time
 
     def test_scorers(self):
         pri = TASK_SCORERS['priority']

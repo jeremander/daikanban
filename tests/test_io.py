@@ -26,7 +26,7 @@ def test_board():
             priority=i,
             expected_difficulty=i,
             created_time=CREATED_TIME,
-            modified_time=CREATED_TIME
+            modified_time=CREATED_TIME,
         )
     tasks[2] = tasks[2]._replace(
         project_id=0,
@@ -37,8 +37,8 @@ def test_board():
         extra={'some_string': 'string', 'some_int': 3}
     )
     for i in range(1, 3):
-        tasks[i] = tasks[i].started(STARTED_TIME)
-    tasks[2] = tasks[2].completed(COMPLETED_TIME)
+        tasks[i] = tasks[i].started(STARTED_TIME).modified(CREATED_TIME)
+    tasks[2] = tasks[2].completed(COMPLETED_TIME).modified(CREATED_TIME)
     return Board(name='myboard', created_time=CREATED_TIME, projects=projects, tasks=tasks)
 
 

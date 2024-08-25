@@ -298,6 +298,11 @@ class Project(Model):
         description='Any extra data attached to the task'
     )
 
+    def modified(self, dt: Optional[Datetime] = None) -> Self:
+        """Returns a new version of the project whose 'modified_time' attribute is altered.
+        If no datetime is provided, uses the current time."""
+        return self._replace(modified_time=dt or get_current_time())
+
 
 class Log(Model):
     """A piece of information associated with a task at a particular time.
@@ -409,6 +414,7 @@ class Task(Model):
 
     # fields that are reset to None when a Task is reset
     RESET_FIELDS: ClassVar[list[str]] = ['due_time', 'first_started_time', 'last_started_time', 'last_paused_time', 'completed_time', 'completed_time', 'prior_time_worked', 'blocked_by', 'parent', 'logs']
+    # fields whose type is duration
     DURATION_FIELDS: ClassVar[list[str]] = ['expected_duration', 'prior_time_worked', 'lead_time', 'cycle_time', 'total_time_worked']
 
     def _include_field(self, field: str, val: Any) -> bool:
@@ -509,7 +515,7 @@ class Task(Model):
         return ' '.join(icons) if icons else None
 
     @model_validator(mode='after')
-    def check_consistent_times(self) -> 'Task':  # noqa: C901
+    def check_consistent_times(self) -> Self:  # noqa: C901
         """Checks the consistence of various timestamps stored in the Task.
         If any is invalid, raises an InconsistentTimestampError."""
         def _invalid(msg: str) -> InconsistentTimestampError:
@@ -541,60 +547,69 @@ class Task(Model):
             raise _invalid('Task in paused or completed status must set prior time worked')
         return self
 
-    def started(self, dt: Optional[Datetime] = None) -> 'Task':
+    def modified(self, dt: Optional[Datetime] = None) -> Self:
+        """Returns a new version of the task whose 'modified_time' attribute is altered.
+        If no datetime is provided, uses the current time."""
+        return self._replace(modified_time=dt or get_current_time())
+
+    def started(self, dt: Optional[Datetime] = None) -> Self:
         """Returns a new started version of the task, if its status is todo.
         Otherwise raises a TaskStatusError."""
         if self.status == TaskStatus.todo:
-            dt = dt or get_current_time()
+            cur_time = get_current_time()
+            dt = dt or cur_time
             if dt < self.created_time:
                 dt_str = get_config().time.render_datetime(self.created_time)
                 raise TaskStatusError(f'cannot start a task before its creation time ({dt_str})')
-            return self._replace(first_started_time=dt)
+            return self._replace(first_started_time=dt, modified_time=cur_time)
         raise TaskStatusError(f"cannot start task with status '{self.status}'")
 
-    def completed(self, dt: Optional[datetime] = None) -> 'Task':
+    def completed(self, dt: Optional[datetime] = None) -> Self:
         """Returns a new completed version of the task, if its status is active.
         Otherwise raises a TaskStatusError."""
         if self.status == TaskStatus.active:
-            dt = dt or get_current_time()
+            cur_time = get_current_time()
+            dt = dt or cur_time
             last_started_time = cast(datetime, self.last_started_time or self.first_started_time)
             if dt < last_started_time:
                 raise TaskStatusError('cannot complete a task before its last started time')
-            return self._replace(completed_time=dt)
+            return self._replace(completed_time=dt, modified_time=cur_time)
         raise TaskStatusError(f"cannot complete task with status '{self.status}'")
 
-    def paused(self, dt: Optional[datetime] = None) -> 'Task':
+    def paused(self, dt: Optional[datetime] = None) -> Self:
         """Returns a new paused version of the task, if its status is active.
         Otherwise raises a TaskStatusError."""
         if self.status == TaskStatus.active:
-            dt = dt or get_current_time()
+            cur_time = get_current_time()
+            dt = dt or cur_time
             last_started_time = cast(datetime, self.last_started_time or self.first_started_time)
             if dt < last_started_time:
                 raise TaskStatusError('cannot pause a task before its last started time')
             dur = 0.0 if (self.prior_time_worked is None) else self.prior_time_worked
             dur += get_duration_between(last_started_time, dt)
-            return self._replace(last_started_time=None, last_paused_time=dt, prior_time_worked=dur)
+            return self._replace(last_started_time=None, last_paused_time=dt, prior_time_worked=dur, modified_time=cur_time)
         raise TaskStatusError(f"cannot pause task with status '{self.status}'")
 
-    def resumed(self, dt: Optional[datetime] = None) -> 'Task':
+    def resumed(self, dt: Optional[datetime] = None) -> Self:
         """Returns a new resumed version of the task, if its status is paused.
         Otherwise raises a TaskStatusError."""
         status = self.status
         if status in [TaskStatus.paused, TaskStatus.complete]:
-            dt = dt or get_current_time()
+            cur_time = get_current_time()
+            dt = dt or cur_time
             if status == TaskStatus.paused:
                 assert self.last_paused_time is not None
                 if dt < self.last_paused_time:
                     raise TaskStatusError('cannot resume a task before its last paused time')
-                return self._replace(last_started_time=dt, last_paused_time=None)
+                return self._replace(last_started_time=dt, last_paused_time=None, modified_time=cur_time)
             else:  # complete
                 assert self.completed_time is not None
                 if dt < self.completed_time:
                     raise TaskStatusError('cannot resume a task before its completed time')
-                return self._replace(last_started_time=dt, prior_time_worked=self.total_time_worked, completed_time=None)
+                return self._replace(last_started_time=dt, prior_time_worked=self.total_time_worked, completed_time=None, modified_time=cur_time)
         raise TaskStatusError(f"cannot resume task with status '{self.status}'")
 
-    def apply_status_action(self, action: TaskStatusAction, dt: Optional[datetime] = None, first_dt: Optional[datetime] = None) -> 'Task':
+    def apply_status_action(self, action: TaskStatusAction, dt: Optional[datetime] = None, first_dt: Optional[datetime] = None) -> Self:
         """Applies a status action to the task, returning the new task.
             dt: datetime at which the action occurred (if consisting of two consecutive actions, the latter one)
             first_dt: if the action consists of two consecutive actions, the datetime at which the first action occurred
@@ -615,10 +630,11 @@ class Task(Model):
         assert action == TaskStatusAction.resume
         return self.resumed(dt=dt)
 
-    def reset(self) -> 'Task':
+    def reset(self) -> Self:
         """Resets a task to the 'todo' state, regardless of its current state.
         This will preserve the original creation metadata except for timestamps, due time, blocking tasks, and logs."""
-        kwargs = {field: None for field in self.RESET_FIELDS}
+        kwargs: dict[str, Any] = {field: None for field in self.RESET_FIELDS}
+        kwargs['modified_time'] = get_current_time()
         return self._replace(**kwargs)
 
 
@@ -708,6 +724,7 @@ class Board(Model):
             project_names = (p.name for (id_, p) in self.projects.items() if (id_ != project_id))
             if (duplicate_name := first_name_match(matcher, kwargs['name'], project_names)) is not None:
                 raise DuplicateProjectNameError(f'Duplicate project name {duplicate_name!r}')
+        kwargs = {'modified_time': get_current_time(), **kwargs}
         proj = proj._replace(**kwargs)
         self.projects[project_id] = proj
 
@@ -776,6 +793,7 @@ class Board(Model):
         """Updates a task with the given keyword arguments."""
         task = self.get_task(task_id)
         incomplete_task_names = (t.name for (id_, t) in self.tasks.items() if (id_ != task_id) and (t.completed_time is None))
+        kwargs = {'modified_time': get_current_time(), **kwargs}
         task = task._replace(**kwargs)
         if task.project_id is not None:  # validate project ID
             _ = self.get_project(task.project_id)
