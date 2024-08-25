@@ -1,7 +1,7 @@
 from enum import Enum
 from importlib import import_module
 
-from daikanban.ext.export import BaseExporter
+from daikanban.io import BaseExporter
 
 
 class ExportFormat(str, Enum):

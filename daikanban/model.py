@@ -175,6 +175,24 @@ def status_style(status: TaskStatus) -> str:
     return style_str(status, status.color)
 
 
+########
+# JSON #
+########
+
+_BaseEncoder = JSONBaseDataclass.json_encoder()
+
+class ModelJSONEncoder(_BaseEncoder):  # type: ignore[misc, valid-type]
+    """Custom JSONEncoder used by default with model classes."""
+
+    def default(self, obj: Any) -> Any:
+        """Customizes JSON encoding so that sets can be represented as lists."""
+        if isinstance(obj, AnyUrl):
+            return str(obj)
+        if isinstance(obj, set):
+            return sorted(obj)
+        return super().default(obj)
+
+
 #########
 # MODEL #
 #########
@@ -215,6 +233,11 @@ class Model(JSONBaseDataclass, suppress_none=True, store_type='off', validate=Fa
             else:
                 raise TypeError(f'Unknown field {key!r}')
         return type(self)(**d)
+
+    @classmethod
+    def json_encoder(cls) -> type[json.JSONEncoder]:
+        """Returns the custom JSON encoder for Model classes."""
+        return ModelJSONEncoder
 
 
 class TaskStatusAction(StrEnum):

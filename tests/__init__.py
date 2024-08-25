@@ -1,5 +1,10 @@
 from io import StringIO
+from pathlib import Path
 import re
+
+
+TEST_DIR = Path(__file__).parent
+TEST_DATA_DIR = TEST_DIR / 'data'
 
 
 def patch_stdin(monkeypatch, content):

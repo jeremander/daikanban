@@ -1,3 +1,5 @@
+"""API for importing/exporting between DaiKanban boards and external sources."""
+
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
 import json

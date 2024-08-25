@@ -1,7 +1,7 @@
 from typing import IO, Any
 
-from daikanban.ext.export import JSONExporter, JSONWritable
-from daikanban.model import Board
+from daikanban.io import JSONExporter, JSONWritable
+from daikanban.model import Board, ModelJSONEncoder
 
 
 class BoardDict(dict[str, Any], JSONWritable):
@@ -13,8 +13,7 @@ class BoardDict(dict[str, Any], JSONWritable):
 
     def write(self, fp: IO[str], **kwargs: Any) -> None:
         """Write to JSON file, making sure datetimes are encoded as ISO strings."""
-        super().write(fp, cls=Board.json_encoder(), **kwargs)
-        fp.write('\n')
+        super().write(fp, cls=ModelJSONEncoder, **kwargs)
 
 
 class DaiKanbanExporter(JSONExporter[BoardDict]):

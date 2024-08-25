@@ -1,24 +1,24 @@
 from datetime import datetime
-from json import JSONEncoder
 from typing import IO, Any, Optional
 
 from pydantic.dataclasses import dataclass
 
-from daikanban.ext.export import JSONLinesExporter, JSONLinesWritable
-from daikanban.model import Board, Id, Model, Task
+from daikanban.io import JSONLinesExporter, JSONLinesWritable
+from daikanban.model import Board, Id, Model, ModelJSONEncoder, Task
 from daikanban.task import TaskStatus
 
 
 DATE_FORMAT = '%Y%m%dT%H%M%SZ'
 
-class TaskwarriorJSONEncoder(JSONEncoder):
+
+class TaskwarriorJSONEncoder(ModelJSONEncoder):
     """Custom JSONEncoder ensuring that dates are encoded in the proper format."""
 
     def default(self, obj: Any) -> Any:
         """Encodes an object to JSON."""
         if isinstance(obj, datetime):
             return obj.strftime(DATE_FORMAT)
-        return JSONEncoder.default(self, obj)
+        return super().default(obj)
 
 
 @dataclass(frozen=True)
@@ -65,7 +65,7 @@ class TaskList(list[TwTask], JSONLinesWritable):
 
     def write(self, fp: IO[str], **kwargs: Any) -> None:
         """Write to JSON file, making sure datetimes are encoded as ISO strings."""
-        kwargs = {'cls': TaskwarriorJSONEncoder, **kwargs}
+        kwargs = {'cls': TaskwarriorJSONEncoder, 'separators': (',', ':'), **kwargs}
         super().write(fp, **kwargs)
 
 
@@ -110,7 +110,7 @@ class TaskwarriorExporter(JSONLinesExporter[TaskList]):
             # this should be a numeric UDA field
             'priority': task.priority,
             'project_id': task.project_id,
-            'links': ','.join(sorted(map(str, task.links))) if task.links else None
+            'links': sorted(task.links) if task.links else None,
         }
         udas.update({key: val for (key, val) in extra.items() if (key not in data) and (key not in udas)})
         data['udas'] = udas
