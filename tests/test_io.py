@@ -17,10 +17,17 @@ DUE_TIME = datetime.strptime('2024-01-04', '%Y-%m-%d')
 
 @pytest.fixture(scope='module')
 def test_board():
-    projects = {0: Project(name='myproj', description='My cool project.', created_time=CREATED_TIME)}
+    projects = {0: Project(name='myproj', description='My cool project.', created_time=CREATED_TIME, modified_time=CREATED_TIME)}
     tasks = {}
     for i in range(3):
-        tasks[i] = Task(name=f'task{i}', description=f'Task {i}', priority=i, expected_difficulty=i, created_time=CREATED_TIME)
+        tasks[i] = Task(
+            name=f'task{i}',
+            description=f'Task {i}',
+            priority=i,
+            expected_difficulty=i,
+            created_time=CREATED_TIME,
+            modified_time=CREATED_TIME
+        )
     tasks[2] = tasks[2]._replace(
         project_id=0,
         due_time=DUE_TIME,

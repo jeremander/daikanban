@@ -277,6 +277,10 @@ class Project(Model):
         default_factory=get_current_time,
         description='Time the project was created'
     )
+    modified_time: Datetime = Field(
+        default_factory=get_current_time,
+        description='Time the project was last modified'
+    )
     links: Optional[UrlSet] = Field(
         default=None,
         description='Links associated with the project'
@@ -357,6 +361,10 @@ class Task(Model):
     created_time: Datetime = Field(
         default_factory=get_current_time,
         description='Time the task was created'
+    )
+    modified_time: Datetime = Field(
+        default_factory=get_current_time,
+        description='Time the task was last modified'
     )
     first_started_time: OptionalDatetime = Field(
         default=None,

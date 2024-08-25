@@ -83,6 +83,7 @@ class TaskwarriorExporter(JSONLinesExporter[TaskList]):
             'due': task.due_time,
             'end': task.completed_time,
             'entry': task.created_time,
+            'modified': task.modified_time,
             # taskwarrior does not have project IDs
             # TODO: warn if a name collision occurs
             'project': project,
@@ -95,7 +96,6 @@ class TaskwarriorExporter(JSONLinesExporter[TaskList]):
             # the remaining fields are not represented in daikanban
             'imask': extra.get('imask'),
             'mask': extra.get('mask'),
-            'modified': extra.get('modified'),
             'recur': extra.get('recur'),
             'scheduled': extra.get('scheduled'),
             'until': extra.get('until'),

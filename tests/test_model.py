@@ -90,10 +90,10 @@ class TestTask:
 
     def test_replace(self):
         now = get_current_time()
-        task = Task(name='task', created_time=now)
+        task = Task(name='task', created_time=now, modified_time=now)
         assert task._replace(name='new').name == 'new'
         assert task._replace(name='new')._replace(name='task') == task
-        assert task == Task(name='task', created_time=now)
+        assert task == Task(name='task', created_time=now, modified_time=now)
         with pytest.raises(TypeError, match="Unknown field 'fake'"):
             _ = task._replace(fake='value')
         # types are coerced

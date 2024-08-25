@@ -3,6 +3,16 @@
 ## `v0.2.0`
 
 - Taskwarrior import/export
+- Board updates
+  - Duplication:
+    - For exact matches, merge into lowest ID number.
+    - For near matches (some subset matches, incl. name/description), print a warning and (optionally) prompt user for action?
+      1. Keep original
+      2. Replace with import
+      3. Future: Use whichever has more recent modified time
+    - Implement as a callback
+  - ID collisions:
+    - Original ID takes priority, the new one gets assigned next available ID.
 - Config customization
   - `config` subcommand of main CLI to interact with configs
     - Also an option within the shell
