@@ -19,7 +19,7 @@ class BoardDict(dict[str, Any], JSONWritable):
 class DaiKanbanExporter(JSONExporter[BoardDict]):
     """Handles exporting to the taskwarrior JSON lines format."""
 
-    def convert_board(self, board: Board) -> BoardDict:
+    def convert_from_board(self, board: Board) -> BoardDict:
         """Converts the Board to a BoardDict."""
         return BoardDict(board.to_dict())
 

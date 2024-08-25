@@ -116,7 +116,7 @@ class TaskwarriorExporter(JSONLinesExporter[TaskList]):
         data['udas'] = udas
         return TwTask(**data)  # type: ignore[arg-type]
 
-    def convert_board(self, board: Board) -> TaskList:
+    def convert_from_board(self, board: Board) -> TaskList:
         """Converts the tasks in a Board to a list of taskwarrior tasks."""
         tw_tasks = TaskList()
         for id_ in sorted(board.tasks):
