@@ -46,7 +46,7 @@ class BaseImporter(ABC, Generic[FR]):
         """Loads a Board from a file-like object."""
         return self.convert_to_board(self.obj_type.read(fp, **kwargs))
 
-    def export_board(self, path: AnyPath, **kwargs: Any) -> Board:
+    def import_board(self, path: AnyPath, **kwargs: Any) -> Board:
         """Loads a Board from a file."""
         with open(path, mode=self.read_mode) as fp:
             return self.read_board(fp, **kwargs)

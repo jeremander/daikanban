@@ -9,7 +9,8 @@ import typer
 from daikanban import __version__, logger
 from daikanban.cli import APP_KWARGS
 import daikanban.cli.config
-from daikanban.cli.export import ExportFormat
+from daikanban.cli.exporters import ExportFormat
+from daikanban.cli.importers import ImportFormat
 from daikanban.interface import BoardInterface
 from daikanban.model import Board, load_board
 
@@ -39,6 +40,25 @@ def export(
     logger.info(f'Exporting to {output_file}')
     with logger.catch_errors(Exception):
         format.exporter.export_board(board_obj, output_file)
+    logger.done()
+
+@APP.command(name='import', short_help='import board')
+def import_(
+    format: Annotated[ImportFormat, typer.Option('-f', '--format', show_default=False, help='Import format')],  # noqa: A002
+    # TODO: make this optional once there is a default board
+    # board: Annotated[Optional[Path], typer.Option('--board', '-b', help='DaiKanban board JSON file')] = None
+    board: Annotated[str, typer.Option('--board', '-b', show_default=False, help='DaiKanban board name or path')],
+    input_file: Annotated[Optional[Path], typer.Option('-i', '--input-file')] = None,
+) -> None:
+    """Import board from another format."""
+    logger.info(f'Loading board: {board}')
+    _board_obj = load_board(board)
+    if input_file is None:
+        input_file = Path('/dev/stdin')
+    logger.info(f'Importing from {input_file}')
+    with logger.catch_errors(Exception):
+        _imported_board_obj = format.importer.import_board(input_file)
+        # TODO: merge new board into current board?
     logger.done()
 
 @APP.command(short_help='create new board')
