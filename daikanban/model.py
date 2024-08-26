@@ -847,8 +847,7 @@ def load_board(name_or_path: str | Path, config: Optional[Config] = None) -> Boa
     if not path.exists():
         raise BoardFileError(f'Board file {path_style(path)} does not exist')
     try:
-        with open(path) as f:
-            return Board(**json.load(f))
+        return Board.load(path)
     except (json.JSONDecodeError, OSError, ValidationError) as e:
         e_str = escape(str(e)) if isinstance(e, ValidationError) else str(e)
         msg = f'When loading JSON {path_style(path)}: {e_str}'

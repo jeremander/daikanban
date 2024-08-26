@@ -3,6 +3,7 @@ from contextlib import contextmanager
 import logging
 import os
 from pathlib import Path
+import pdb  # noqa: T100
 import sys
 from typing import Optional
 
@@ -41,13 +42,17 @@ class Logger(logging.Logger):
     @contextmanager
     def catch_errors(self, *errtypes: type[Exception], msg: Optional[str] = None) -> Iterator[None]:
         """Context manager for catching an error of a certain type (or types), optionally displaying a message, then exiting the program."""
-        if is_debug_mode():  # let errors proceed to traceback
-            errtypes = ()
-        try:
-            yield
-        except errtypes as e:
-            msg = str(e) if (msg is None) else msg
-            self.exit_with_error(msg)
+        if is_debug_mode():  # drop into debugger
+            try:
+                yield
+            except Exception as e:  # noqa: F841
+                pdb.post_mortem()
+        else:
+            try:
+                yield
+            except errtypes as e:
+                msg = str(e) if (msg is None) else msg
+                self.exit_with_error(msg)
 
 
 LOG_FMT = '%(message)s'

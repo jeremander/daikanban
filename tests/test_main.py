@@ -16,21 +16,25 @@ EXEC_PATH = Path(__file__).parents[1] / 'daikanban' / 'main.py'
 
 class TestMain:
 
-    def _test_main(self, capsys, monkeypatch, args, patterns, exact=False):
+    def _test_main(self, capsys, monkeypatch, args, out_patterns=None, err_patterns=None, exact=False):
         argv = [sys.executable] + args
         monkeypatch.setattr('sys.argv', argv)
         try:
             APP()
         except SystemExit as e:
             assert e.code == 0  # noqa: PT017
-            match_patterns(patterns, capsys.readouterr().out, exact=exact)
+            result = capsys.readouterr()
+            if out_patterns:
+                match_patterns(out_patterns, result.out, exact=exact)
+            if err_patterns:
+                match_patterns(err_patterns, result.err, exact=exact)
         else:
             pytest.fail('app should raise SystemExit')
 
     def test_help(self, capsys, monkeypatch):
         patterns = ['Commands', r'--help\s+-h\s+Show this message and exit.', r'new\s+create new board']
         for cmd in [[], ['--help']]:
-            self._test_main(capsys, monkeypatch, cmd, patterns)
+            self._test_main(capsys, monkeypatch, cmd, out_patterns=patterns)
 
     def test_version(self, capsys, monkeypatch):
         self._test_main(capsys, monkeypatch, ['--version'], f'{__version__}\n', exact=True)
@@ -39,4 +43,14 @@ class TestMain:
         # use regular print instead of rich.print
         monkeypatch.setattr('daikanban.interface.print', print)
         schema = json.dumps(Board.json_schema(mode='serialization'), indent=2) + '\n'
-        self._test_main(capsys, monkeypatch, ['schema'], schema, exact=True)
+        self._test_main(capsys, monkeypatch, ['schema'], out_patterns=schema, exact=True)
+
+    def test_export_import(self, capsys, monkeypatch, test_board, tmp_path):
+        board_path = tmp_path / 'board.json'
+        export_path = tmp_path / 'export.json'
+        test_board.save(board_path)
+        assert board_path.exists()
+        self._test_main(capsys, monkeypatch, ['export', '-b', str(board_path), '-f', 'daikanban', '-o', str(export_path)], err_patterns=['Exporting to', 'DONE'])
+        assert export_path.exists()
+        assert test_board.to_json_string() == export_path.read_text()
+        # TODO: test import

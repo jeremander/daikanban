@@ -7,7 +7,7 @@ from daikanban.io import BaseImporter
 class ImportFormat(str, Enum):
     """Enumeration of known BoardImporter import formats."""
     daikanban = 'daikanban'
-    # taskwarrior = 'taskwarrior'
+    taskwarrior = 'taskwarrior'
 
     @property
     def importer(self) -> BaseImporter:

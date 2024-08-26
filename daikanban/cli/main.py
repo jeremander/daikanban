@@ -12,8 +12,26 @@ import daikanban.cli.config
 from daikanban.cli.exporters import ExportFormat
 from daikanban.cli.importers import ImportFormat
 from daikanban.interface import BoardInterface
-from daikanban.model import Board, load_board
+from daikanban.model import Board, BoardFileError, load_board
+from daikanban.utils import KanbanError
 
+
+####################
+# HELPER FUNCTIONS #
+####################
+
+@logger.catch_errors(BoardFileError)
+def _load_board(board_path: Optional[Path]) -> Board:
+    if board_path:
+        logger.info(f'Loading board: {board_path}')
+        return load_board(board_path)
+    # TODO: use default board (for now, an empty board)
+    return Board(name='')
+
+
+#######
+# APP #
+#######
 
 APP = typer.Typer(**APP_KWARGS)
 
@@ -27,14 +45,11 @@ APP.add_typer(
 @APP.command(short_help='export board')
 def export(
     format: Annotated[ExportFormat, typer.Option('-f', '--format', show_default=False, help='Export format')],  # noqa: A002
-    # TODO: make this optional once there is a default board
-    # board: Annotated[Optional[Path], typer.Option('--board', '-b', help='DaiKanban board JSON file')] = None
-    board: Annotated[str, typer.Option('--board', '-b', show_default=False, help='DaiKanban board name or path')],
+    board: Annotated[Optional[Path], typer.Option('--board', '-b', help='DaiKanban board JSON file')] = None,
     output_file: Annotated[Optional[Path], typer.Option('-o', '--output-file')] = None,
 ) -> None:
     """Export board to another format."""
-    logger.info(f'Loading board: {board}')
-    board_obj = load_board(board)
+    board_obj = _load_board(board)
     if output_file is None:
         output_file = Path('/dev/stdout')
     logger.info(f'Exporting to {output_file}')
@@ -45,20 +60,19 @@ def export(
 @APP.command(name='import', short_help='import board')
 def import_(
     format: Annotated[ImportFormat, typer.Option('-f', '--format', show_default=False, help='Import format')],  # noqa: A002
-    # TODO: make this optional once there is a default board
-    # board: Annotated[Optional[Path], typer.Option('--board', '-b', help='DaiKanban board JSON file')] = None
-    board: Annotated[str, typer.Option('--board', '-b', show_default=False, help='DaiKanban board name or path')],
+    board: Annotated[Optional[Path], typer.Option('-b', '--board', show_default=False, help='DaiKanban board name or path')] = None,
     input_file: Annotated[Optional[Path], typer.Option('-i', '--input-file')] = None,
 ) -> None:
     """Import board from another format."""
-    logger.info(f'Loading board: {board}')
-    _board_obj = load_board(board)
+    board_obj = _load_board(board)
     if input_file is None:
         input_file = Path('/dev/stdin')
     logger.info(f'Importing from {input_file}')
     with logger.catch_errors(Exception):
-        _imported_board_obj = format.importer.import_board(input_file)
-        # TODO: merge new board into current board?
+        imported_board_obj = format.importer.import_board(input_file)
+    # TODO: merge new board into current board?
+    print(board_obj)
+    print(imported_board_obj)
     logger.done()
 
 @APP.command(short_help='create new board')
@@ -93,5 +107,10 @@ def main(
             ctx.get_help()
 
 
-if __name__ == '__main__':
+@logger.catch_errors(KanbanError)
+def run_app() -> None:
+    """Runs the main daikanban app."""
     APP()
+
+if __name__ == '__main__':
+    run_app()

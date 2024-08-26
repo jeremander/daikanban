@@ -2,7 +2,6 @@
 
 ## `v0.2.0`
 
-- Taskwarrior import/export
 - Board updates
   - Duplication:
     - For exact matches, merge into lowest ID number.
@@ -13,6 +12,7 @@
     - Implement as a callback
   - ID collisions:
     - Original ID takes priority, the new one gets assigned next available ID.
+- Finish `import` subcommand (update the loaded board).
 - Config customization
   - `config` subcommand of main CLI to interact with configs
     - Also an option within the shell

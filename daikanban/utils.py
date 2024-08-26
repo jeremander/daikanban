@@ -209,3 +209,24 @@ class KanbanError(ValueError):
 
 class UserInputError(KanbanError):
     """Class for user input errors."""
+
+
+########
+# MISC #
+########
+
+class IdCollection:
+    """Class maintaining a collection of ID numbers (starting at 0), with the ability to retrieve the smallest unused ID."""
+
+    def __init__(self, ids: set[int] = set()) -> None:  # noqa: B006
+        self.ids = ids
+        self.free_id = 0
+
+    def _update(self) -> None:
+        while self.free_id in self.ids:
+            self.free_id += 1
+
+    def add(self, id_: int) -> None:
+        """Adds a new ID, then updates the free ID."""
+        self.ids.add(id_)
+        self._update()

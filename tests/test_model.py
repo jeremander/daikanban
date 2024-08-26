@@ -6,7 +6,7 @@ from pydantic_core import Url
 import pytest
 
 from daikanban.config import DEFAULT_DATETIME_FORMAT, get_config
-from daikanban.model import AmbiguousProjectNameError, AmbiguousTaskNameError, Board, DuplicateProjectNameError, DuplicateTaskNameError, Project, ProjectNotFoundError, Task, TaskNotFoundError, TaskStatus, TaskStatusAction, TaskStatusError
+from daikanban.model import AmbiguousProjectNameError, AmbiguousTaskNameError, Board, DuplicateProjectNameError, DuplicateTaskNameError, Project, ProjectNotFoundError, Task, TaskNotFoundError, TaskStatus, TaskStatusAction, TaskStatusError, load_board
 from daikanban.task import TASK_SCORERS
 from daikanban.utils import case_insensitive_match, fuzzy_match, get_current_time
 
@@ -272,15 +272,21 @@ class TestTask:
 
 class TestBoard:
 
-    def test_serialization(self):
+    def test_serialization(self, tmp_path):
         proj = Project(name='myproj')
         proj_id = 0
         task = Task(name='task')
         task_id = 0
-        board = Board(name='myboard', projects={proj_id: proj}, tasks={task_id: task})
+        created_time = datetime.strptime('2024-01-01', '%Y-%m-%d')  # NOTE: no timezone
+        board = Board(name='myboard', created_time=created_time, projects={proj_id: proj}, tasks={task_id: task})
         for obj in [proj, task, board]:
             d = obj.to_dict()
             assert type(obj)(**d).to_dict() == d
+        board_path = tmp_path / 'board.json'
+        board.save(board_path)
+        assert board_path.exists()
+        assert Board.load(board_path) == board
+        assert load_board(board_path) == board
 
     def test_project_ids(self):
         board = Board(name='myboard')
