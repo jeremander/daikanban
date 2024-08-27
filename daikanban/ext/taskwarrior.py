@@ -1,8 +1,9 @@
 from contextlib import suppress
 from datetime import datetime
 from typing import IO, Any, ClassVar, Optional
+import uuid
 
-from pydantic import AnyUrl
+from pydantic import UUID4, AnyUrl
 from pydantic.dataclasses import dataclass
 from typing_extensions import Self
 
@@ -55,12 +56,12 @@ class TwTask(Model):
     status: Optional[str] = None
     tags: Optional[list[str]] = None
     until: Optional[datetime] = None
-    uuid: Optional[str] = None
+    uuid: Optional[UUID4] = None
     wait: Optional[datetime] = None
     udas: Optional[dict[str, Any]] = None
 
     # names of taskwarrior fields not currently stored in Daikanban Tasks
-    EXTRA_FIELDS: ClassVar[list[str]] = ['depends', 'parent', 'imask', 'mask', 'recur', 'scheduled', 'until', 'uuid', 'wait']
+    EXTRA_FIELDS: ClassVar[list[str]] = ['depends', 'parent', 'imask', 'mask', 'recur', 'scheduled', 'until', 'wait']
 
     @classmethod
     def from_dict(cls, d: AnyDict, **kwargs: Any) -> Self:
@@ -133,6 +134,7 @@ class TaskwarriorImporter(JSONImporter[TaskList]):
                 created_time = min(created_time, task.start)
             dkb_task = Task(
                 name=task.description,
+                uuid=task.uuid or uuid.uuid4(),
                 description=udas.pop('long', None),
                 priority=udas.pop('priority', None),
                 expected_difficulty=udas.pop('expected_difficulty', None),
@@ -183,6 +185,7 @@ class TaskwarriorExporter(JSONExporter[TaskList]):
             'start': task.first_started_time,
             'status': 'completed' if (task.status == TaskStatus.complete) else 'pending',
             'tags': sorted(task.tags) if task.tags else None,
+            'uuid': task.uuid,
             # TODO: store UUIDs of parent/blocking tasks (not yet supported)
             **{field: extra.get(field) for field in TwTask.EXTRA_FIELDS},
         }

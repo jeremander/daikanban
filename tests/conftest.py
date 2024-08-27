@@ -4,20 +4,24 @@ import pytest
 
 from daikanban.model import Board, Project, Task
 
+from . import make_uuid
+
 
 CREATED_TIME = datetime.strptime('2024-01-01', '%Y-%m-%d')
 STARTED_TIME = datetime.strptime('2024-01-02', '%Y-%m-%d')
 COMPLETED_TIME = datetime.strptime('2024-01-03', '%Y-%m-%d')
 DUE_TIME = datetime.strptime('2024-01-04', '%Y-%m-%d')
 
+
 @pytest.fixture(scope='module')
 def test_board() -> Board:
     """Fixture returning an example DaiKanban Board."""
-    projects = {0: Project(name='myproj', description='My cool project.', created_time=CREATED_TIME, modified_time=CREATED_TIME)}
+    projects = {0: Project(name='myproj', uuid=make_uuid(0), description='My cool project.', created_time=CREATED_TIME, modified_time=CREATED_TIME)}
     tasks = {}
     for i in range(3):
         tasks[i] = Task(
             name=f'task{i}',
+            uuid=make_uuid(i),
             description=f'Task {i}',
             priority=i,
             expected_difficulty=i,

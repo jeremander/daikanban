@@ -6,9 +6,10 @@ import json
 from pathlib import Path
 from typing import Annotated, Any, ClassVar, Counter, Iterator, Literal, Optional, TypeVar, cast
 from urllib.parse import urlparse
+import uuid
 
 from fancy_dataclass import JSONBaseDataclass
-from pydantic import AfterValidator, AnyUrl, BeforeValidator, Field, PlainSerializer, TypeAdapter, ValidationError, computed_field, model_validator
+from pydantic import UUID4, AfterValidator, AnyUrl, BeforeValidator, Field, PlainSerializer, TypeAdapter, ValidationError, computed_field, model_validator
 from pydantic.dataclasses import dataclass
 from rich.markup import escape
 from typing_extensions import Self, TypeAlias
@@ -188,6 +189,8 @@ class ModelJSONEncoder(_BaseEncoder):  # type: ignore[misc, valid-type]
         """Customizes JSON encoding so that sets can be represented as lists."""
         if isinstance(obj, AnyUrl):
             return str(obj)
+        if isinstance(obj, uuid.UUID):
+            return str(obj)
         if isinstance(obj, set):
             return sorted(obj)
         return super().default(obj)
@@ -269,6 +272,10 @@ class Project(Model):
     name: Name = Field(
         description='Project name'
     )
+    uuid: UUID4 = Field(
+        default_factory=uuid.uuid4,
+        description='UUID (uniquely identifying project)'
+    )
     description: Optional[str] = Field(
         default=None,
         description='Project description'
@@ -330,6 +337,10 @@ class Task(Model):
     """A task to be performed."""
     name: Name = Field(
         description='Task name'
+    )
+    uuid: UUID4 = Field(
+        default_factory=uuid.uuid4,
+        description='UUID (uniquely identifying task)'
     )
     description: Optional[str] = Field(
         default=None,
@@ -837,6 +848,11 @@ class Board(Model):
     def num_tasks_by_project(self) -> Counter[Id]:
         """Gets a map from project IDs to the number of tasks associated with it."""
         return Counter(task.project_id for task in self.tasks.values() if task.project_id is not None)
+
+    # def update_with_board(self, other: Self) -> None:
+    #     """Updates the contents of this board with another board.
+    #     Exact duplicate projects/tasks will be deduplicated using this board's ID.
+    #     Projects/tasks with the same UUID but different contents will be reconciled, using the given ConflictResolutionMode."""
 
 
 def load_board(name_or_path: str | Path, config: Optional[Config] = None) -> Board:

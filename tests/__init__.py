@@ -1,6 +1,7 @@
 from io import StringIO
 from pathlib import Path
 import re
+from uuid import UUID
 
 
 TEST_DIR = Path(__file__).parent
@@ -28,3 +29,6 @@ def match_patterns(patterns, string, exact=False):
                 pattern = re.compile(pattern)
             assert isinstance(pattern, re.Pattern)
             assert pattern.search(string), f'pattern {pattern.pattern!r} not found'
+
+def make_uuid(i: int) -> UUID:
+    return UUID('00000000-0000-4000-8000-' + hex(i)[2:].zfill(12))

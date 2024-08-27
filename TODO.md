@@ -2,13 +2,19 @@
 
 ## `v0.2.0`
 
+- Implement UUIDs
+  - New UUID must be unique in board.
+  - Error if UUID collision encountered.
+  - Match tasks on UUID as alternative to ID.
+  - UUID cannot be altered via interface.
 - Board updates
   - Duplication:
     - For exact matches, merge into lowest ID number.
-    - For near matches (some subset matches, incl. name/description), print a warning and (optionally) prompt user for action?
+    - For UUID match with differing data, do one of the following:
       1. Keep original
       2. Replace with import
       3. Future: Use whichever has more recent modified time
+      4. Prompt user for action
     - Implement as a callback
   - ID collisions:
     - Original ID takes priority, the new one gets assigned next available ID.

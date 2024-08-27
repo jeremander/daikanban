@@ -4,14 +4,13 @@ import operator
 from daikanban.cli.exporters import ExportFormat
 from daikanban.cli.importers import ImportFormat
 
-from . import TEST_DATA_DIR
+from . import TEST_DATA_DIR, make_uuid
 
 
 CREATED_TIME = datetime.strptime('2024-01-01', '%Y-%m-%d')
 STARTED_TIME = datetime.strptime('2024-01-02', '%Y-%m-%d')
 COMPLETED_TIME = datetime.strptime('2024-01-03', '%Y-%m-%d')
 DUE_TIME = datetime.strptime('2024-01-04', '%Y-%m-%d')
-
 
 
 class TestImportExport:
@@ -44,7 +43,7 @@ class TestImportExport:
             # TODO: provide user kwargs for setting certain attributes
             kwargs = {'name': '', 'created_time': None}
             # cannot store project metadata faithfully
-            proj_kwargs = {'description': None, 'created_time': test_board.created_time, 'modified_time': test_board.created_time}
+            proj_kwargs = {'uuid': make_uuid(0), 'description': None, 'created_time': test_board.created_time, 'modified_time': test_board.created_time}
             kwargs1 = {**kwargs, 'projects': {id_: proj._replace(**proj_kwargs) for (id_, proj) in board1.projects.items()}}
             kwargs2 = {**kwargs, 'projects': {id_: proj._replace(**proj_kwargs) for (id_, proj) in board2.projects.items()}}
             return board1._replace(**kwargs1) == board2._replace(**kwargs2)

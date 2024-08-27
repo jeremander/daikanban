@@ -1,5 +1,6 @@
 from copy import deepcopy
 from datetime import datetime, timedelta
+import uuid
 
 from pydantic import ValidationError
 from pydantic_core import Url
@@ -90,10 +91,11 @@ class TestTask:
 
     def test_replace(self):
         now = get_current_time()
-        task = Task(name='task', created_time=now, modified_time=now)
+        u = uuid.uuid4()
+        task = Task(name='task', uuid=u, created_time=now, modified_time=now)
         assert task._replace(name='new').name == 'new'
         assert task._replace(name='new')._replace(name='task') == task
-        assert task == Task(name='task', created_time=now, modified_time=now)
+        assert task == Task(name='task', uuid=u, created_time=now, modified_time=now)
         with pytest.raises(TypeError, match="Unknown field 'fake'"):
             _ = task._replace(fake='value')
         # types are coerced
