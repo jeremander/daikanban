@@ -7,7 +7,7 @@ from pydantic_core import Url
 import pytest
 
 from daikanban.config import DEFAULT_DATETIME_FORMAT, get_config
-from daikanban.model import AmbiguousProjectNameError, AmbiguousTaskNameError, Board, DuplicateProjectNameError, DuplicateTaskNameError, Project, ProjectNotFoundError, Task, TaskNotFoundError, TaskStatus, TaskStatusAction, TaskStatusError, load_board
+from daikanban.model import AmbiguousProjectNameError, AmbiguousTaskNameError, Board, DuplicateProjectError, DuplicateProjectNameError, DuplicateTaskNameError, Project, ProjectNotFoundError, Task, TaskNotFoundError, TaskStatus, TaskStatusAction, TaskStatusError, UUIDImmutableError, load_board
 from daikanban.task import TASK_SCORERS
 from daikanban.utils import case_insensitive_match, fuzzy_match, get_current_time
 
@@ -306,16 +306,37 @@ class TestBoard:
     def test_invalid_project_id(self):
         board = Board(name='myboard')
         board.create_project(Project(name='proj'))
-        task = Task(name='task',project_id=1)
+        task = Task(name='task', project_id=1)
         with pytest.raises(ProjectNotFoundError, match='Project with id 1 not found'):
             board.create_task(task)
         board.tasks[0] = task
         with pytest.raises(ValidationError, match='Project with id 1 not found'):
             _ = Board(**board.to_dict())
-        board.delete_task(0)
+        with pytest.raises(TaskNotFoundError, match='Task with uuid .* not found'):
+            board.delete_task(0)
+        del board.tasks[0]
         assert board.create_task(Task(name='task', project_id=0)) == 0
         with pytest.raises(ProjectNotFoundError, match='Project with id 1 not found'):
             board.update_task(0, project_id=1)
+
+    def test_project_uuids(self):
+        board = Board(name='myboard')
+        proj0 = Project(name='proj0')
+        proj1 = Project(name='proj1')
+        board.create_project(proj0)
+        board.create_project(proj1)
+        uuids = set(board._project_by_uuid)
+        assert len(uuids) == 2
+        assert uuids == {proj.uuid for proj in board.projects.values()}
+        with pytest.raises(UUIDImmutableError, match="Cannot modify a project's UUID"):
+            board.update_project(0, uuid=uuid.uuid4())
+        board.delete_project(0)
+        assert set(board._project_by_uuid) == {proj1.uuid}
+        board.create_project(proj0)
+        assert uuids == {proj.uuid for proj in board.projects.values()}
+        # try to add a duplicate project
+        with pytest.raises(DuplicateProjectError, match='Duplicate project UUID'):
+            board.create_project(proj0)
 
     def test_crud_project(self):
         board = Board(name='myboard')

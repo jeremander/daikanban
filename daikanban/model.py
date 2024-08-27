@@ -105,19 +105,35 @@ class InconsistentTimestampError(KanbanError):
 
 class ProjectNotFoundError(KanbanError):
     """Error that occurs when a project ID is not found."""
-    def __init__(self, project_id: Id) -> None:
-        super().__init__(f'Project with id {project_id!r} not found')
+    def __init__(self, project_id: Id | UUID4) -> None:
+        if isinstance(project_id, uuid.UUID):
+            field = 'uuid'
+            val: str | int = str(project_id)
+        else:
+            field, val = 'id', project_id
+        super().__init__(f'Project with {field} {val!r} not found')
 
 class TaskNotFoundError(KanbanError):
     """Error that occurs when a task ID is not found."""
-    def __init__(self, task_id: Id) -> None:
-        super().__init__(f'Task with id {task_id!r} not found')
+    def __init__(self, task_id: Id | UUID4) -> None:
+        if isinstance(task_id, uuid.UUID):
+            field = 'uuid'
+            val: str | int = str(task_id)
+        else:
+            field, val = 'id', task_id
+        super().__init__(f'Task with {field} {val!r} not found')
 
 class TaskStatusError(KanbanError):
     """Error that occurs when a task's status is invalid for a certain operation."""
 
+class DuplicateProjectError(KanbanError):
+    """Error that occurs when a duplicate project is added (same UUID)."""
+
 class DuplicateProjectNameError(KanbanError):
     """Error that occurs when duplicate project names are encountered."""
+
+class DuplicateTaskError(KanbanError):
+    """Error that occurs when a duplicate task is added (same UUID)."""
 
 class DuplicateTaskNameError(KanbanError):
     """Error that occurs when duplicate task names are encountered."""
@@ -127,6 +143,12 @@ class AmbiguousProjectNameError(KanbanError):
 
 class AmbiguousTaskNameError(KanbanError):
     """Error that occurs when provided task name matches multiple names."""
+
+class UUIDError(KanbanError):
+    """Error related to UUIDs."""
+
+class UUIDImmutableError(UUIDError):
+    """Error that occurs when trying to modify a UUID."""
 
 class BoardFileError(KanbanError):
     """Error reading or writing a board file."""
@@ -200,7 +222,6 @@ class ModelJSONEncoder(_BaseEncoder):  # type: ignore[misc, valid-type]
 # MODEL #
 #########
 
-@dataclass(frozen=True)
 class Model(JSONBaseDataclass, suppress_none=True, store_type='off', validate=False):
     """Base class setting up pydantic configs."""
 
@@ -229,7 +250,7 @@ class Model(JSONBaseDataclass, suppress_none=True, store_type='off', validate=Fa
         return TypeAdapter(cls).json_schema(**kwargs)
 
     def _replace(self, **kwargs: Any) -> Self:
-        d = {fld.name: getattr(self, fld.name) for fld in fields(self)}
+        d = {fld.name: getattr(self, fld.name) for fld in fields(self)}  # type: ignore[arg-type]
         for (key, val) in kwargs.items():
             if key in d:
                 d[key] = val
@@ -311,6 +332,7 @@ class Project(Model):
         return self._replace(modified_time=dt or get_current_time())
 
 
+@dataclass(frozen=True)
 class Log(Model):
     """A piece of information associated with a task at a particular time.
     This is typically used to record events."""
@@ -649,7 +671,7 @@ class Task(Model):
         return self._replace(**kwargs)
 
 
-@dataclass(frozen=True)
+@dataclass
 class Board(Model):
     """A DaiKanban board (collection of projects and tasks)."""
     name: str = Field(description='Name of DaiKanban board')
@@ -674,6 +696,11 @@ class Board(Model):
         description='Version of the DaiKanban specification',
     )
 
+    def __post_init__(self) -> None:
+        # mappings from UUIDs to projects/tasks
+        self._project_by_uuid: dict[UUID4, Project] = {}
+        self._task_by_uuid: dict[UUID4, Task] = {}
+
     @model_validator(mode='after')
     def check_valid_project_ids(self) -> Self:
         """Checks that project IDs associated with all tasks are in the set of projects."""
@@ -687,9 +714,21 @@ class Board(Model):
         """Gets an available integer as a project ID."""
         return next(filter(lambda id_: id_ not in self.projects, itertools.count()))
 
+    def new_project_uuid(self) -> UUID4:
+        """Gets a unique UUID to be used for a new project."""
+        while (uuid_ := uuid.uuid4()) not in self._project_by_uuid:
+            pass
+        return uuid_
+
     def new_task_id(self) -> Id:
         """Gets an available integer as a task ID."""
         return next(filter(lambda id_: id_ not in self.tasks, itertools.count()))
+
+    def new_task_uuid(self) -> UUID4:
+        """Gets a unique UUID to be used for a new task."""
+        while (uuid_ := uuid.uuid4()) not in self._task_by_uuid:
+            pass
+        return uuid_
 
     def _check_duplicate_project_name(self, name: str) -> None:
         """Checks whether the given project name matches an existing one.
@@ -701,9 +740,12 @@ class Board(Model):
 
     def create_project(self, project: Project) -> Id:
         """Adds a new project and returns its ID."""
+        if project.uuid in self._project_by_uuid:
+            raise DuplicateProjectError(f'Duplicate project UUID {str(project.uuid)!r}')
         self._check_duplicate_project_name(project.name)
         id_ = self.new_project_id()
         self.projects[id_] = project
+        self._project_by_uuid[project.uuid] = project
         return id_
 
     @catch_key_error(ProjectNotFoundError)
@@ -729,6 +771,8 @@ class Board(Model):
 
     def update_project(self, project_id: Id, **kwargs: Any) -> None:
         """Updates a project with the given keyword arguments."""
+        if 'uuid' in kwargs:
+            raise UUIDImmutableError("Cannot modify a project's UUID")
         proj = self.get_project(project_id)
         if 'name' in kwargs:
             matcher = get_config().name_matcher
@@ -742,6 +786,7 @@ class Board(Model):
     @catch_key_error(ProjectNotFoundError)
     def delete_project(self, project_id: Id) -> None:
         """Deletes a project with the given ID."""
+        del self._project_by_uuid[self.projects[project_id].uuid]
         del self.projects[project_id]
         # remove project ID from any tasks that have it
         for (task_id, task) in self.tasks.items():
@@ -758,11 +803,14 @@ class Board(Model):
 
     def create_task(self, task: Task) -> Id:
         """Adds a new task and returns its ID."""
+        if task.uuid in self._task_by_uuid:
+            raise DuplicateTaskError(f'Duplicate task UUID {str(task.uuid)!r}')
         if task.project_id is not None:  # validate project ID
             _ = self.get_project(task.project_id)
         self._check_duplicate_task_name(task.name)
         id_ = self.new_task_id()
         self.tasks[id_] = task
+        self._task_by_uuid[task.uuid] = task
         return id_
 
     @catch_key_error(TaskNotFoundError)
@@ -802,6 +850,8 @@ class Board(Model):
 
     def update_task(self, task_id: Id, **kwargs: Any) -> None:
         """Updates a task with the given keyword arguments."""
+        if 'uuid' in kwargs:
+            raise ValueError("Cannot modify a task's UUID")
         task = self.get_task(task_id)
         incomplete_task_names = (t.name for (id_, t) in self.tasks.items() if (id_ != task_id) and (t.completed_time is None))
         kwargs = {'modified_time': get_current_time(), **kwargs}
@@ -816,6 +866,7 @@ class Board(Model):
     @catch_key_error(TaskNotFoundError)
     def delete_task(self, task_id: Id) -> None:
         """Deletes a task with the given ID."""
+        del self._task_by_uuid[self.tasks[task_id].uuid]
         del self.tasks[task_id]
 
     @catch_key_error(TaskNotFoundError)

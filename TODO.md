@@ -2,11 +2,6 @@
 
 ## `v0.2.0`
 
-- Implement UUIDs
-  - New UUID must be unique in board.
-  - Error if UUID collision encountered.
-  - Match tasks on UUID as alternative to ID.
-  - UUID cannot be altered via interface.
 - Board updates
   - Duplication:
     - For exact matches, merge into lowest ID number.
@@ -55,6 +50,8 @@
 
 - Add an icon indicating a note exists for a project or task
 - `project set` or `task set` multiple values at once?
+- Match tasks on UUID as alternative to ID.
+  - Accept any unique prefix (of length >= 8)
 
 ## `v0.3.0`
 
