@@ -7,7 +7,7 @@ from pydantic_core import Url
 import pytest
 
 from daikanban.config import DEFAULT_DATETIME_FORMAT, get_config
-from daikanban.model import AmbiguousProjectNameError, AmbiguousTaskNameError, Board, DuplicateProjectError, DuplicateProjectNameError, DuplicateTaskNameError, Project, ProjectNotFoundError, Task, TaskNotFoundError, TaskStatus, TaskStatusAction, TaskStatusError, UUIDImmutableError, load_board
+from daikanban.model import AmbiguousProjectNameError, AmbiguousTaskNameError, Board, DuplicateProjectError, DuplicateProjectNameError, DuplicateTaskNameError, Project, ProjectNotFoundError, Task, TaskNotFoundError, TaskStatus, TaskStatusAction, TaskStatusError, UUIDImmutableError, VersionMismatchError, load_board
 from daikanban.task import TASK_SCORERS
 from daikanban.utils import case_insensitive_match, fuzzy_match, get_current_time
 
@@ -487,6 +487,7 @@ class TestBoard:
 
     @pytest.mark.parametrize('case_sensitive', [True, False])
     def test_name_duplication(self, case_sensitive):
+        """Tests what happens when we create projects or tasks with duplicate names."""
         config = deepcopy(get_config())._replace(case_sensitive=case_sensitive)
         with config.as_config():
             board = Board(name='myboard')
@@ -538,3 +539,71 @@ class TestBoard:
                     board.update_project(1, name='PROJ')
                 with pytest.raises(DuplicateTaskNameError, match="Duplicate task name 'task'"):
                     board.update_task(1, name='TASK')
+
+    def _check_board_projects(self, board, projects):
+        assert board.projects == projects
+        assert board._project_uuid_to_id == {proj.uuid: i for (i, proj) in projects.items()}
+
+    def _check_board_tasks(self, board, tasks):
+        assert board.tasks == tasks
+        assert board._task_uuid_to_id == {task.uuid: i for (i, task) in tasks.items()}
+
+    def test_update_board_projects(self):
+        """Tests what happens to projects when updating a board with another one."""
+        board1 = Board(name='board1')
+        proj1_0 = Project(name='proj1_0')
+        board1.create_project(proj1_0)
+        orig_board1 = deepcopy(board1)
+        board2 = Board(name='board2')
+        board1.update_with_board(board2)
+        assert board1 == orig_board1
+        # test version mismatch
+        board2.version = board1.version + 1
+        with pytest.raises(VersionMismatchError, match=f'Attempted to update version {board1.version} board with version {board2.version} board'):
+            board1.update_with_board(board2)
+        (board1.version, board2.version) = (board2.version, board1.version)
+        board1.update_with_board(board2)
+        board1.version = board2.version
+        assert board1 == orig_board1
+        # let other board have project with non-conflicting ID
+        proj2_0 = Project(name='proj2_0')
+        board2.create_project(proj2_0)
+        proj2_1 = Project(name='proj2_1')
+        board2.create_project(proj2_1)
+        self._check_board_projects(board2, {0: proj2_0, 1: proj2_1})
+        board2.delete_project(0)
+        self._check_board_projects(board2, {1: proj2_1})
+        board1.update_with_board(board2)
+        self._check_board_projects(board1, {0: proj1_0, 1: proj2_1})
+        # attempt to update with the same project again (nothing happens)
+        board1.update_with_board(board2)
+        self._check_board_projects(board1, {0: proj1_0, 1: proj2_1})
+        # update some attribute of the identical project (nothing happens since modified timestamp is identical)
+        board2.update_project(1, name='proj2_1_mod', modified_time=proj2_1.modified_time)
+        board1.update_with_board(board2)
+        self._check_board_projects(board1, {0: proj1_0, 1: proj2_1})
+        # note: updating a project does not change its UUID
+        proj2_1_mod = board2.projects[1]
+        assert proj2_1_mod != proj2_1
+        assert proj2_1_mod.uuid == proj2_1.uuid
+        # change modified timestamp to an earlier time (the updated project is still ignored)
+        board2.update_project(1, modified_time=proj2_1.modified_time - timedelta(days=1))
+        board1.update_with_board(board2)
+        self._check_board_projects(board1, {0: proj1_0, 1: proj2_1})
+        # change modified timestamp to a later time (now the updated project gets recognized)
+        board2.update_project(1, modified_time=proj2_1.modified_time + timedelta(days=1))
+        board1.update_with_board(board2)
+        self._check_board_projects(board1, {0: proj1_0, 1: board2.projects[1]})
+        board1.update_project(1, name=proj2_1.name, modified_time=proj2_1.modified_time)
+        # let other board have project with conflicting ID
+        board2.create_project(proj2_0)
+        board2.delete_project(1)
+        self._check_board_projects(board2, {0: proj2_0})
+        board1.update_with_board(board2)
+        self._check_board_projects(board1, {0: proj1_0, 1: proj2_1, 2: proj2_0})
+        # update with a project containing a parent (the parent ID must be mapped)
+        board1 = deepcopy(orig_board1)
+        board2.create_project(Project(name='proj2_1', parent=0))
+        # parent of 1 is 0 in board2 -> in updated board1, ID 0 becomes 1, ID 1 becomes 2, parent of 2 becomes 1 instead of 0
+        board1.update_with_board(board2)
+        self._check_board_projects(board1, {0: proj1_0, 1: board2.projects[0], 2: board2.projects[1]._replace(parent=1)})

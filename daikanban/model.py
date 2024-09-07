@@ -319,7 +319,7 @@ class Project(Model):
     )
     parent: Optional[Id] = Field(
         default=None,
-        description='ID of parent task, if one exists'
+        description='ID of parent project, if one exists'
     )
     notes: Optional[list[str]] = Field(
         default=None,
@@ -327,7 +327,7 @@ class Project(Model):
     )
     extra: Optional[dict[str, Any]] = Field(
         default=None,
-        description='Any extra data attached to the task'
+        description='Any extra data attached to the project'
     )
 
     def modified(self, dt: Optional[Datetime] = None) -> Self:

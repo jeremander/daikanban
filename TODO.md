@@ -2,17 +2,8 @@
 
 ## `v0.2.0`
 
-- Board updates
-  - Duplication:
-    - For exact matches, merge into lowest ID number.
-    - For UUID match with differing data, do one of the following:
-      1. Keep original
-      2. Replace with import
-      3. Future: Use whichever has more recent modified time
-      4. Prompt user for action
-    - Implement as a callback, via an enum ConflictResolutionMode
-  - ID collisions:
-    - Original ID takes priority, the new one gets assigned next available ID.
+- (BREAKING) Store UUIDs instead of IDs for task's project ID, parent, blocked.
+- Add "relations" field to project/task
 - Finish `import` subcommand (update the loaded board).
 - Config customization
   - `config` subcommand of main CLI to interact with configs
@@ -50,10 +41,19 @@
 
 - Add an icon indicating a note exists for a project or task
 - `project set` or `task set` multiple values at once?
+- Allow `task delete` to take multiple IDs
 - UUIDs
   - Match tasks on UUID as alternative to ID.
   - Accept any unique prefix (of length >= 8).
-  - (BREAKING) Consider storing UUIDs instead of IDs for task's project ID, parent, blocked.
+- Board updates
+  - Duplication:
+    - For UUID match with differing data, do one of the following:
+      1. Keep original
+      2. Replace with import
+      3. Use whichever has more recent modified time
+      4. Prompt user for action
+    - Currently we only do option (3), but the resolution mode should be configurable (and overridable via CLI flag)
+    - Implement as a callback, via an enum ConflictResolutionMode
 
 ## `v0.3.0`
 
