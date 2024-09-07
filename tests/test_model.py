@@ -325,13 +325,14 @@ class TestBoard:
         proj1 = Project(name='proj1')
         board.create_project(proj0)
         board.create_project(proj1)
-        uuids = set(board._project_by_uuid)
+        assert set(board._project_uuid_to_id.values()) == {0, 1}
+        uuids = set(board._project_uuid_to_id)
         assert len(uuids) == 2
         assert uuids == {proj.uuid for proj in board.projects.values()}
         with pytest.raises(UUIDImmutableError, match="Cannot modify a project's UUID"):
             board.update_project(0, uuid=uuid.uuid4())
         board.delete_project(0)
-        assert set(board._project_by_uuid) == {proj1.uuid}
+        assert set(board._project_uuid_to_id) == {proj1.uuid}
         board.create_project(proj0)
         assert uuids == {proj.uuid for proj in board.projects.values()}
         # try to add a duplicate project

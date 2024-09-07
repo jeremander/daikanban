@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from contextlib import contextmanager
 from dataclasses import fields
 from datetime import datetime, timedelta
@@ -152,6 +153,9 @@ class UUIDImmutableError(UUIDError):
 
 class BoardFileError(KanbanError):
     """Error reading or writing a board file."""
+
+class VersionMismatchError(KanbanError):
+    """Error occurring when there is a version mismatch between two boards."""
 
 
 @contextmanager
@@ -330,6 +334,10 @@ class Project(Model):
         """Returns a new version of the project whose 'modified_time' attribute is altered.
         If no datetime is provided, uses the current time."""
         return self._replace(modified_time=dt or get_current_time())
+
+    def _map_project_ids(self, proj_id_map: Mapping[Id, Id]) -> Self:
+        """Given a mapping from old project IDs to new ones, applies that mapping to any stored IDs."""
+        return self if (self.parent is None) else self._replace(parent=proj_id_map.get(self.parent, self.parent))
 
 
 @dataclass(frozen=True)
@@ -670,6 +678,19 @@ class Task(Model):
         kwargs['modified_time'] = get_current_time()
         return self._replace(**kwargs)
 
+    def _map_project_ids(self, proj_id_map: Mapping[Id, Id]) -> Self:
+        """Given a mapping from old project IDs to new ones, applies that mapping to any stored project IDs."""
+        return self if (self.project_id is None) else self._replace(project_id=proj_id_map.get(self.project_id, self.project_id))
+
+    def _map_task_ids(self, task_id_map: Mapping[Id, Id]) -> Self:
+        """Given a mapping from old task IDs to new ones, applies that mapping to any stored task IDs."""
+        kwargs: dict[str, Any] = {}
+        if self.blocked_by:
+            kwargs['blocked_by'] = {task_id_map.get(id_, id_) for id_ in self.blocked_by}
+        if self.parent is not None:
+            kwargs['parent'] = task_id_map.get(self.parent, self.parent)
+        return self if (kwargs is None) else self._replace(**kwargs)
+
 
 @dataclass
 class Board(Model):
@@ -697,9 +718,9 @@ class Board(Model):
     )
 
     def __post_init__(self) -> None:
-        # mappings from UUIDs to projects/tasks
-        self._project_by_uuid: dict[UUID4, Project] = {}
-        self._task_by_uuid: dict[UUID4, Task] = {}
+        # mappings from UUIDs to IDs
+        self._project_uuid_to_id: dict[UUID4, Id] = {}
+        self._task_uuid_to_id: dict[UUID4, Id] = {}
 
     @model_validator(mode='after')
     def check_valid_project_ids(self) -> Self:
@@ -716,7 +737,7 @@ class Board(Model):
 
     def new_project_uuid(self) -> UUID4:
         """Gets a unique UUID to be used for a new project."""
-        while (uuid_ := uuid.uuid4()) not in self._project_by_uuid:
+        while (uuid_ := uuid.uuid4()) not in self._project_uuid_to_id:
             pass
         return uuid_
 
@@ -726,7 +747,7 @@ class Board(Model):
 
     def new_task_uuid(self) -> UUID4:
         """Gets a unique UUID to be used for a new task."""
-        while (uuid_ := uuid.uuid4()) not in self._task_by_uuid:
+        while (uuid_ := uuid.uuid4()) not in self._task_uuid_to_id:
             pass
         return uuid_
 
@@ -740,12 +761,12 @@ class Board(Model):
 
     def create_project(self, project: Project) -> Id:
         """Adds a new project and returns its ID."""
-        if project.uuid in self._project_by_uuid:
+        if project.uuid in self._project_uuid_to_id:
             raise DuplicateProjectError(f'Duplicate project UUID {str(project.uuid)!r}')
         self._check_duplicate_project_name(project.name)
         id_ = self.new_project_id()
         self.projects[id_] = project
-        self._project_by_uuid[project.uuid] = project
+        self._project_uuid_to_id[project.uuid] = id_
         return id_
 
     @catch_key_error(ProjectNotFoundError)
@@ -786,7 +807,7 @@ class Board(Model):
     @catch_key_error(ProjectNotFoundError)
     def delete_project(self, project_id: Id) -> None:
         """Deletes a project with the given ID."""
-        del self._project_by_uuid[self.projects[project_id].uuid]
+        del self._project_uuid_to_id[self.projects[project_id].uuid]
         del self.projects[project_id]
         # remove project ID from any tasks that have it
         for (task_id, task) in self.tasks.items():
@@ -803,14 +824,14 @@ class Board(Model):
 
     def create_task(self, task: Task) -> Id:
         """Adds a new task and returns its ID."""
-        if task.uuid in self._task_by_uuid:
+        if task.uuid in self._task_uuid_to_id:
             raise DuplicateTaskError(f'Duplicate task UUID {str(task.uuid)!r}')
         if task.project_id is not None:  # validate project ID
             _ = self.get_project(task.project_id)
         self._check_duplicate_task_name(task.name)
         id_ = self.new_task_id()
         self.tasks[id_] = task
-        self._task_by_uuid[task.uuid] = task
+        self._task_uuid_to_id[task.uuid] = id_
         return id_
 
     @catch_key_error(TaskNotFoundError)
@@ -866,7 +887,7 @@ class Board(Model):
     @catch_key_error(TaskNotFoundError)
     def delete_task(self, task_id: Id) -> None:
         """Deletes a task with the given ID."""
-        del self._task_by_uuid[self.tasks[task_id].uuid]
+        del self._task_uuid_to_id[self.tasks[task_id].uuid]
         del self.tasks[task_id]
 
     @catch_key_error(TaskNotFoundError)
@@ -900,10 +921,47 @@ class Board(Model):
         """Gets a map from project IDs to the number of tasks associated with it."""
         return Counter(task.project_id for task in self.tasks.values() if task.project_id is not None)
 
-    # def update_with_board(self, other: Self) -> None:
-    #     """Updates the contents of this board with another board.
-    #     Exact duplicate projects/tasks will be deduplicated using this board's ID.
-    #     Projects/tasks with the same UUID but different contents will be reconciled, using the given ConflictResolutionMode."""
+    def update_with_board(self, other: Self) -> None:  # noqa: C901
+        """Updates the contents of this board with another board, in-place.
+        The basic board metadata (such as name) will remain the same as this board's.
+        Exact duplicate projects/tasks will be deduplicated using this board's ID.
+        Projects/tasks with the same UUID but different contents will be reconciled, using the given ConflictResolutionMode."""
+        if other.version > self.version:  # assume backward (but not forward) compatibility
+            raise VersionMismatchError(f'Attempted to update version {self.version} board with version {other.version} board')
+        proj_id_map = {}  # map from old project IDs to new IDs
+        for (other_id, other_proj) in other.projects.items():
+            if other_proj.uuid in self._project_uuid_to_id:
+                this_id = self._project_uuid_to_id[other_proj.uuid]
+                if other_proj != (this_proj := self.projects[this_id]):
+                    # reconcile two different projects
+                    # TODO: do this based on the ConflictResolutionMode
+                    if other_proj.modified_time > this_proj.modified_time:  # replace with new project
+                        kwargs = other_proj.to_dict()
+                        del kwargs['uuid']
+                        self.update_project(this_id, **kwargs)
+                        proj_id_map[other_id] = this_id
+            else:  # ignore other ID and create a new one
+                proj_id_map[other_id] = self.create_project(other_proj)
+        task_id_map = {}  # map from old task IDs to new IDs
+        for (other_id, other_task) in other.tasks.items():
+            if other_task.uuid in self._task_uuid_to_id:
+                this_id = self._task_uuid_to_id[other_task.uuid]
+                if other_task != (this_task := self.tasks[this_id]):
+                    # reconcile two different tasks
+                    # TODO: do this based on the ConflictResolutionMode
+                    if other_task.modified_time > this_task.modified_time:  # replace with new task
+                        kwargs = other_task.to_dict()
+                        del kwargs['uuid']
+                        self.update_task(this_id, **kwargs)
+                        task_id_map[other_id] = this_id
+            else:
+                task_id_map[other_id] = self.create_task(other_task)
+        # for projects, map foreign project IDs to the new ones
+        for proj_id in proj_id_map.values():
+            self.projects[proj_id] = self.projects[proj_id]._map_project_ids(proj_id_map)
+        # for tasks, map foreign project/task IDs to the new ones
+        for task_id in task_id_map.values():
+            self.tasks[task_id] = self.tasks[task_id]._map_project_ids(proj_id_map)._map_task_ids(task_id_map)
 
 
 def load_board(name_or_path: str | Path, config: Optional[Config] = None) -> Board:

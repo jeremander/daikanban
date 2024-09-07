@@ -10,7 +10,7 @@
       2. Replace with import
       3. Future: Use whichever has more recent modified time
       4. Prompt user for action
-    - Implement as a callback
+    - Implement as a callback, via an enum ConflictResolutionMode
   - ID collisions:
     - Original ID takes priority, the new one gets assigned next available ID.
 - Finish `import` subcommand (update the loaded board).
@@ -50,8 +50,10 @@
 
 - Add an icon indicating a note exists for a project or task
 - `project set` or `task set` multiple values at once?
-- Match tasks on UUID as alternative to ID.
-  - Accept any unique prefix (of length >= 8)
+- UUIDs
+  - Match tasks on UUID as alternative to ID.
+  - Accept any unique prefix (of length >= 8).
+  - (BREAKING) Consider storing UUIDs instead of IDs for task's project ID, parent, blocked.
 
 ## `v0.3.0`
 
