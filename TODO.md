@@ -2,9 +2,10 @@
 
 ## `v0.2.0`
 
-- (BREAKING) Store UUIDs instead of IDs for task's project ID, parent, blocked.
-- Add "relations" field to project/task
 - Finish `import` subcommand (update the loaded board).
+- Add "relations" field to project/task
+- For `task complete` of a paused task, make the default completed time the same as the resumed time
+- Allow `=` as delimiter for `set` option
 - Config customization
   - `config` subcommand of main CLI to interact with configs
     - Also an option within the shell
@@ -39,6 +40,7 @@
 
 ## `v0.2.1`
 
+- Encapsulate notion of a *filter*.
 - Add an icon indicating a note exists for a project or task
 - `project set` or `task set` multiple values at once?
 - Allow `task delete` to take multiple IDs
@@ -79,6 +81,12 @@
 
 ## Future
 
+- "Context" (i.e. persistent filter)
+- (BREAKING) Should we store UUIDs instead of IDs for project/task relations?
+  - Pros:
+    - Don't need complicated logic to remap the IDs (but still need to deal with broken references)
+  - Cons:
+    - Take up more space in JSON
 - Shell features
   - ASCII billboard art is hot garbage
   - Consider having a yes/no user prompt before resetting/deleting a task?

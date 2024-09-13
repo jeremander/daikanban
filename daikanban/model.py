@@ -932,6 +932,8 @@ class Board(Model):
         for (other_id, other_proj) in other.projects.items():
             if other_proj.uuid in self._project_uuid_to_id:
                 this_id = self._project_uuid_to_id[other_proj.uuid]
+                if this_id != other_id:
+                    proj_id_map[other_id] = this_id
                 if other_proj != (this_proj := self.projects[this_id]):
                     # reconcile two different projects
                     # TODO: do this based on the ConflictResolutionMode
@@ -939,13 +941,14 @@ class Board(Model):
                         kwargs = other_proj.to_dict()
                         del kwargs['uuid']
                         self.update_project(this_id, **kwargs)
-                        proj_id_map[other_id] = this_id
             else:  # ignore other ID and create a new one
                 proj_id_map[other_id] = self.create_project(other_proj)
         task_id_map = {}  # map from old task IDs to new IDs
         for (other_id, other_task) in other.tasks.items():
             if other_task.uuid in self._task_uuid_to_id:
                 this_id = self._task_uuid_to_id[other_task.uuid]
+                if this_id != other_id:
+                    task_id_map[other_id] = this_id
                 if other_task != (this_task := self.tasks[this_id]):
                     # reconcile two different tasks
                     # TODO: do this based on the ConflictResolutionMode
@@ -953,7 +956,6 @@ class Board(Model):
                         kwargs = other_task.to_dict()
                         del kwargs['uuid']
                         self.update_task(this_id, **kwargs)
-                        task_id_map[other_id] = this_id
             else:
                 task_id_map[other_id] = self.create_task(other_task)
         # for projects, map foreign project IDs to the new ones
