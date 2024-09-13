@@ -273,7 +273,7 @@ class Config(ConfigDataclass, TOMLDataclass, doc_as_comment=True):  # type: igno
         if isinstance(val, float):
             return str(int(val)) if (int(val) == val) else f'{val:.3g}'
         if isinstance(val, datetime):  # human-readable date
-            if (get_current_time() - val >= timedelta(days=7)):
+            if get_current_time() - val >= timedelta(days=7):
                 return val.strftime(self.time.date_format)
             return pendulum.instance(val).diff_for_humans()
         if isinstance(val, date):

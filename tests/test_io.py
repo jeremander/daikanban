@@ -1,8 +1,8 @@
 from datetime import datetime
 import operator
 
-from daikanban.cli.exporters import ExportFormat
-from daikanban.cli.importers import ImportFormat
+from daikanban.cli.exporter import ExportFormat
+from daikanban.cli.importer import ImportFormat
 
 from . import TEST_DATA_DIR, make_uuid
 

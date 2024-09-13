@@ -18,6 +18,9 @@
     - Default colors (E.g. project IDs are too dark on dark terminal)
       - Can we detect terminal color?
   - Configurable logging level
+
+## `v0.2.1`
+
 - Time tracking via logs
   - Use `type` field to indicate type of status action.
     - Three types, `start`, `stop`, `done`. The latter two are essentially the same.
@@ -37,10 +40,6 @@
     - Last start log must be <= `last_started_time`
     - First stop log must be >= `first_started_time`
     - Last stop log must be <= min(`completed_time`, `last_paused_time`)
-
-## `v0.2.1`
-
-- Encapsulate notion of a *filter*.
 - Add an icon indicating a note exists for a project or task
 - `project set` or `task set` multiple values at once?
 - Allow `task delete` to take multiple IDs
@@ -60,6 +59,7 @@
 ## `v0.3.0`
 
 - Set up Github Actions, test coverage
+- Encapsulate notion of a *filter*.
 - Configurable time exclusion rules for time tracking
 - Use different scorer for completed tasks?
   - E.g. `priority-rate` would use actual duration rather than expected duration

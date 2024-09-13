@@ -9,24 +9,11 @@ import typer
 from daikanban import __version__, logger
 from daikanban.cli import APP_KWARGS
 import daikanban.cli.config
-from daikanban.cli.exporters import ExportFormat
-from daikanban.cli.importers import ImportFormat
+from daikanban.cli.exporter import ExportFormat, export_board
+from daikanban.cli.importer import ImportFormat, import_board
 from daikanban.interface import BoardInterface
-from daikanban.model import Board, BoardFileError, load_board
+from daikanban.model import Board
 from daikanban.utils import KanbanError
-
-
-####################
-# HELPER FUNCTIONS #
-####################
-
-@logger.catch_errors(BoardFileError)
-def _load_board(board_path: Optional[Path]) -> Board:
-    if board_path:
-        logger.info(f'Loading board: {board_path}')
-        return load_board(board_path)
-    # TODO: use default board (for now, an empty board)
-    return Board(name='')
 
 
 #######
@@ -49,12 +36,7 @@ def export(
     output_file: Annotated[Optional[Path], typer.Option('-o', '--output-file')] = None,
 ) -> None:
     """Export board to another format."""
-    board_obj = _load_board(board)
-    if output_file is None:
-        output_file = Path('/dev/stdout')
-    logger.info(f'Exporting to {output_file}')
-    with logger.catch_errors(Exception):
-        format.exporter.export_board(board_obj, output_file)
+    export_board(format, board_file=board, output_file=output_file)
     logger.done()
 
 @APP.command(name='import', short_help='import board')
@@ -64,15 +46,7 @@ def import_(
     input_file: Annotated[Optional[Path], typer.Option('-i', '--input-file')] = None,
 ) -> None:
     """Import board from another format."""
-    board_obj = _load_board(board)
-    if input_file is None:
-        input_file = Path('/dev/stdin')
-    logger.info(f'Importing from {input_file}')
-    with logger.catch_errors(Exception):
-        imported_board_obj = format.importer.import_board(input_file)
-    # TODO: merge new board into current board?
-    print(board_obj)
-    print(imported_board_obj)
+    import_board(format, board_file=board, input_file=input_file)
     logger.done()
 
 @APP.command(short_help='create new board')
