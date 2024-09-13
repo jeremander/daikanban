@@ -17,7 +17,7 @@ from typing_extensions import Self, TypeAlias
 
 from daikanban.config import Config, get_config
 from daikanban.task import TaskStatus
-from daikanban.utils import KanbanError, NameMatcher, StrEnum, exact_match, first_name_match, get_current_time, get_duration_between, human_readable_duration, parse_string_set, style_str
+from daikanban.utils import KanbanError, NameMatcher, StrEnum, count_fmt, exact_match, first_name_match, get_current_time, get_duration_between, human_readable_duration, parse_string_set, style_str
 
 
 T = TypeVar('T')
@@ -721,6 +721,23 @@ class Board(Model):
         # mappings from UUIDs to IDs
         self._project_uuid_to_id: dict[UUID4, Id] = {}
         self._task_uuid_to_id: dict[UUID4, Id] = {}
+
+    @property
+    def num_projects(self) -> int:
+        """Gets the number of projects."""
+        return len(self.projects)
+
+    @property
+    def num_tasks(self) -> int:
+        """Gets the number of tasks."""
+        return len(self.tasks)
+
+    @property
+    def _num_proj_num_task_str(self) -> str:
+        """Gets a string indicating the number of projects and tasksthe board has."""
+        num_proj_str = count_fmt(self.num_projects, 'project')
+        num_task_str = count_fmt(self.num_tasks, 'task')
+        return f'{num_proj_str}, {num_task_str}'
 
     @model_validator(mode='after')
     def check_valid_project_ids(self) -> Self:

@@ -22,9 +22,10 @@ class ExportFormat(str, Enum):
 
 def export_board(export_format: ExportFormat, board_file: Optional[Path] = None, output_file: Optional[Path] = None) -> None:
     """Exports a board to a file using the given format."""
-    board_obj = _load_board(board_file)
+    board = _load_board(board_file)
+    logger.info(f'Board has {board._num_proj_num_task_str}')
     if output_file is None:
         output_file = Path('/dev/stdout')
     logger.info(f'Exporting to {output_file}')
     with logger.catch_errors(Exception):
-        export_format.exporter.export_board(board_obj, output_file)
+        export_format.exporter.export_board(board, output_file)

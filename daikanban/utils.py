@@ -95,6 +95,21 @@ def parse_string_set(s: str) -> Optional[set[str]]:
     Strips any leading or trailing whitespace from each string."""
     return {string.strip() for string in list(csv.reader([s]))[0]} or None
 
+def count_fmt(n: int, name: str, plural_suffix: str = 's', plural_form: Optional[str] = None) -> str:
+    """Renders an integer and item name as a string indicating how many items there are.
+    For example:
+        - `count_fmt(1, 'item') == "1 item"`
+        - `count_fmt(3, 'item') == "3 items"`
+        - `count_fmt(3, 'box', plural_suffix='es') == "3 boxes"`
+        - `count_fmt(3, 'cactus', plural_form='cacti') == "3 cacti"`
+    """
+    if n != 1:
+        if plural_form is None:
+            name = name + plural_suffix
+        else:
+            name = plural_form
+    return f'{n} {name}'
+
 
 ############
 # DATETIME #
