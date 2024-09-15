@@ -5,7 +5,7 @@ import pytest
 
 from daikanban.config import get_config
 from daikanban.interface import BoardInterface, parse_string_set
-from daikanban.model import Board, DuplicateProjectNameError, DuplicateTaskNameError, Project, Task, TaskStatusAction, TaskStatusError
+from daikanban.model import Board, Project, Task, TaskStatusAction, TaskStatusError
 from daikanban.utils import UserInputError, get_current_time
 
 from . import match_patterns, patch_stdin
@@ -37,7 +37,7 @@ class TestInterface:
     def _table_row(cells):
         return r'[│┃]\s*' + r'\s*[│┃]\s*'.join(cells) + r'\s*[│┃]'
 
-    def _test_output(self, capsys, monkeypatch, user_input, expected_output=None, board=None):
+    def _test_output(self, capsys, monkeypatch, user_input, out=None, err=None, board=None):
         class MockBoardInterface(BoardInterface):
             def save_board(self) -> None:
                 # do not attempt to save board to a file
@@ -51,10 +51,13 @@ class TestInterface:
             try:
                 interface.evaluate_prompt(command)
             except EOFError:
-                match_patterns(expected_output, capsys.readouterr().out)
+                res = capsys.readouterr()
+                match_patterns(out, res.out)
+                match_patterns(err, res.err)
                 raise
-            s = capsys.readouterr().out
-        match_patterns(expected_output, s)
+        res = capsys.readouterr()
+        match_patterns(out, res.out)
+        match_patterns(err, res.err)
 
     # PROJECT
 
@@ -69,18 +72,17 @@ class TestInterface:
     def test_project_new_another(self, capsys, monkeypatch):
         board = new_board()
         board.create_project(Project(name='proj'))
-        # attempt to add duplicate project
-        user_input = [('project new', ['proj'])]
-        with suppress(EOFError):
-            self._test_output(capsys, monkeypatch, user_input, "Duplicate project name 'proj'", board=board)
         # add a project with a unique name
         user_input = [('project new', ['proj1'] + [''] * 2)]
-        self._test_output(capsys, monkeypatch, user_input, 'Created new project proj1 with ID 1', board=board)
+        self._test_output(capsys, monkeypatch, user_input, out='Created new project proj1 with ID 1', board=board)
         assert board.get_project(1).name == 'proj1'
         # add a project with the name given rather than prompted
         user_input = [('project new proj2', [''] * 2)]
-        self._test_output(capsys, monkeypatch, user_input, 'Created new project proj2 with ID 2', board=board)
+        self._test_output(capsys, monkeypatch, user_input, out='Created new project proj2 with ID 2', board=board)
         assert board.get_project(2).name == 'proj2'
+        # attempt to add project with a duplicate name
+        user_input = [('project new proj', [''] * 2)]
+        self._test_output(capsys, monkeypatch, user_input, out='Created new project proj with ID 3', err='Duplicate project name', board=board)
 
     def test_project_set(self, capsys, monkeypatch):
         now = get_current_time()
@@ -141,11 +143,10 @@ class TestInterface:
         user_input = [('project set 0 created_time abc', None)]
         with pytest.raises(UserInputError, match="Invalid time 'abc'"):
             self._test_output(capsys, monkeypatch, user_input, None, board=board)
-        # attempt to set duplicate project name
+        # set duplicate project name
         board.create_project(Project(name='proj'))
         user_input = [('project set 1 name proj0', None)]
-        with pytest.raises(DuplicateProjectNameError, match="Duplicate project name 'proj0'"):
-            self._test_output(capsys, monkeypatch, user_input, None, board=board)
+        self._test_output(capsys, monkeypatch, user_input, err='Duplicate project name', board=board)
 
     # TASK
 
@@ -160,18 +161,17 @@ class TestInterface:
     def test_task_new_another(self, capsys, monkeypatch):
         board = new_board()
         board.create_task(Task(name='task'))
-        # attempt to add duplicate task
-        user_input = [('task new', ['task'])]
-        with suppress(EOFError):
-            self._test_output(capsys, monkeypatch, user_input, "Duplicate task name 'task'", board=board)
         # add a task with a unique name
         user_input = [('task new', ['task1'] + [''] * 7)]
-        self._test_output(capsys, monkeypatch, user_input, 'Created new task task1 with ID 1', board=board)
+        self._test_output(capsys, monkeypatch, user_input, out='Created new task task1 with ID 1', board=board)
         assert board.get_task(1).name == 'task1'
         # add a task with the name given rather than prompted
         user_input = [('task new task2', [''] * 7)]
-        self._test_output(capsys, monkeypatch, user_input, 'Created new task task2 with ID 2', board=board)
+        self._test_output(capsys, monkeypatch, user_input, out='Created new task task2 with ID 2', board=board)
         assert board.get_task(2).name == 'task2'
+        # add task with duplicate name
+        user_input = [('task new task', [''] * 7)]
+        self._test_output(capsys, monkeypatch, user_input, out='Created new task task with ID 3', err='Duplicate task name', board=board)
 
     def test_task_begin(self, capsys, monkeypatch):
         now = get_current_time()
@@ -267,8 +267,7 @@ class TestInterface:
         # attempt to set duplicate task name
         board.create_task(Task(name='task'))
         user_input = [('task set 1 name task0', None)]
-        with pytest.raises(DuplicateTaskNameError, match="Duplicate task name 'task0'"):
-            self._test_output(capsys, monkeypatch, user_input, None, board=board)
+        self._test_output(capsys, monkeypatch, user_input, out="Updated field 'name'", err='Duplicate task name', board=board)
 
     # BOARD
 

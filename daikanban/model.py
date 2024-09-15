@@ -15,6 +15,7 @@ from pydantic.dataclasses import dataclass
 from rich.markup import escape
 from typing_extensions import Self, TypeAlias
 
+from daikanban import logger
 from daikanban.config import Config, get_config
 from daikanban.task import TaskStatus
 from daikanban.utils import KanbanError, NameMatcher, StrEnum, count_fmt, exact_match, first_name_match, get_current_time, get_duration_between, human_readable_duration, parse_string_set, style_str
@@ -130,14 +131,8 @@ class TaskStatusError(KanbanError):
 class DuplicateProjectError(KanbanError):
     """Error that occurs when a duplicate project is added (same UUID)."""
 
-class DuplicateProjectNameError(KanbanError):
-    """Error that occurs when duplicate project names are encountered."""
-
 class DuplicateTaskError(KanbanError):
     """Error that occurs when a duplicate task is added (same UUID)."""
-
-class DuplicateTaskNameError(KanbanError):
-    """Error that occurs when duplicate task names are encountered."""
 
 class AmbiguousProjectNameError(KanbanError):
     """Error that occurs when a provided project name matches multiple names."""
@@ -768,19 +763,14 @@ class Board(Model):
             pass
         return uuid_
 
-    def _check_duplicate_project_name(self, name: str) -> None:
-        """Checks whether the given project name matches an existing one.
-        If so, raises a DuplicateProjectNameError."""
-        matcher = get_config().name_matcher
-        project_names = (p.name for p in self.projects.values())
-        if (duplicate_name := first_name_match(matcher, name, project_names)) is not None:
-            raise DuplicateProjectNameError(f'Duplicate project name {duplicate_name!r}')
-
     def create_project(self, project: Project) -> Id:
         """Adds a new project and returns its ID."""
         if project.uuid in self._project_uuid_to_id:
             raise DuplicateProjectError(f'Duplicate project UUID {str(project.uuid)!r}')
-        self._check_duplicate_project_name(project.name)
+        matcher = get_config().name_matcher
+        project_names = (p.name for p in self.projects.values())
+        if (duplicate_name := first_name_match(matcher, project.name, project_names)) is not None:
+            logger.warning(f'Duplicate project name {duplicate_name!r}')
         id_ = self.new_project_id()
         self.projects[id_] = project
         self._project_uuid_to_id[project.uuid] = id_
@@ -816,7 +806,7 @@ class Board(Model):
             matcher = get_config().name_matcher
             project_names = (p.name for (id_, p) in self.projects.items() if (id_ != project_id))
             if (duplicate_name := first_name_match(matcher, kwargs['name'], project_names)) is not None:
-                raise DuplicateProjectNameError(f'Duplicate project name {duplicate_name!r}')
+                logger.warning(f'Duplicate project name {duplicate_name!r}')
         kwargs = {'modified_time': get_current_time(), **kwargs}
         proj = proj._replace(**kwargs)
         self.projects[project_id] = proj
@@ -831,21 +821,16 @@ class Board(Model):
             if task.project_id == project_id:
                 self.tasks[task_id] = task._replace(project_id=None)
 
-    def _check_duplicate_task_name(self, name: str) -> None:
-        """Checks whether the given task name matches an existing name of an incomplete task.
-        If so, raises a DuplicateTaskNameError."""
-        matcher = get_config().name_matcher
-        incomplete_task_names = (t.name for t in self.tasks.values() if (t.completed_time is None))
-        if (duplicate_name := first_name_match(matcher, name, incomplete_task_names)) is not None:
-            raise DuplicateTaskNameError(f'Duplicate task name {duplicate_name!r}')
-
     def create_task(self, task: Task) -> Id:
         """Adds a new task and returns its ID."""
         if task.uuid in self._task_uuid_to_id:
             raise DuplicateTaskError(f'Duplicate task UUID {str(task.uuid)!r}')
         if task.project_id is not None:  # validate project ID
             _ = self.get_project(task.project_id)
-        self._check_duplicate_task_name(task.name)
+        matcher = get_config().name_matcher
+        incomplete_task_names = (t.name for t in self.tasks.values() if (t.completed_time is None))
+        if (duplicate_name := first_name_match(matcher, task.name, incomplete_task_names)) is not None:
+            logger.warning(f'Duplicate task name {duplicate_name!r}')
         id_ = self.new_task_id()
         self.tasks[id_] = task
         self._task_uuid_to_id[task.uuid] = id_
@@ -898,7 +883,7 @@ class Board(Model):
             _ = self.get_project(task.project_id)
         matcher = get_config().name_matcher
         if (duplicate_name := first_name_match(matcher, task.name, incomplete_task_names)) is not None:
-            raise DuplicateTaskNameError(f'Duplicate task name {duplicate_name!r}')
+            logger.warning(f'Duplicate task name {duplicate_name!r}')
         self.tasks[task_id] = task
 
     @catch_key_error(TaskNotFoundError)
@@ -920,7 +905,7 @@ class Board(Model):
         task = self.get_task(task_id).apply_status_action(action, dt=dt, first_dt=first_dt)
         incomplete_task_names = {t.name for (id_, t) in self.tasks.items() if (id_ != task_id) and (t.completed_time is None)}
         if task.name in incomplete_task_names:
-            raise DuplicateTaskNameError(f'Duplicate task name {task.name!r}')
+            logger.warning(f'Duplicate task name {task.name!r}')
         self.tasks[task_id] = task
         return task
 

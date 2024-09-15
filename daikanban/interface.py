@@ -420,15 +420,10 @@ class BoardInterface:
     def new_project(self, name: Optional[str] = None) -> None:
         """Creates a new project."""
         assert self.board is not None
-        def _parse_name(name: Any) -> str:
-            if isinstance(name, str):
-                # catch duplicate project name early
-                self.board._check_duplicate_project_name(name)  # type: ignore[union-attr]
-            return name
         params: dict[str, dict[str, Any]] = {
             'name': {
                 'prompt': 'Project name',
-                'parse': _parse_name
+                'parse': lambda name: name
             },
             'description': {
                 'parse': empty_is_none
@@ -442,7 +437,6 @@ class BoardInterface:
         if name is None:
             defaults = {}
         else:
-            self.board._check_duplicate_project_name(name)
             del prompters['name']
             defaults = {'name': name}
         try:
@@ -546,15 +540,10 @@ class BoardInterface:
     def new_task(self, name: Optional[str] = None) -> None:
         """Creates a new task."""
         assert self.board is not None
-        def _parse_name(name: Any) -> str:
-            if isinstance(name, str):
-                # catch duplicate task name early
-                self.board._check_duplicate_task_name(name)  # type: ignore[union-attr]
-            return name
         params: dict[str, dict[str, Any]] = {
             'name': {
                 'prompt': 'Task name',
-                'parse': _parse_name
+                'parse': lambda name: name
             },
             'description': {
                 'parse': empty_is_none
@@ -593,7 +582,6 @@ class BoardInterface:
         if name is None:
             defaults = {}
         else:
-            self.board._check_duplicate_task_name(name)
             task_fields.discard('name')
             defaults = {'name': name}
         prompters: dict[str, FieldPrompter] = {field: FieldPrompter(Task, field, **kwargs) for (field, kwargs) in params.items() if field in task_fields}

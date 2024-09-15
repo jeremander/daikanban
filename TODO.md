@@ -6,6 +6,7 @@
 - Add "relations" field to project/task
 - For `task complete` of a paused task, make the default completed time the same as the resumed time
 - Allow `=` as delimiter for `set` option
+  - Let user set `project=...` as alternative to `project_id=...`
 - Config customization
   - `config` subcommand of main CLI to interact with configs
     - Also an option within the shell
@@ -42,9 +43,10 @@
     - Last stop log must be <= min(`completed_time`, `last_paused_time`)
 - Add an icon indicating a note exists for a project or task
 - `project set` or `task set` multiple values at once?
+  - Likewise, set one or more values at creation time
 - Allow `task delete` to take multiple IDs
 - UUIDs
-  - Match tasks on UUID as alternative to ID.
+  - Match projects/tasks on UUID as alternative to ID.
   - Accept any unique prefix (of length >= 8).
 - Board updates
   - Duplication:

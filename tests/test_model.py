@@ -7,7 +7,7 @@ from pydantic_core import Url
 import pytest
 
 from daikanban.config import DEFAULT_DATETIME_FORMAT, get_config
-from daikanban.model import AmbiguousProjectNameError, AmbiguousTaskNameError, Board, DuplicateProjectError, DuplicateProjectNameError, DuplicateTaskNameError, Project, ProjectNotFoundError, Task, TaskNotFoundError, TaskStatus, TaskStatusAction, TaskStatusError, UUIDImmutableError, VersionMismatchError, load_board
+from daikanban.model import AmbiguousProjectNameError, AmbiguousTaskNameError, Board, DuplicateProjectError, Project, ProjectNotFoundError, Task, TaskNotFoundError, TaskStatus, TaskStatusAction, TaskStatusError, UUIDImmutableError, VersionMismatchError, load_board
 from daikanban.task import TASK_SCORERS
 from daikanban.utils import case_insensitive_match, fuzzy_match, get_current_time
 
@@ -382,37 +382,41 @@ class TestBoard:
         assert task1.blocked_by is None  # no mutation on original task
         assert board.get_task(1).blocked_by == {0}
 
-    def test_duplicate_project_names(self):
+    def test_duplicate_project_names(self, capsys):
         board = Board(name='myboard')
         board.create_project(Project(name='proj0'))
-        with pytest.raises(DuplicateProjectNameError, match='Duplicate project name'):
-            board.create_project(Project(name='proj0'))
+        # duplicate project name permitted
+        board.create_project(Project(name='proj0'))
+        assert 'Duplicate project name' in capsys.readouterr().err
+        board.delete_project(1)
         board.create_project(Project(name='proj1'))
-        with pytest.raises(DuplicateProjectNameError, match='Duplicate project name'):
-            board.update_project(1, name='proj0')
+        board.update_project(1, name='proj0')
+        assert 'Duplicate project name' in capsys.readouterr().err
         board.update_project(0, name='proj2')
         board.update_project(1, name='proj0')
+        assert capsys.readouterr().err == ''
 
-    def test_duplicate_task_names(self):
+    def test_duplicate_task_names(self, capsys):
         board = Board(name='myboard')
         board.create_task(Task(name='task0'))
-        with pytest.raises(DuplicateTaskNameError, match='Duplicate task name'):
-            board.create_task(Task(name='task0'))
+        board.create_task(Task(name='task0'))
+        assert 'Duplicate task name' in capsys.readouterr().err
+        board.delete_task(1)
         # completed tasks do not get counted as duplicate
         board.tasks[0] = board.tasks[0].started().completed()
         board.create_task(Task(name='task0'))
         board = Board(name='myboard')
         board.create_task(Task(name='task0'))
         board.create_task(Task(name='task1'))
-        with pytest.raises(DuplicateTaskNameError, match='Duplicate task name'):
-            board.update_task(1, name='task0')
+        board.update_task(1, name='task0')
+        assert 'Duplicate task name' in capsys.readouterr().err
+        board.update_task(1, name='task1')
         board.tasks[0] = board.tasks[0].started().completed()
         board.update_task(1, name='task0')
+        assert capsys.readouterr().err == ''
         # if a completed task is resumed, check for duplication
-        with pytest.raises(DuplicateTaskNameError, match='Duplicate task name'):
-            board.apply_status_action(0, TaskStatusAction.resume)
-        board.delete_task(1)
         task = board.apply_status_action(0, TaskStatusAction.resume)
+        assert 'Duplicate task name' in capsys.readouterr().err
         assert task.status == TaskStatus.active
 
     def test_name_matching(self):
@@ -486,7 +490,7 @@ class TestBoard:
             assert board.get_task_id_by_name('Task0', case_insensitive_match) == 4
 
     @pytest.mark.parametrize('case_sensitive', [True, False])
-    def test_name_duplication(self, case_sensitive):
+    def test_name_duplication(self, capsys, case_sensitive):
         """Tests what happens when we create projects or tasks with duplicate names."""
         config = deepcopy(get_config())._replace(case_sensitive=case_sensitive)
         with config.as_config():
@@ -495,32 +499,34 @@ class TestBoard:
             board.update_project(0, name='proj')  # identity is OK
             board.update_project(0, name='PROJ')
             board.update_project(0, name='proj')
-            board = Board(name='myboard')
-            board.create_project(Project(name='proj'))
             board.create_task(Task(name='task'))
             # always whitespace-insensitive
-            with pytest.raises(DuplicateProjectNameError, match="Duplicate project name 'proj'"):
-                _ = board.create_project(Project(name=' proj'))
-            with pytest.raises(DuplicateTaskNameError, match="Duplicate task name 'task'"):
-                _ = board.create_task(Task(name=' task'))
+            board.create_project(Project(name=' proj'))
+            assert 'Duplicate project name' in capsys.readouterr().err
+            board.create_task(Task(name=' task'))
+            assert 'Duplicate task name' in capsys.readouterr().err
             if case_sensitive:
                 id_ = board.create_project(Project(name='PROJ'))
                 assert board.get_project(id_).name == 'PROJ'
+                assert capsys.readouterr().err == ''
                 id_ = board.create_task(Task(name='TASK'))
                 assert board.get_task(id_).name == 'TASK'
+                assert capsys.readouterr().err == ''
             else:
-                with pytest.raises(DuplicateProjectNameError, match="Duplicate project name 'proj'"):
-                    _ = board.create_project(Project(name='PROJ'))
-                with pytest.raises(DuplicateTaskNameError, match="Duplicate task name 'task'"):
-                    _ = board.create_task(Task(name='TASK'))
+                board.create_project(Project(name='PROJ'))
+                assert 'Duplicate project name' in capsys.readouterr().err
+                board.create_task(Task(name='TASK'))
+                assert 'Duplicate task name' in capsys.readouterr().err
+            board.delete_project(2)
+            board.delete_task(2)
             board.create_project(Project(name='proj1'))
             board.create_task(Task(name='task1'))
             board.update_task(0, name='task')
             # always whitespace-insensitive
-            with pytest.raises(DuplicateProjectNameError, match="Duplicate project name 'proj'"):
-                board.update_project(1, name=' proj')
-            with pytest.raises(DuplicateTaskNameError, match="Duplicate task name 'task'"):
-                board.update_task(1, name=' task')
+            board.update_project(1, name=' proj')
+            assert 'Duplicate project name' in capsys.readouterr().err
+            board.update_task(1, name=' task')
+            assert 'Duplicate task name' in capsys.readouterr().err
             if case_sensitive:
                 board.update_project(1, name='PROJ')
                 assert board.get_project_id_by_name('proj') == 0
@@ -535,10 +541,10 @@ class TestBoard:
                 with pytest.raises(AmbiguousTaskNameError, match="Ambiguous task name 'Task'"):
                     board.get_task_id_by_name('Task', case_insensitive_match)
             else:
-                with pytest.raises(DuplicateProjectNameError, match="Duplicate project name 'proj'"):
-                    board.update_project(1, name='PROJ')
-                with pytest.raises(DuplicateTaskNameError, match="Duplicate task name 'task'"):
-                    board.update_task(1, name='TASK')
+                board.update_project(1, name='PROJ')
+                assert 'Duplicate project name' in capsys.readouterr().err
+                board.update_task(1, name='TASK')
+                assert 'Duplicate task name' in capsys.readouterr().err
 
     def _check_board_projects(self, board, projects):
         assert board.projects == projects

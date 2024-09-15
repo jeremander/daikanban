@@ -113,23 +113,25 @@ class TaskwarriorImporter(JSONImporter[TaskList]):
 
     def convert_to_board(self, obj: TaskList) -> Board:
         """Converts the tasks in a TaskList to a Board."""
-        proj_id_by_name = {}
-        projects: list[Project] = []
+        proj_id_by_name: dict[str, Id] = {}
+        proj_created_by_name: dict[str, datetime] = {}
         task_by_id = {}
         task_ids = IdCollection()  # collection of task IDs used so far
         for task in obj:
             proj_name = task.project
+            created_time = task.entry or get_current_time()
             if isinstance(proj_name, str):
-                if proj_name not in proj_id_by_name:
-                    proj_id_by_name[proj_name] = len(projects)
-                    projects.append(Project(name=proj_name))
+                if proj_name in proj_id_by_name:
+                    proj_created_by_name[proj_name] = min(proj_created_by_name[proj_name], created_time)
+                else:
+                    proj_id_by_name[proj_name] = len(proj_id_by_name)
+                    proj_created_by_name[proj_name] = created_time
                 proj_id = proj_id_by_name[proj_name]
             else:
                 proj_id = None
             task_id = task_ids.free_id if (task.id is None) else task.id
             udas = dict(task.udas) if task.udas else {}
             udas.pop('project_id', None)  # for now, ignore a stored project ID
-            created_time = task.entry or get_current_time()
             if task.start:
                 created_time = min(created_time, task.start)
             dkb_task = Task(
@@ -160,7 +162,8 @@ class TaskwarriorImporter(JSONImporter[TaskList]):
             )
             task_by_id[task_id] = dkb_task
             task_ids.add(task_id)
-        # TODO: let user provide name somehow
+        projects = [Project(name=proj_name, created_time=proj_created_by_name[proj_name]) for proj_name in proj_id_by_name]
+        # TODO: let user provide board name somehow
         return Board(name='', projects=dict(enumerate(projects)), tasks=task_by_id)
 
 
