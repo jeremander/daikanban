@@ -284,11 +284,15 @@ class TestBoard:
         for obj in [proj, task, board]:
             d = obj.to_dict()
             assert type(obj)(**d).to_dict() == d
+        assert len(board._project_uuid_to_id) == 1
+        assert len(board._task_uuid_to_id) == 1
         board_path = tmp_path / 'board.json'
         board.save(board_path)
         assert board_path.exists()
-        assert Board.load(board_path) == board
-        assert load_board(board_path) == board
+        for loaded_board in [Board.load(board_path), load_board(board_path)]:
+            assert loaded_board == board
+            assert loaded_board._project_uuid_to_id == board._project_uuid_to_id
+            assert loaded_board._task_uuid_to_id == board._task_uuid_to_id
 
     def test_project_ids(self):
         board = Board(name='myboard')

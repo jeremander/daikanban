@@ -750,8 +750,8 @@ class Board(Model):
 
     def __post_init__(self) -> None:
         # mappings from UUIDs to IDs
-        self._project_uuid_to_id: dict[UUID4, Id] = {}
-        self._task_uuid_to_id: dict[UUID4, Id] = {}
+        self._project_uuid_to_id = {proj.uuid: id_ for (id_, proj) in self.projects.items()}
+        self._task_uuid_to_id = {task.uuid: id_ for (id_, task) in self.tasks.items()}
 
     @property
     def num_projects(self) -> int:
