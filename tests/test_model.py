@@ -7,7 +7,7 @@ from pydantic_core import Url
 import pytest
 
 from daikanban.config import DEFAULT_DATETIME_FORMAT, get_config
-from daikanban.model import AmbiguousProjectNameError, AmbiguousTaskNameError, Board, DuplicateProjectError, Project, ProjectNotFoundError, Task, TaskNotFoundError, TaskStatus, TaskStatusAction, TaskStatusError, UUIDImmutableError, VersionMismatchError, load_board
+from daikanban.model import AmbiguousProjectNameError, AmbiguousTaskNameError, Board, DuplicateProjectError, Project, ProjectNotFoundError, Relation, Task, TaskNotFoundError, TaskStatus, TaskStatusAction, TaskStatusError, UUIDImmutableError, VersionMismatchError, load_board
 from daikanban.task import TASK_SCORERS
 from daikanban.utils import case_insensitive_match, fuzzy_match, get_current_time
 
@@ -613,12 +613,16 @@ class TestBoard:
         self._check_board_projects(board2, {0: proj2_0})
         board1.update_with_board(board2)
         self._check_board_projects(board1, {0: proj1_0, 1: proj2_1, 2: proj2_0})
-        # update with a project containing a parent (the parent ID must be mapped)
+        # update with a project containing a parent and relation (the IDs must be mapped)
         board1 = deepcopy(orig_board1)
-        board2.create_project(Project(name='proj2_1', parent=0))
+        rel0 = Relation(type='relation', dest=0)
+        rel2 = Relation(type='relation', dest=2)
+        board2.create_project(Project(name='proj2_1', parent=0, relations=[rel0, rel2]))
         # parent of 1 is 0 in board2 -> in updated board1, ID 0 becomes 1, ID 1 becomes 2, parent of 2 becomes 1 instead of 0
+        # for the relations, dest=0 gets mapped to 1, but dest=2 is an unrecognized ID, so it stays the same
+        # TODO: should this be an error instead?
         board1.update_with_board(board2)
-        self._check_board_projects(board1, {0: proj1_0, 1: board2.projects[0], 2: board2.projects[1]._replace(parent=1)})
+        self._check_board_projects(board1, {0: proj1_0, 1: board2.projects[0], 2: board2.projects[1]._replace(parent=1, relations=[rel0._replace(dest=1), rel2])})
 
     def test_update_board_tasks(self):
         """Tests what happens to tasks when updating a board with another one."""

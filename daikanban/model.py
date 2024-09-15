@@ -287,6 +287,26 @@ STATUS_ACTION_MAP = {
 
 
 @dataclass(frozen=True)
+class Relation(Model):
+    """Class representing a relation between two things.
+    A Relation will be attached to its "source" object, so only a "destination" Id needs to be stored."""
+    type: str = Field(
+        description='Type of the relation'
+    )
+    dest: Id = Field(
+        description='Id of the destination of the relation'
+    )
+    extra: Optional[dict[str, Any]] = Field(
+        default=None,
+        description='Any extra data attached to the relation'
+    )
+
+    def _map_id(self, id_map: Mapping[Id, Id]) -> Self:
+        """Given a mapping from old IDs to new ones, applies that mapping to the destination."""
+        return self._replace(dest=id_map.get(self.dest, self.dest))
+
+
+@dataclass(frozen=True)
 class Project(Model):
     """A project associated with multiple tasks."""
     name: Name = Field(
@@ -320,6 +340,10 @@ class Project(Model):
         default=None,
         description='Additional notes about the project'
     )
+    relations: Optional[list[Relation]] = Field(
+        default=None,
+        description='Relations between this project and other objects'
+    )
     extra: Optional[dict[str, Any]] = Field(
         default=None,
         description='Any extra data attached to the project'
@@ -332,7 +356,13 @@ class Project(Model):
 
     def _map_project_ids(self, proj_id_map: Mapping[Id, Id]) -> Self:
         """Given a mapping from old project IDs to new ones, applies that mapping to any stored IDs."""
-        return self if (self.parent is None) else self._replace(parent=proj_id_map.get(self.parent, self.parent))
+        kwargs: dict[str, Any] = {}
+        if self.parent is not None:
+            kwargs['parent'] = proj_id_map.get(self.parent, self.parent)
+        if self.relations:
+            # TODO: could relations contain anything other than projects? If so, handle them separately.
+            kwargs['relations'] = [relation._map_id(proj_id_map) for relation in self.relations]
+        return self._replace(**kwargs) if kwargs else self
 
 
 @dataclass(frozen=True)
@@ -434,6 +464,10 @@ class Task(Model):
     parent: Optional[Id] = Field(
         default=None,
         description='ID of parent task, if one exists'
+    )
+    relations: Optional[list[Relation]] = Field(
+        default=None,
+        description='Relations between this task and other objects'
     )
     logs: Optional[list[Log]] = Field(
         default=None,
@@ -684,7 +718,9 @@ class Task(Model):
             kwargs['blocked_by'] = {task_id_map.get(id_, id_) for id_ in self.blocked_by}
         if self.parent is not None:
             kwargs['parent'] = task_id_map.get(self.parent, self.parent)
-        return self if (kwargs is None) else self._replace(**kwargs)
+        if self.relations:
+            kwargs['relations'] = [relation._map_id(task_id_map) for relation in self.relations]
+        return self._replace(**kwargs) if kwargs else self
 
 
 @dataclass

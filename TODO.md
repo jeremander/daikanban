@@ -2,8 +2,6 @@
 
 ## `v0.2.0`
 
-- Finish `import` subcommand (update the loaded board).
-- Add "relations" field to project/task
 - For `task complete` of a paused task, make the default completed time the same as the resumed time
 - Allow `=` as delimiter for `set` option
   - Let user set `project=...` as alternative to `project_id=...`
@@ -83,6 +81,8 @@
 
 ## Future
 
+- Make it an error if relation has an unknown ID?
+  - Error upon creation/update
 - "Context" (i.e. persistent filter)
 - (BREAKING) Should we store UUIDs instead of IDs for project/task relations?
   - Pros:
