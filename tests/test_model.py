@@ -367,6 +367,12 @@ class TestBoard:
         assert len(board.projects) == 0
         assert all(task.project_id is None for task in board.tasks.values())
 
+    def test_clear(self, test_board):
+        name = test_board.name
+        created_time = test_board.created_time
+        test_board.clear()
+        assert test_board == Board(name=name, created_time=created_time, projects={}, tasks={})
+
     def test_add_blocking_task(self):
         board = Board(name='myboard')
         task0 = Task(name='task0')

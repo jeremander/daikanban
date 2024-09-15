@@ -967,6 +967,11 @@ class Board(Model):
         for task_id in task_id_map.values():
             self.tasks[task_id] = self.tasks[task_id]._map_project_ids(proj_id_map)._map_task_ids(task_id_map)
 
+    def clear(self) -> None:
+        """Deletes all projects and tasks."""
+        self.projects.clear()
+        self.tasks.clear()
+
 
 def load_board(name_or_path: str | Path, config: Optional[Config] = None) -> Board:
     """Given a board name or path, loads the board from a JSON file.
