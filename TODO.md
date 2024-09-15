@@ -2,7 +2,6 @@
 
 ## `v0.2.0`
 
-- For `task complete` of a paused task, make the default completed time the same as the resumed time
 - Allow `=` as delimiter for `set` option
   - Let user set `project=...` as alternative to `project_id=...`
 - Config customization

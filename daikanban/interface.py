@@ -512,11 +512,19 @@ class BoardInterface:
             prompt = f'When was the task {intermediate.past_tense()}? [not bold]\\[now][/] '
             prompter = Prompter(prompt, parse_datetime, validate=None, default=get_current_time)
             first_dt = prompter.loop_prompt(use_prompt_suffix=False, show_default=False)
+            default_time: datetime | Callable[[], datetime] = first_dt
+            now = get_current_time()
+            if (now >= first_dt) and (now - first_dt < timedelta(seconds=15)):
+                default_time_str = 'now'
+            else:
+                default_time_str = self.config.pretty_value(default_time)
         else:
             first_dt = None
+            default_time = get_current_time
+            default_time_str = 'now'
         # prompt user for time of latest status change
-        prompt = f'When was the task {action.past_tense()}? [not bold]\\[now][/] '
-        prompter = Prompter(prompt, parse_datetime, validate=None, default=get_current_time)
+        prompt = f'When was the task {action.past_tense()}? [not bold]\\[{default_time_str}][/] '
+        prompter = Prompter(prompt, parse_datetime, validate=None, default=default_time)
         try:
             dt = prompter.loop_prompt(use_prompt_suffix=False, show_default=False)
         except KeyboardInterrupt:  # go back to main REPL
