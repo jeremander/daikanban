@@ -1,7 +1,19 @@
 import pytest
 
-from daikanban.utils import convert_number_words_to_digits, human_readable_duration
+from daikanban.utils import convert_number_words_to_digits, human_readable_duration, parse_equals_expression
 
+
+@pytest.mark.parametrize(['string', 'expected'], [
+    ('', None),
+    ('key=', None),
+    ('=val', None),
+    ('key=val', ('key', 'val')),
+    ('key = val', ('key', 'val')),
+    ('key= val', ('key', 'val')),
+    ('key=5', ('key', '5')),
+])
+def test_parse_equals_expression(string, expected):
+    assert parse_equals_expression(string) == expected
 
 @pytest.mark.parametrize(['string', 'output'], [
     ('abc', 'abc'),

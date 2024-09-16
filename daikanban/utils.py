@@ -110,6 +110,17 @@ def count_fmt(n: int, name: str, plural_suffix: str = 's', plural_form: Optional
             name = plural_form
     return f'{n} {name}'
 
+_EQUALS_EXPR = re.compile(r'(\w+)\s*=\s*(.+)')
+
+def parse_equals_expression(s: str) -> Optional[tuple[str, str]]:
+    """If the given string is of the form IDENTIFIER=VALUE, returns the identifier and value as a tuple.
+    Otherwise, returns None."""
+    match = _EQUALS_EXPR.fullmatch(s.strip())
+    if match:
+        (key, val) = match.groups()
+        return (key, val)
+    return None
+
 
 ############
 # DATETIME #

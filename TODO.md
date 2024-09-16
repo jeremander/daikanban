@@ -4,7 +4,6 @@
 
 - Let user set `project` as alternative to `project_id`
 - Let user use project/task name instead of ID, for parent, project_id, blocked_by
-- Allow `=` as delimiter for `set` option
 - Config customization
   - `config` subcommand of main CLI to interact with configs
     - Also an option within the shell
@@ -42,6 +41,7 @@
 - Add an icon indicating a note exists for a project or task
 - `project set` or `task set` multiple values at once?
   - Likewise, set one or more values at creation time
+- Change "updated field" text when setting project/field so that it shows the value too?
 - Allow `task delete` to take multiple IDs
 - Relation validation
   - Prevent parent/blocked_by relation (and possibly others in the future) from being reflexive

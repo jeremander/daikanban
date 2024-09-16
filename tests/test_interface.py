@@ -99,6 +99,16 @@ class TestInterface:
         # set the name
         user_input = [('project set 0 name proj0', None)]
         self._test_output(capsys, monkeypatch, user_input, "Updated field 'name'", board=board)
+        # set the name with '=' expression
+        user_input = [('project set 0 name=proj1', None)]
+        self._test_output(capsys, monkeypatch, user_input, "Updated field 'name'", board=board)
+        assert board.get_project(0).name == 'proj1'
+        user_input = [('project set 0 name="new project"', None)]
+        self._test_output(capsys, monkeypatch, user_input, "Updated field 'name'", board=board)
+        assert board.get_project(0).name == 'new project'
+        # NOTE: currently, extra args are permitted but ignored
+        user_input = [('project set 0 name=proj0 other stuff', None)]
+        self._test_output(capsys, monkeypatch, user_input, "Updated field 'name'", board=board)
         proj = board.get_project(0)
         assert proj.name == 'proj0'
         assert proj.description is None
@@ -245,6 +255,16 @@ class TestInterface:
         board.create_task(Task(name='task', description='task'))
         # set the name
         user_input = [('task set 0 name task0', None)]
+        self._test_output(capsys, monkeypatch, user_input, "Updated field 'name'", board=board)
+        # set the name with '=' expression
+        user_input = [('task set 0 name=task1', None)]
+        self._test_output(capsys, monkeypatch, user_input, "Updated field 'name'", board=board)
+        assert board.get_task(0).name == 'task1'
+        user_input = [('task set 0 name="new task"', None)]
+        self._test_output(capsys, monkeypatch, user_input, "Updated field 'name'", board=board)
+        assert board.get_task(0).name == 'new task'
+        # NOTE: currently, extra args are permitted but ignored
+        user_input = [('task set 0 name=task0 other stuff', None)]
         self._test_output(capsys, monkeypatch, user_input, "Updated field 'name'", board=board)
         task = board.get_task(0)
         assert task.name == 'task0'
