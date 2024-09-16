@@ -43,7 +43,9 @@
 - `project set` or `task set` multiple values at once?
   - Likewise, set one or more values at creation time
 - Allow `task delete` to take multiple IDs
-- Prevent parent/blocked_by relation (and possibly others in the future) from being reflexive
+- Relation validation
+  - Prevent parent/blocked_by relation (and possibly others in the future) from being reflexive
+  - Check that IDs in `relations` are valid
 - UUIDs
   - Match projects/tasks on UUID as alternative to ID.
   - Accept any unique prefix (of length >= 8).

@@ -147,6 +147,14 @@ class TestInterface:
         board.create_project(Project(name='proj'))
         user_input = [('project set 1 name proj0', None)]
         self._test_output(capsys, monkeypatch, user_input, err='Duplicate project name', board=board)
+        # attempt to set the project ID
+        user_input = [('project set 1 project_id 2', None)]
+        with pytest.raises(UserInputError, match="Field 'project_id' cannot be updated"):
+            self._test_output(capsys, monkeypatch, user_input, None, board=board)
+        # attempt to set an invalid field
+        user_input = [('project set 1 fake abc', None)]
+        with pytest.raises(UserInputError, match="Unknown field 'fake'"):
+            self._test_output(capsys, monkeypatch, user_input, None, board=board)
 
     # TASK
 
@@ -268,6 +276,17 @@ class TestInterface:
         board.create_task(Task(name='task'))
         user_input = [('task set 1 name task0', None)]
         self._test_output(capsys, monkeypatch, user_input, out="Updated field 'name'", err='Duplicate task name', board=board)
+        # attempt to set the task ID
+        user_input = [('task set 1 task_id 2', None)]
+        with pytest.raises(UserInputError, match="Field 'task_id' cannot be updated"):
+            self._test_output(capsys, monkeypatch, user_input, None, board=board)
+        # set the project ID to an invalid project
+        user_input = [('task set 1 project_id 0', None)]
+        with pytest.raises(UserInputError, match='Project with id 0 not found'):
+            self._test_output(capsys, monkeypatch, user_input, None, board=board)
+        # set the project ID to a valid project
+        assert board.create_project(Project(name='proj')) == 0
+        self._test_output(capsys, monkeypatch, user_input, out="Updated field 'project_id' for task task0 with ID 1", board=board)
 
     # BOARD
 

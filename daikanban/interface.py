@@ -383,16 +383,17 @@ class BoardInterface:
         """Updates an attribute of a project or task."""
         assert self.board is not None
         cls: Type[Model] = Task if is_task else Project  # type: ignore[assignment]
-        if field in cls._computed_fields():
-            raise UserInputError(f'Field {field!r} cannot be updated')
         name = cls.__name__.lower()
+        id_field = f'{name}_id'
+        if (field in cls._computed_fields()) or (field == id_field):
+            raise UserInputError(f'Field {field!r} cannot be updated')
         id_ = getattr(self, f'_parse_{name}')(id_or_name)
         assert id_ is not None
         obj = getattr(self.board, f'get_{name}')(id_)
         kwargs = {field: value}
         try:
             getattr(self.board, f'update_{name}')(id_, **kwargs)  # pydantic handles string conversion
-        except (TypeError, ValidationError) as e:
+        except (KanbanError, TypeError, ValidationError) as e:
             msg = e.errors()[0]['msg'] if isinstance(e, ValidationError) else str(e)
             msg = msg.splitlines()[0]
             raise UserInputError(msg) from e
