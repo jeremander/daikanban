@@ -2,8 +2,9 @@
 
 ## `v0.2.0`
 
+- Let user set `project` as alternative to `project_id`
+- Let user use project/task name instead of ID, for parent, project_id, blocked_by
 - Allow `=` as delimiter for `set` option
-  - Let user set `project=...` as alternative to `project_id=...`
 - Config customization
   - `config` subcommand of main CLI to interact with configs
     - Also an option within the shell
@@ -42,6 +43,7 @@
 - `project set` or `task set` multiple values at once?
   - Likewise, set one or more values at creation time
 - Allow `task delete` to take multiple IDs
+- Prevent parent/blocked_by relation (and possibly others in the future) from being reflexive
 - UUIDs
   - Match projects/tasks on UUID as alternative to ID.
   - Accept any unique prefix (of length >= 8).

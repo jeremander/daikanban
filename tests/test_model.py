@@ -307,9 +307,19 @@ class TestBoard:
         board.projects[100] = Project(name='proj100')
         assert board.new_project_id() == 3
 
-    def test_invalid_project_id(self):
+    def test_invalid_ids(self):
         board = Board(name='myboard')
         board.create_project(Project(name='proj'))
+        # create project with invalid parent ID
+        with pytest.raises(ProjectNotFoundError, match='Project with id 1 not found'):
+            board.create_project(Project(name='proj1', parent=1))
+        # update project with invalid parent ID
+        with pytest.raises(ProjectNotFoundError, match='Project with id 1 not found'):
+            board.update_project(0, parent=1)
+        # NOTE: project can be made into a parent of itself (should it?)
+        board.update_project(0, parent=0)
+        board.update_project(0, parent=None)
+        # create task with invalid project ID
         task = Task(name='task', project_id=1)
         with pytest.raises(ProjectNotFoundError, match='Project with id 1 not found'):
             board.create_task(task)
@@ -320,8 +330,30 @@ class TestBoard:
             board.delete_task(0)
         del board.tasks[0]
         assert board.create_task(Task(name='task', project_id=0)) == 0
+        # update task with invalid project ID
         with pytest.raises(ProjectNotFoundError, match='Project with id 1 not found'):
             board.update_task(0, project_id=1)
+        # create task with invalid parent ID
+        with pytest.raises(TaskNotFoundError, match='Task with id 1 not found'):
+            board.create_task(Task(name='task1', parent=1))
+        # update task with invalid parent ID
+        with pytest.raises(TaskNotFoundError, match='Task with id 1 not found'):
+            board.update_task(0, parent=1)
+        # NOTE: task can be made into a parent of itself (should it?)
+        board.update_task(0, parent=0)
+        board.update_task(0, parent=None)
+        # create task with invalid blocked_by ID
+        with pytest.raises(TaskNotFoundError, match='Task with id 1 not found'):
+            board.create_task(Task(name='task1', blocked_by={1}))
+        # update task with invalid blocked_by ID
+        with pytest.raises(TaskNotFoundError, match='Task with id 1 not found'):
+            board.update_task(0, blocked_by={1})
+        # NOTE: task can be blocked by itself (should it?)
+        board.update_task(0, blocked_by={0})
+        assert board.tasks[0].blocked_by == {0}
+        board.update_task(0, blocked_by=set())
+        with pytest.raises(TaskNotFoundError, match='Task with id 1 not found'):
+            board.update_task(0, blocked_by={0, 1})
 
     def test_project_uuids(self):
         board = Board(name='myboard')

@@ -10,7 +10,7 @@ from urllib.parse import urlparse
 import uuid
 
 from fancy_dataclass import JSONBaseDataclass
-from pydantic import UUID4, AfterValidator, AnyUrl, BeforeValidator, Field, PlainSerializer, TypeAdapter, ValidationError, computed_field, model_validator
+from pydantic import UUID4, AfterValidator, AnyUrl, BeforeValidator, Field, PlainSerializer, TypeAdapter, ValidationError, computed_field
 from pydantic.dataclasses import dataclass
 from rich.markup import escape
 from typing_extensions import Self, TypeAlias
@@ -487,6 +487,9 @@ class Task(Model):
     # fields whose type is duration
     DURATION_FIELDS: ClassVar[list[str]] = ['expected_duration', 'prior_time_worked', 'lead_time', 'cycle_time', 'total_time_worked']
 
+    def __post_init__(self) -> None:
+        self.check_consistent_times()
+
     def _include_field(self, field: str, val: Any) -> bool:
         return (val is not None) or (field == 'project_id')
 
@@ -584,7 +587,6 @@ class Task(Model):
             icons.append('⏸️ ')
         return ' '.join(icons) if icons else None
 
-    @model_validator(mode='after')
     def check_consistent_times(self) -> Self:  # noqa: C901
         """Checks the consistence of various timestamps stored in the Task.
         If any is invalid, raises an InconsistentTimestampError."""
@@ -752,6 +754,35 @@ class Board(Model):
         # mappings from UUIDs to IDs
         self._project_uuid_to_id = {proj.uuid: id_ for (id_, proj) in self.projects.items()}
         self._task_uuid_to_id = {task.uuid: id_ for (id_, task) in self.tasks.items()}
+        self.check_valid_project_ids()
+        self.check_valid_task_ids()
+
+    def _check_valid_project(self, project: Project) -> None:
+        if (project.parent is not None) and (project.parent not in self.projects):
+            raise ProjectNotFoundError(project.parent)
+
+    def check_valid_project_ids(self) -> Self:
+        """Checks that project IDs associated with all projects and tasks are in the set of known project IDs."""
+        for project in self.projects.values():
+            self._check_valid_project(project)
+        for task in self.tasks.values():
+            if (task.project_id is not None) and (task.project_id not in self.projects):
+                raise ProjectNotFoundError(task.project_id)
+        return self
+
+    def _check_valid_task(self, task: Task) -> None:
+        if (task.parent is not None) and (task.parent not in self.tasks):
+            raise TaskNotFoundError(task.parent)
+        if task.blocked_by:
+            for id_ in task.blocked_by:
+                if id_ not in self.tasks:
+                    raise TaskNotFoundError(id_)
+
+    def check_valid_task_ids(self) -> Self:
+        """Checks that tasks IDs associated with all projects and tasks are in the set of known task IDs."""
+        for task in self.tasks.values():
+            self._check_valid_task(task)
+        return self
 
     @property
     def num_projects(self) -> int:
@@ -769,15 +800,6 @@ class Board(Model):
         num_proj_str = count_fmt(self.num_projects, 'project')
         num_task_str = count_fmt(self.num_tasks, 'task')
         return f'{num_proj_str}, {num_task_str}'
-
-    @model_validator(mode='after')
-    def check_valid_project_ids(self) -> Self:
-        """Checks that project IDs associated with all tasks are in the set of projects."""
-        for task in self.tasks.values():
-            if task.project_id is not None:
-                if task.project_id not in self.projects:
-                    raise ProjectNotFoundError(task.project_id)
-        return self
 
     def new_project_id(self) -> Id:
         """Gets an available integer as a project ID."""
@@ -803,6 +825,7 @@ class Board(Model):
         """Adds a new project and returns its ID."""
         if project.uuid in self._project_uuid_to_id:
             raise DuplicateProjectError(f'Duplicate project UUID {str(project.uuid)!r}')
+        self._check_valid_project(project)
         matcher = get_config().name_matcher
         project_names = (p.name for p in self.projects.values())
         if (duplicate_name := first_name_match(matcher, project.name, project_names)) is not None:
@@ -845,6 +868,7 @@ class Board(Model):
                 logger.warning(f'Duplicate project name {duplicate_name!r}')
         kwargs = {'modified_time': get_current_time(), **kwargs}
         proj = proj._replace(**kwargs)
+        self._check_valid_project(proj)
         self.projects[project_id] = proj
 
     @catch_key_error(ProjectNotFoundError)
@@ -861,6 +885,7 @@ class Board(Model):
         """Adds a new task and returns its ID."""
         if task.uuid in self._task_uuid_to_id:
             raise DuplicateTaskError(f'Duplicate task UUID {str(task.uuid)!r}')
+        self._check_valid_task(task)
         if task.project_id is not None:  # validate project ID
             _ = self.get_project(task.project_id)
         matcher = get_config().name_matcher
@@ -917,6 +942,7 @@ class Board(Model):
         task = task._replace(**kwargs)
         if task.project_id is not None:  # validate project ID
             _ = self.get_project(task.project_id)
+        self._check_valid_task(task)
         matcher = get_config().name_matcher
         if (duplicate_name := first_name_match(matcher, task.name, incomplete_task_names)) is not None:
             logger.warning(f'Duplicate task name {duplicate_name!r}')
