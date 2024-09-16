@@ -23,7 +23,7 @@ from daikanban import PKG_DIR, logger
 from daikanban.config import Config, get_config
 from daikanban.model import Board, BoardFileError, DefaultColor, Id, KanbanError, Model, Project, Task, TaskStatus, TaskStatusAction, TaskStatusError, load_board, name_style, path_style, proj_id_style, status_style, task_id_style
 from daikanban.prompt import FieldPrompter, Prompter, model_from_prompt, simple_input
-from daikanban.utils import NotGiven, NotGivenType, UserInputError, err_style, fuzzy_match, get_current_time, get_duration_between, human_readable_duration, parse_equals_expression, parse_string_set, prefix_match, style_str
+from daikanban.utils import NotGiven, NotGivenType, UserInputError, err_style, fuzzy_match, get_current_time, get_duration_between, human_readable_duration, parse_key_value_pair, parse_string_set, prefix_match, style_str
 
 
 if TYPE_CHECKING:
@@ -62,16 +62,6 @@ def get_billboard_art() -> str:
     with open(BILLBOARD_ART_PATH) as f:
         return f.read()
 
-def parse_option_value_pair(s: str) -> tuple[str, str]:
-    """Parses a string of the form [OPTION]=[VALUE] and returns a tuple (OPTION, VALUE)."""
-    err = UserInputError(f'Invalid argument {s!r}\n\texpected format \\[OPTION]=\\[VALUE]')
-    if '=' not in s:
-        raise err
-    tup = tuple(map(str.strip, s.split('=', maxsplit=1)))
-    if len(tup) != 2:
-        raise err
-    return tup  # type: ignore[return-value]
-
 def split_comma_list(s: str) -> list[str]:
     """Given a comma-separated list, splits it into a list of strings."""
     return [token for token in s.split(',') if token]
@@ -106,6 +96,19 @@ def parse_date_as_string(s: str) -> Optional[str]:
 def parse_duration(s: str) -> Optional[float]:
     """Parses a duration string into a number of days."""
     return get_config().time.parse_duration(s) if s.strip() else None
+
+def _validate_project_or_task_name(name: str, obj_name: str) -> str:
+    if not any(c.isalpha() for c in name):
+        raise UserInputError(f'{obj_name.capitalize()} name {name_style(name)} is invalid, must have at least one letter')
+    return name
+
+def validate_project_name(name: str) -> str:
+    """Given a project name, checks it is valid, raising a UserInputError otherwise."""
+    return _validate_project_or_task_name(name, 'project')
+
+def validate_task_name(name: str) -> str:
+    """Given a task name, checks it is valid, raising a UserInputError otherwise."""
+    return _validate_project_or_task_name(name, 'task')
 
 
 ###################
@@ -384,6 +387,8 @@ class BoardInterface:
         assert self.board is not None
         cls: Type[Model] = Task if is_task else Project  # type: ignore[assignment]
         name = cls.__name__.lower()
+        if (field == 'name') and isinstance(value, str):
+            _ = _validate_project_or_task_name(value, name)
         id_field = f'{name}_id'
         if (field in cls._computed_fields()) or (field == id_field):
             raise UserInputError(f'Field {field!r} cannot be updated')
@@ -424,7 +429,7 @@ class BoardInterface:
         params: dict[str, dict[str, Any]] = {
             'name': {
                 'prompt': 'Project name',
-                'parse': lambda name: name
+                'parse': validate_project_name
             },
             'description': {
                 'parse': empty_is_none
@@ -439,7 +444,7 @@ class BoardInterface:
             defaults = {}
         else:
             del prompters['name']
-            defaults = {'name': name}
+            defaults = {'name': validate_project_name(name)}
         try:
             proj = model_from_prompt(Project, prompters, defaults=defaults)
         except KeyboardInterrupt:  # go back to main REPL
@@ -552,7 +557,7 @@ class BoardInterface:
         params: dict[str, dict[str, Any]] = {
             'name': {
                 'prompt': 'Task name',
-                'parse': lambda name: name
+                'parse': validate_task_name
             },
             'description': {
                 'parse': empty_is_none
@@ -592,7 +597,7 @@ class BoardInterface:
             defaults = {}
         else:
             task_fields.discard('name')
-            defaults = {'name': name}
+            defaults = {'name': validate_task_name(name)}
         prompters: dict[str, FieldPrompter] = {field: FieldPrompter(Task, field, **kwargs) for (field, kwargs) in params.items() if field in task_fields}
         try:
             task = model_from_prompt(Task, prompters, defaults=defaults)
@@ -910,7 +915,7 @@ class BoardInterface:
         if (ntokens := len(tokens)) < 2:
             raise UserInputError('Must provide [ID/NAME] [FIELD] [VALUE]')
         [id_or_name, field] = tokens[:2]
-        if (pair := parse_equals_expression(field)):  # allow '=' to separate field and value
+        if (pair := parse_key_value_pair(field, strict=False)):  # allow '=' to separate field and value
             (field, value) = pair
         else:
             value = tokens[2] if (ntokens >= 3) else None  # type: ignore[assignment]
@@ -936,8 +941,8 @@ class BoardInterface:
             if prefix_match(tok1, 'new'):
                 return self.new_board()
             if prefix_match(tok1, 'show'):
-                # parse colon-separated arguments
-                d = dict([parse_option_value_pair(tok) for tok in tokens[2:]])
+                # parse '='-delimited arguments
+                d = dict([parse_key_value_pair(tok, strict=True) for tok in tokens[2:]])  # type: ignore[misc]
                 kwargs: dict[str, Any] = {}
                 _keys = set()
                 for (singular, plural) in [('status', 'statuses'), ('project', 'projects'), ('tag', 'tags')]:

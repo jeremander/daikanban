@@ -95,6 +95,17 @@ def parse_string_set(s: str) -> Optional[set[str]]:
     Strips any leading or trailing whitespace from each string."""
     return {string.strip() for string in list(csv.reader([s]))[0]} or None
 
+def parse_key_value_pair(s: str, strict: bool = False) -> Optional[tuple[str, str]]:
+    """If the given string is of the form [KEY]=[VALUE], returns a tuple (KEY, VALUE).
+    Otherwise, raises a UserInputError if strict=True, or else returns None."""
+    match = _EQUALS_EXPR.fullmatch(s.strip())
+    if match:
+        (key, val) = match.groups()
+        return (key, val)
+    if strict:
+        raise UserInputError(f'Invalid argument {s!r}\n\texpected format \\[OPTION]=\\[VALUE]')
+    return None
+
 def count_fmt(n: int, name: str, plural_suffix: str = 's', plural_form: Optional[str] = None) -> str:
     """Renders an integer and item name as a string indicating how many items there are.
     For example:
@@ -111,15 +122,6 @@ def count_fmt(n: int, name: str, plural_suffix: str = 's', plural_form: Optional
     return f'{n} {name}'
 
 _EQUALS_EXPR = re.compile(r'(\w+)\s*=\s*(.+)')
-
-def parse_equals_expression(s: str) -> Optional[tuple[str, str]]:
-    """If the given string is of the form IDENTIFIER=VALUE, returns the identifier and value as a tuple.
-    Otherwise, returns None."""
-    match = _EQUALS_EXPR.fullmatch(s.strip())
-    if match:
-        (key, val) = match.groups()
-        return (key, val)
-    return None
 
 
 ############

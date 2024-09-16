@@ -68,6 +68,12 @@ class TestInterface:
         user_input = [('project new', ['proj', 'My project.', '']), ('project show', None)]
         outputs = [self._table_row(row) for row in [['id', 'name', 'created', '# tasks'], ['0', 'proj', '.*', '0']]]
         self._test_output(capsys, monkeypatch, user_input, outputs)
+        # create project with an invalid name
+        user_input = [('project new 123', [])]
+        with pytest.raises(UserInputError, match='Project name .* is invalid, must have at least one letter'):
+            self._test_output(capsys, monkeypatch, user_input)
+        user_input = [('project new', ['123', 'a123', '', ''])]
+        self._test_output(capsys, monkeypatch, user_input, out='Project name .* is invalid, must have at least one letter')
 
     def test_project_new_another(self, capsys, monkeypatch):
         board = new_board()
@@ -106,6 +112,10 @@ class TestInterface:
         user_input = [('project set 0 name="new project"', None)]
         self._test_output(capsys, monkeypatch, user_input, "Updated field 'name'", board=board)
         assert board.get_project(0).name == 'new project'
+        # attempt to set an invalid name
+        user_input = [('project set 0 name=123', None)]
+        with pytest.raises(UserInputError, match='Project name .*123.* is invalid, must have at least one letter'):
+            self._test_output(capsys, monkeypatch, user_input, None, board=board)
         # NOTE: currently, extra args are permitted but ignored
         user_input = [('project set 0 name=proj0 other stuff', None)]
         self._test_output(capsys, monkeypatch, user_input, "Updated field 'name'", board=board)
@@ -175,6 +185,12 @@ class TestInterface:
         user_input = [('task new', ['task', 'My task.', '', '7', '', '', '', '']), ('task show', None)]
         outputs = [self._table_row(row) for row in [['id', 'name', 'pri…ty', 'create', 'status'], ['0', 'task', '7', '.*', 'todo']]]
         self._test_output(capsys, monkeypatch, user_input, outputs)
+        # create task with an invalid name
+        user_input = [('task new 123', [])]
+        with pytest.raises(UserInputError, match='Task name .* is invalid, must have at least one letter'):
+            self._test_output(capsys, monkeypatch, user_input)
+        user_input = [('task new', ['123', 'a123', '', '', '', '', '', ''])]
+        self._test_output(capsys, monkeypatch, user_input, out='Task name .* is invalid, must have at least one letter')
 
     def test_task_new_another(self, capsys, monkeypatch):
         board = new_board()
@@ -269,6 +285,10 @@ class TestInterface:
         task = board.get_task(0)
         assert task.name == 'task0'
         assert task.description == 'task'
+        # attempt to set an invalid name
+        user_input = [('task set 0 name=123', None)]
+        with pytest.raises(UserInputError, match='Task name .*123.* is invalid, must have at least one letter'):
+            self._test_output(capsys, monkeypatch, user_input, None, board=board)
         # set description to null
         user_input = [('task set 0 description', None)]
         self._test_output(capsys, monkeypatch, user_input, "Updated field 'description'", board=board)

@@ -5,20 +5,27 @@
 - Let user set `project` as alternative to `project_id`
 - Let user use project/task name instead of ID, for parent, project_id, blocked_by
 - Config customization
-  - `config` subcommand of main CLI to interact with configs
-    - Also an option within the shell
-  - `ConfigManager` class?
+  - Board directory
+    - Default board file
   - Particular configs:
-    - Which items to include when making new tasks (priority/difficulty/duration can be omitted, with default)
-    - Priority/difficulty upper bounds?
-    - Default size limit, set of statuses to show
-    - Show dates as timestamps or human-readable relative times
-    - Default colors (E.g. project IDs are too dark on dark terminal)
+    - [x] Which items to include when making new tasks (priority/difficulty/duration can be omitted, with default)
+    - [x] Default size limit
+    - [ ] Set of statuses to show
+    - [ ] Show dates as timestamps or human-readable relative times
+    - [ ] Default colors (E.g. project IDs are too dark on dark terminal)
       - Can we detect terminal color?
-  - Configurable logging level
 
 ## `v0.2.1`
 
+- Config customization
+  - CLI command to reset configs to the basic defaults
+  - Shell option to interact with configs
+    - View/get/set
+    - Setting TOML values can be tricky, but doable
+      - Setting a value will persist until the config is changed, or shell is closed
+      - Option to save current configs to the config file (after prompt confirmation)
+  - Priority/difficulty upper bounds?
+  - Logging level
 - Time tracking via logs
   - Use `type` field to indicate type of status action.
     - Three types, `start`, `stop`, `done`. The latter two are essentially the same.
@@ -63,6 +70,10 @@
 
 - Set up Github Actions, test coverage
 - Encapsulate notion of a *filter*.
+- How to set lists like blocking tasks, relations?
+  - Should probably be one at a time, might need special sub-subcommand like:
+    - `task set [ID] blocker [BLOCKER_ID]`
+    - `task set [ID] relation [TYPE] [DEST_ID]`
 - Configurable time exclusion rules for time tracking
 - Use different scorer for completed tasks?
   - E.g. `priority-rate` would use actual duration rather than expected duration
