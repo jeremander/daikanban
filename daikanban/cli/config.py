@@ -41,6 +41,9 @@ def path() -> None:
 
 @APP.callback(invoke_without_command=True)
 @APP.command(short_help='show the configurations')
-def show() -> None:
+def show(
+    ctx: typer.Context
+) -> None:
     """Show the configurations."""
-    print(get_config().to_toml_string())
+    if ctx.invoked_subcommand is None:
+        print(get_config().to_toml_string())

@@ -335,7 +335,7 @@ class Board(Model):
 def load_board(name_or_path: str | Path, config: Optional[Config] = None) -> Board:
     """Given a board name or path, loads the board from a JSON file."""
     config = config or get_config()
-    path = config.resolve_board_name_or_path(name_or_path)
+    path = config.board_manager.resolve_board_name_or_path(name_or_path)
     if not path.exists():
         raise BoardFileError(f'Board file {path_style(path)} does not exist')
     try:

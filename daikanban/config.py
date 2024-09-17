@@ -78,6 +78,18 @@ class TaskSortKey(TOMLDataclass):
 ##########
 
 @dataclass
+class BoardConfig(TOMLDataclass):
+    """Board configurations."""
+    board_path: Annotated[
+        str,
+        Doc(f'directory for board files (can be a path relative to ~/.{PROG})')
+    ] = DEFAULT_BOARD_DIR
+    default_board: Annotated[
+        str,
+        Doc('name of default board')
+    ] = 'board.json'
+
+@dataclass
 class TimeConfig(TOMLDataclass):
     """Time configurations."""
     date_format: Annotated[
@@ -235,35 +247,25 @@ class DisplayConfig(TOMLDataclass):
 @dataclass
 class Config(ConfigDataclass, TOMLDataclass, doc_as_comment=True):  # type: ignore[misc]
     """Global configurations for daikanban"""
-    board_path: Annotated[
-        str,
-        Doc(f'directory for board files (can be a path relative to ~/.{PROG})')
-    ] = DEFAULT_BOARD_DIR
-    case_sensitive: bool = False
+    case_sensitive: Annotated[
+        bool,
+        Doc('whether to match names case-sensitively')
+    ] = False
+    board: BoardConfig = field(default_factory=BoardConfig)
     time: TimeConfig = field(default_factory=TimeConfig)
     file: FileConfig = field(default_factory=FileConfig)
     task: TaskConfig = field(default_factory=TaskConfig)
     display: DisplayConfig = field(default_factory=DisplayConfig)
 
-    def get_board_dir(self) -> Path:
-        """Gets the absolute path to the board directory."""
-        if (path := Path(self.board_path)).is_absolute():
-            return path
-        return user_dir() / self.board_path
-
-    def resolve_board_name_or_path(self, name: str | Path) -> Path:
-        """Given the name or path to a board file, returns the absolute path."""
-        if (path := Path(name)).is_absolute():
-            return path
-        # user entered a name or relative filename, so resolve it relative to the board directory
-        if Path(name).suffix.lower() != '.json':
-            name = str(name) + '.json'
-        return self.get_board_dir() / name
-
     @property
     def name_matcher(self) -> NameMatcher:
         """Gets a function which matches names, with case-sensitivity dependent on the configs."""
         return whitespace_insensitive_match if self.case_sensitive else case_insensitive_match
+
+    @property
+    def board_manager(self) -> 'BoardManager':
+        """Returns a BoardManager object for managing board files."""
+        return BoardManager(self.board)
 
     def pretty_value(self, val: Any) -> str:
         """Gets a pretty representation of a value as a string.
@@ -296,3 +298,30 @@ def get_config() -> Config:
             config = Config()
         config.update_config()  # set global value
     return config
+
+
+@dataclass
+class BoardManager:
+    """Class for managing a user's board."""
+    config: BoardConfig
+
+    @property
+    def board_dir(self) -> Path:
+        """Gets the absolute path to the board directory."""
+        if (path := Path(self.config.board_path)).is_absolute():
+            return path
+        return user_dir() / self.config.board_path
+
+    def resolve_board_name_or_path(self, name: str | Path) -> Path:
+        """Given the name or path to a board file, returns the absolute path."""
+        if (path := Path(name)).is_absolute():
+            return path
+        # user entered a name or relative filename, so resolve it relative to the board directory
+        if Path(name).suffix.lower() != '.json':
+            name = str(name) + '.json'
+        return self.board_dir / name
+
+    @property
+    def default_board_path(self) -> Path:
+        """Gets the absolute path to the default board file."""
+        return self.resolve_board_name_or_path(self.config.default_board)
