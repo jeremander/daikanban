@@ -121,7 +121,7 @@ def count_fmt(n: int, name: str, plural_suffix: str = 's', plural_form: Optional
             name = plural_form
     return f'{n} {name}'
 
-_EQUALS_EXPR = re.compile(r'(\w+)\s*=\s*(.+)')
+_EQUALS_EXPR = re.compile(r'(\w+)\s*=\s*(.*)')
 
 
 ############

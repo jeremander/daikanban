@@ -97,11 +97,11 @@ class TestInterface:
         # set an invalid field
         user_input = [('project set 0 fake-field value', None)]
         with pytest.raises(UserInputError, match="Unknown field 'fake-field'"):
-            self._test_output(capsys, monkeypatch, user_input, None, board=board)
+            self._test_output(capsys, monkeypatch, user_input, board=board)
         # set field on a nonexistent project
         user_input = [('project set 1 name proj1', None)]
         with pytest.raises(UserInputError, match='Project with ID 1 not found'):
-            self._test_output(capsys, monkeypatch, user_input, None, board=board)
+            self._test_output(capsys, monkeypatch, user_input, board=board)
         # set the name
         user_input = [('project set 0 name proj0', None)]
         self._test_output(capsys, monkeypatch, user_input, "Updated field 'name'", board=board)
@@ -115,7 +115,7 @@ class TestInterface:
         # attempt to set an invalid name
         user_input = [('project set 0 name=123', None)]
         with pytest.raises(UserInputError, match='Project name .*123.* is invalid, must have at least one letter'):
-            self._test_output(capsys, monkeypatch, user_input, None, board=board)
+            self._test_output(capsys, monkeypatch, user_input, board=board)
         # NOTE: currently, extra args are permitted but ignored
         user_input = [('project set 0 name=proj0 other stuff', None)]
         self._test_output(capsys, monkeypatch, user_input, "Updated field 'name'", board=board)
@@ -142,7 +142,7 @@ class TestInterface:
         assert board.get_project(0).links is None  # empty set becomes None
         user_input = [('project set 0 links link1', None)]
         with pytest.raises(UserInputError, match='Invalid URL'):
-            self._test_output(capsys, monkeypatch, user_input, None, board=board)
+            self._test_output(capsys, monkeypatch, user_input, board=board)
         user_input = [('project set 0 links link1.com', None)]
         self._test_output(capsys, monkeypatch, user_input, "Updated field 'links'", board=board)
         assert board.get_project(0).links == {Url('https://link1.com')}
@@ -156,13 +156,13 @@ class TestInterface:
         # attempt to set fields to invalid values
         user_input = [('project set 0 name', None)]
         with pytest.raises(UserInputError, match='Input should be a valid string'):
-            self._test_output(capsys, monkeypatch, user_input, None, board=board)
+            self._test_output(capsys, monkeypatch, user_input, board=board)
         user_input = [('project set 0 created_time', None)]
         with pytest.raises(UserInputError, match='Input should be a valid datetime'):
-            self._test_output(capsys, monkeypatch, user_input, None, board=board)
+            self._test_output(capsys, monkeypatch, user_input, board=board)
         user_input = [('project set 0 created_time abc', None)]
         with pytest.raises(UserInputError, match="Invalid time 'abc'"):
-            self._test_output(capsys, monkeypatch, user_input, None, board=board)
+            self._test_output(capsys, monkeypatch, user_input, board=board)
         # set duplicate project name
         board.create_project(Project(name='proj'))
         user_input = [('project set 1 name proj0', None)]
@@ -170,11 +170,11 @@ class TestInterface:
         # attempt to set the project ID
         user_input = [('project set 1 project_id 2', None)]
         with pytest.raises(UserInputError, match="Field 'project_id' cannot be updated"):
-            self._test_output(capsys, monkeypatch, user_input, None, board=board)
+            self._test_output(capsys, monkeypatch, user_input, board=board)
         # attempt to set an invalid field
         user_input = [('project set 1 fake abc', None)]
         with pytest.raises(UserInputError, match="Unknown field 'fake'"):
-            self._test_output(capsys, monkeypatch, user_input, None, board=board)
+            self._test_output(capsys, monkeypatch, user_input, board=board)
 
     # TASK
 
@@ -288,7 +288,7 @@ class TestInterface:
         # attempt to set an invalid name
         user_input = [('task set 0 name=123', None)]
         with pytest.raises(UserInputError, match='Task name .*123.* is invalid, must have at least one letter'):
-            self._test_output(capsys, monkeypatch, user_input, None, board=board)
+            self._test_output(capsys, monkeypatch, user_input, board=board)
         # set description to null
         user_input = [('task set 0 description', None)]
         self._test_output(capsys, monkeypatch, user_input, "Updated field 'description'", board=board)
@@ -296,14 +296,14 @@ class TestInterface:
         # attempt to set start time earlier than created time
         user_input = [('task set 0 first_started_time yesterday', None)]
         with pytest.raises(UserInputError, match='Task start time cannot precede created time'):
-            self._test_output(capsys, monkeypatch, user_input, None, board=board)
+            self._test_output(capsys, monkeypatch, user_input, board=board)
         # attempt to set created time later than start time
         user_input = [('task set 0 first_started_time tomorrow', None)]
         self._test_output(capsys, monkeypatch, user_input, "Updated field 'first_started_time'", board=board)
         assert board.get_task(0).first_started_time > now
         user_input = [('task set 0 created_time "in two days"', None)]
         with pytest.raises(UserInputError, match='Task start time cannot precede created time'):
-            self._test_output(capsys, monkeypatch, user_input, None, board=board)
+            self._test_output(capsys, monkeypatch, user_input, board=board)
         # attempt to set a computed field
         user_input = [('task set 0 status todo', None)]
         with pytest.raises(UserInputError, match="Field 'status' cannot be updated"):
@@ -311,7 +311,7 @@ class TestInterface:
         # attempt to set fields to invalid values
         user_input = [('task set 0 name', None)]
         with pytest.raises(UserInputError, match='Input should be a valid string'):
-            self._test_output(capsys, monkeypatch, user_input, None, board=board)
+            self._test_output(capsys, monkeypatch, user_input, board=board)
         # attempt to set duplicate task name
         board.create_task(Task(name='task'))
         user_input = [('task set 1 name task0', None)]
@@ -319,14 +319,28 @@ class TestInterface:
         # attempt to set the task ID
         user_input = [('task set 1 task_id 2', None)]
         with pytest.raises(UserInputError, match="Field 'task_id' cannot be updated"):
-            self._test_output(capsys, monkeypatch, user_input, None, board=board)
+            self._test_output(capsys, monkeypatch, user_input, board=board)
         # set the project ID to an invalid project
         user_input = [('task set 1 project_id 0', None)]
         with pytest.raises(UserInputError, match='Project with ID 0 not found'):
-            self._test_output(capsys, monkeypatch, user_input, None, board=board)
+            self._test_output(capsys, monkeypatch, user_input, board=board)
         # set the project ID to a valid project
         assert board.create_project(Project(name='proj')) == 0
         self._test_output(capsys, monkeypatch, user_input, out="Updated field 'project_id' for task task0 with ID 1", board=board)
+        # update the project ID via "project" instead of "project_id"
+        user_input = [('task set 1 project 0', None)]
+        self._test_output(capsys, monkeypatch, user_input, out="Updated field 'project_id' for task task0 with ID 1", board=board)
+        # update the project ID via its name
+        user_input = [('task set 1 project proj', None)]
+        self._test_output(capsys, monkeypatch, user_input, out="Updated field 'project_id' for task task0 with ID 1", board=board)
+        # attempt to use a project name instead of ID with "project_id"
+        user_input = [('task set 1 project_id proj', None)]
+        with pytest.raises(UserInputError, match="Invalid project ID 'proj'"):
+            self._test_output(capsys, monkeypatch, user_input, board=board)
+        # unset the project ID
+        for cmd in ['task set 1 project', 'task set 1 project_id', 'task set 1 project=', "task set 1 project=''", "task set 1 project_id=''"]:
+            user_input = [(cmd, None)]
+            self._test_output(capsys, monkeypatch, user_input, out="Updated field 'project_id' for task task0 with ID 1", board=board)
 
     # BOARD
 

@@ -5,8 +5,9 @@ from daikanban.utils import convert_number_words_to_digits, human_readable_durat
 
 @pytest.mark.parametrize(['string', 'expected'], [
     ('', None),
-    ('key=', None),
     ('=val', None),
+    ('key=', ('key', '')),
+    ('key= ', ('key', '')),
     ('key=val', ('key', 'val')),
     ('key = val', ('key', 'val')),
     ('key= val', ('key', 'val')),

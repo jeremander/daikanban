@@ -234,26 +234,41 @@ class BoardInterface:
     board: Annotated[Optional[Board], Doc('current DaiKanban board')] = None
     config: Annotated[Config, Doc('global configurations')] = field(default_factory=Config)
 
+    def _parse_id(self, item_type: str, s: str) -> Optional[Id]:
+        s = s.strip()
+        if not s:
+            return None
+        if s.isdigit():
+            d = getattr(self.board, f'{item_type}s')
+            if (id_ := int(s)) in d:
+                return id_
+            raise UserInputError(f'{item_type.capitalize()} with ID {s} not found')
+        raise UserInputError(f'Invalid {item_type} ID {s!r}')
+
     def _parse_id_or_name(self, item_type: str, s: str) -> Optional[Id]:
         assert self.board is not None
         s = s.strip()
         if not s:
             return None
-        d = getattr(self.board, f'{item_type}s')
         if s.isdigit():
-            if (id_ := int(s)) in d:
-                return id_
-            raise UserInputError(f'{item_type.capitalize()} with ID {s} not found')
+            return self._parse_id(item_type, s)
+        # otherwise, parse as a name
         method = getattr(self.board, f'get_{item_type}_id_by_name')
         if ((id_ := method(s, fuzzy_match)) is not None):
             return id_
         raise UserInputError(f'Invalid {item_type} name {name_style(s)}')
+
+    def _parse_project_id(self, id_str: str) -> Optional[Id]:
+        return self._parse_id('project', id_str)
 
     def _parse_project(self, id_or_name: str) -> Optional[Id]:
         """Given a project ID or name, returns the corresponding project ID.
         If the string is empty, returns None.
         If it is not valid, raises a UserInputError."""
         return self._parse_id_or_name('project', id_or_name)
+
+    def _parse_task_id(self, id_str: str) -> Optional[Id]:
+        return self._parse_id('task', id_str)
 
     def _parse_task(self, id_or_name: str) -> Optional[Id]:
         """Given a task ID or name, returns the corresponding task ID.
@@ -566,7 +581,8 @@ class BoardInterface:
         return {
             'name': validate_task_name,
             'description': empty_is_none,
-            'project_id': self._parse_project,
+            'project_id': self._parse_project_id,
+            'project': self._parse_project,
             'priority': empty_is_none,
             'expected_difficulty': empty_is_none,
             'expected_duration': empty_is_none,
@@ -665,12 +681,8 @@ class BoardInterface:
     def update_task(self, id_or_name: str, field: str, value: Optional[str] = None) -> None:
         """Updates an attribute of a task."""
         if field == 'project':  # allow a name or ID
-            if value is None:
-                raise UserInputError('Must provide a valid project name or ID')
-            id_ = self._parse_project(value)
-            if id_ is None:
-                raise UserInputError('Invalid project')
-            return self.update_task(id_or_name, 'project_id', str(id_))
+            id_ = str(self._parse_project(value)) if value else None
+            return self.update_task(id_or_name, 'project_id', id_)
         return self._update_project_or_task(id_or_name, field, value, is_task=True)
 
     @require_board
