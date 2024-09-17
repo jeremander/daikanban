@@ -3,6 +3,7 @@ from datetime import datetime
 import pytest
 
 from daikanban.board import Board
+from daikanban.config import get_config
 from daikanban.model import Project, Task
 
 from . import make_uuid
@@ -41,3 +42,10 @@ def test_board() -> Board:
         tasks[i] = tasks[i].started(STARTED_TIME).modified(CREATED_TIME)
     tasks[2] = tasks[2].completed(COMPLETED_TIME).modified(CREATED_TIME)
     return Board(name='myboard', created_time=CREATED_TIME, projects=projects, tasks=tasks)
+
+@pytest.fixture
+def set_tmp_board_path(tmpdir, monkeypatch):
+    """Fixture to set the board path to a temporary directory in the global configurations."""
+    cfg = get_config()
+    monkeypatch.setattr(cfg.board, 'board_dir', str(tmpdir))
+    return None

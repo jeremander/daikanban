@@ -1,5 +1,6 @@
 from copy import deepcopy
 from datetime import date, datetime
+from pathlib import Path
 
 from pydantic import ValidationError
 import pytest
@@ -183,3 +184,10 @@ def test_task_scorer():
 def test_toml_round_trip():
     config = get_config()
     assert Config.from_toml_string(config.to_toml_string()) == config
+
+def test_board_manager(set_tmp_board_path):
+    cfg = get_config()
+    board_dir = Path(cfg.board.board_dir)
+    assert board_dir.exists()
+    assert cfg.board.board_dir_path == board_dir
+    assert cfg.board.default_board_path == board_dir / 'board.json'

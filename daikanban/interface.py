@@ -236,9 +236,6 @@ class BoardInterface:
     board: Annotated[Optional[Board], Doc('current DaiKanban board')] = None
     config: Annotated[Config, Doc('global configurations')] = field(default_factory=Config)
 
-    def __post_init__(self) -> None:
-        self.board_manager = self.config.board_manager
-
     def _parse_id(self, item_type: str, s: str) -> Optional[Id]:
         s = s.strip()
         if not s:
@@ -726,10 +723,10 @@ class BoardInterface:
         """Loads a board from a JSON file.
         If none is provided, prompts the user interactively."""
         if name is None:
-            path = self.board_manager.default_board_path
+            path = self.config.board.default_board_path
             s = 'default board'
         else:
-            path = self.board_manager.resolve_board_name_or_path(name)
+            path = self.config.board.resolve_board_name_or_path(name)
             s = 'board'
         print(f'Loading {s} from {path_style(path)}')
         self.board = load_board(path, config=self.config)
@@ -751,7 +748,7 @@ class BoardInterface:
         Implicitly loads that board afterward."""
         print('Creating new DaiKanban board.\n')
         name = simple_input('Board name', match=r'.*[^\s].*')
-        default_path = str(self.board_manager.resolve_board_name_or_path(name))
+        default_path = str(self.config.board.resolve_board_name_or_path(name))
         path = simple_input('Output filename', default=default_path).strip()
         path = path or default_path
         board_path = Path(path)

@@ -80,7 +80,7 @@ class TaskSortKey(TOMLDataclass):
 @dataclass
 class BoardConfig(TOMLDataclass):
     """Board configurations."""
-    board_path: Annotated[
+    board_dir: Annotated[
         str,
         Doc(f'directory for board files (can be a path relative to ~/.{PROG})')
     ] = DEFAULT_BOARD_DIR
@@ -88,6 +88,28 @@ class BoardConfig(TOMLDataclass):
         str,
         Doc('name of default board')
     ] = 'board.json'
+
+    @property
+    def board_dir_path(self) -> Path:
+        """Gets the absolute path to the board directory."""
+        if (path := Path(self.board_dir)).is_absolute():
+            return path
+        return user_dir() / self.board_dir
+
+    def resolve_board_name_or_path(self, name: str | Path) -> Path:
+        """Given the name or path to a board file, returns the absolute path."""
+        if (path := Path(name)).is_absolute():
+            return path
+        # user entered a name or relative filename, so resolve it relative to the board directory
+        if Path(name).suffix.lower() != '.json':
+            name = str(name) + '.json'
+        return self.board_dir_path / name
+
+    @property
+    def default_board_path(self) -> Path:
+        """Gets the absolute path to the default board file."""
+        return self.resolve_board_name_or_path(self.default_board)
+
 
 @dataclass
 class TimeConfig(TOMLDataclass):
@@ -262,11 +284,6 @@ class Config(ConfigDataclass, TOMLDataclass, doc_as_comment=True):  # type: igno
         """Gets a function which matches names, with case-sensitivity dependent on the configs."""
         return whitespace_insensitive_match if self.case_sensitive else case_insensitive_match
 
-    @property
-    def board_manager(self) -> 'BoardManager':
-        """Returns a BoardManager object for managing board files."""
-        return BoardManager(self.board)
-
     def pretty_value(self, val: Any) -> str:
         """Gets a pretty representation of a value as a string.
         The representation will depend on its type and the configs."""
@@ -298,30 +315,3 @@ def get_config() -> Config:
             config = Config()
         config.update_config()  # set global value
     return config
-
-
-@dataclass
-class BoardManager:
-    """Class for managing a user's board."""
-    config: BoardConfig
-
-    @property
-    def board_dir(self) -> Path:
-        """Gets the absolute path to the board directory."""
-        if (path := Path(self.config.board_path)).is_absolute():
-            return path
-        return user_dir() / self.config.board_path
-
-    def resolve_board_name_or_path(self, name: str | Path) -> Path:
-        """Given the name or path to a board file, returns the absolute path."""
-        if (path := Path(name)).is_absolute():
-            return path
-        # user entered a name or relative filename, so resolve it relative to the board directory
-        if Path(name).suffix.lower() != '.json':
-            name = str(name) + '.json'
-        return self.board_dir / name
-
-    @property
-    def default_board_path(self) -> Path:
-        """Gets the absolute path to the default board file."""
-        return self.resolve_board_name_or_path(self.config.default_board)

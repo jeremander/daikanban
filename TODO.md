@@ -3,8 +3,16 @@
 ## `v0.2.0`
 
 - Config customization
-  - Board directory
-    - Default board file
+  - Board management
+    - Load default board when entering shell. Print message to use `board load` to switch boards.
+    - If default board doesn't exist, suggest the user create one with `board new [default_path]`.
+    - If `board load` attempts to load nonexistent path, suggest the user create it with `board new [path]`.
+    - Have `board new [name_or_path]` fill in the name/path without prompting.
+    - `board list` to list all JSON files in the board directory
+      - Implement this in `BoardManager`
+    - Tests
+      - Test various functionality, patching the board directory to a temporary one
+      - Test `cli` subcommand
   - Particular configs:
     - [x] Which items to include when making new tasks (priority/difficulty/duration can be omitted, with default)
     - [x] Default size limit
@@ -15,6 +23,9 @@
 
 ## `v0.2.1`
 
+- Provide informative error/warning if loaded config file does not match latest schema
+  - Ideally load what we can of the file and warn if there's an unknown field (no fields should be required).
+    - Currently we probably just silently fail to notice unknown fields?
 - Config customization
   - CLI command to reset configs to the basic defaults
   - Shell option to interact with configs
