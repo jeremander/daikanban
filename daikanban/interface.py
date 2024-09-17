@@ -579,6 +579,9 @@ class BoardInterface:
     @property
     def _task_field_parsers(self) -> dict[str, Callable[[str], Any]]:
         """Gets a dict from project fields to parser/validator functions that take a string and return a value for that field."""
+        def _parse_task_set(s: str) -> Optional[set[Id]]:
+            # parse comma-separated list of task IDs and/or names
+            return {task_id for elt in (parse_string_set(s) or set()) if (task_id := self._parse_task(elt)) is not None} or None
         return {
             'name': validate_task_name,
             'description': empty_is_none,
@@ -590,6 +593,7 @@ class BoardInterface:
             'due': parse_date_as_string,
             'tags': parse_string_set,
             'links': parse_string_set,
+            'blocked_by': _parse_task_set,
             'parent': self._parse_task,
         }
 

@@ -2,7 +2,6 @@
 
 ## `v0.2.0`
 
-- Let user use project/task name instead of ID, for blocked_by
 - Config customization
   - Board directory
     - Default board file

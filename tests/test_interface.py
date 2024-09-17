@@ -369,6 +369,20 @@ class TestInterface:
         user_input = [('task set 1 parent task', None)]
         with pytest.raises(UserInputError, match="Ambiguous task name 'task'"):
             self._test_output(capsys, monkeypatch, user_input, board=board)
+        # set blocking tasks
+        user_input = [('task set 1 blocked_by 0', None)]
+        self._test_output(capsys, monkeypatch, user_input, out="Updated field 'blocked_by' for task task0 with ID 1", board=board)
+        assert board.get_task(1).blocked_by == {0}
+        user_input = [('task set 1 blocked_by 0,1', None)]
+        self._test_output(capsys, monkeypatch, user_input, out="Updated field 'blocked_by' for task task0 with ID 1", board=board)
+        assert board.get_task(1).blocked_by == {0, 1}
+        user_input = [('task set 1 blocked_by 2', None)]
+        with pytest.raises(UserInputError, match="Task with ID 2 not found"):
+            self._test_output(capsys, monkeypatch, user_input, board=board)
+        board.update_task(1, name='task1')
+        user_input = [('task set 1 blocked_by 0,task1', None)]
+        self._test_output(capsys, monkeypatch, user_input, out="Updated field 'blocked_by' for task task1 with ID 1", board=board)
+        assert board.get_task(1).blocked_by == {0, 1}
 
     # BOARD
 

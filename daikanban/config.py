@@ -280,7 +280,8 @@ class Config(ConfigDataclass, TOMLDataclass, doc_as_comment=True):  # type: igno
             tzinfo = get_current_time().tzinfo
             return self.pretty_value(datetime(year=val.year, month=val.month, day=val.day, tzinfo=tzinfo))
         if isinstance(val, (list, set)):  # display comma-separated list
-            return ', '.join(map(self.pretty_value, val))
+            vals = sorted(val) if isinstance(val, set) else val
+            return ', '.join(map(self.pretty_value, vals))
         return str(val)
 
 
