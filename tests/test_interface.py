@@ -100,7 +100,7 @@ class TestInterface:
             self._test_output(capsys, monkeypatch, user_input, None, board=board)
         # set field on a nonexistent project
         user_input = [('project set 1 name proj1', None)]
-        with pytest.raises(UserInputError, match='Invalid project ID: 1'):
+        with pytest.raises(UserInputError, match='Project with ID 1 not found'):
             self._test_output(capsys, monkeypatch, user_input, None, board=board)
         # set the name
         user_input = [('project set 0 name proj0', None)]
@@ -122,11 +122,11 @@ class TestInterface:
         proj = board.get_project(0)
         assert proj.name == 'proj0'
         assert proj.description is None
-        # set description to empty string
+        # set description to empty string (gets converted to None)
         for c in ["'", '"']:
             user_input = [(f'project set 0 description {c}{c}', None)]
             self._test_output(capsys, monkeypatch, user_input, "Updated field 'description'", board=board)
-            assert board.get_project(0).description == ''
+            assert board.get_project(0).description is None
         # set description to null
         user_input = [('project set 0 description', None)]
         self._test_output(capsys, monkeypatch, user_input, "Updated field 'description'", board=board)
@@ -139,7 +139,7 @@ class TestInterface:
         assert board.get_project(0).links is None
         user_input = [('project set 0 links ""', None)]
         self._test_output(capsys, monkeypatch, user_input, "Updated field 'links'", board=board)
-        assert board.get_project(0).links == set()
+        assert board.get_project(0).links is None  # empty set becomes None
         user_input = [('project set 0 links link1', None)]
         with pytest.raises(UserInputError, match='Invalid URL'):
             self._test_output(capsys, monkeypatch, user_input, None, board=board)
@@ -322,7 +322,7 @@ class TestInterface:
             self._test_output(capsys, monkeypatch, user_input, None, board=board)
         # set the project ID to an invalid project
         user_input = [('task set 1 project_id 0', None)]
-        with pytest.raises(UserInputError, match='Project with id 0 not found'):
+        with pytest.raises(UserInputError, match='Project with ID 0 not found'):
             self._test_output(capsys, monkeypatch, user_input, None, board=board)
         # set the project ID to a valid project
         assert board.create_project(Project(name='proj')) == 0

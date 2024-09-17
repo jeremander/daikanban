@@ -243,11 +243,11 @@ class BoardInterface:
         if s.isdigit():
             if (id_ := int(s)) in d:
                 return id_
-            raise UserInputError(f'Invalid {item_type} ID: {s}')
+            raise UserInputError(f'{item_type.capitalize()} with ID {s} not found')
         method = getattr(self.board, f'get_{item_type}_id_by_name')
         if ((id_ := method(s, fuzzy_match)) is not None):
             return id_
-        raise UserInputError(f'Invalid {item_type} name {s!r}')
+        raise UserInputError(f'Invalid {item_type} name {name_style(s)}')
 
     def _parse_project(self, id_or_name: str) -> Optional[Id]:
         """Given a project ID or name, returns the corresponding project ID.
@@ -387,17 +387,20 @@ class BoardInterface:
         assert self.board is not None
         cls: Type[Model] = Task if is_task else Project  # type: ignore[assignment]
         name = cls.__name__.lower()
-        if (field == 'name') and isinstance(value, str):
-            _ = _validate_project_or_task_name(value, name)
         id_field = f'{name}_id'
         if (field in cls._computed_fields()) or (field == id_field):
             raise UserInputError(f'Field {field!r} cannot be updated')
         id_ = getattr(self, f'_parse_{name}')(id_or_name)
         assert id_ is not None
         obj = getattr(self.board, f'get_{name}')(id_)
+        # if field has a known parser, parse the value now
+        parsers = getattr(self, f'_{name}_field_parsers')
+        if (value is not None) and (field in parsers):
+            value = parsers[field](value)
+        # otherwise, defer the validation to object update via pydantic
         kwargs = {field: value}
         try:
-            getattr(self.board, f'update_{name}')(id_, **kwargs)  # pydantic handles string conversion
+            getattr(self.board, f'update_{name}')(id_, **kwargs)
         except (KanbanError, TypeError, ValidationError) as e:
             msg = e.errors()[0]['msg'] if isinstance(e, ValidationError) else str(e)
             msg = msg.splitlines()[0]
