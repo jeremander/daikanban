@@ -422,24 +422,31 @@ class BoardInterface:
         self.save_board()
         print(f'Deleted project {name_style(proj.name)} with ID {proj_id_style(id_)}')
 
+    @property
+    def _project_field_parsers(self) -> dict[str, Callable[[str], Any]]:
+        """Gets a dict from project fields to parser/validator functions that take a string and return a value for that field."""
+        return {
+            'name': validate_project_name,
+            'description': empty_is_none,
+            'links': parse_string_set,
+        }
+
     @require_board
     def new_project(self, name: Optional[str] = None) -> None:
         """Creates a new project."""
         assert self.board is not None
-        params: dict[str, dict[str, Any]] = {
-            'name': {
-                'prompt': 'Project name',
-                'parse': validate_project_name
-            },
-            'description': {
-                'parse': empty_is_none
-            },
-            'links': {
-                'prompt': 'Links [not bold]\\[optional, comma-separated][/]',
-                'parse': parse_string_set
-            }
+        parsers = self._project_field_parsers
+        prompts = {
+            'name': 'Project name',
+            'description': 'Description',
+            'links': 'Links [not bold]\\[optional, comma-separated][/]',
         }
-        prompters: dict[str, FieldPrompter] = {field: FieldPrompter(Project, field, **kwargs) for (field, kwargs) in params.items()}
+        prompters: dict[str, FieldPrompter] = {}
+        for (fld, prompt) in prompts.items():
+            kwargs: dict[str, Any] = {'prompt': prompt}
+            if fld in parsers:
+                kwargs['parse'] = parsers[fld]
+            prompters[fld] = FieldPrompter(Project, fld, **kwargs)
         if name is None:
             defaults = {}
         else:
@@ -550,46 +557,36 @@ class BoardInterface:
         self.save_board()
         print(f'Deleted task {name_style(task.name)} with ID {task_id_style(id_)}')
 
+    @property
+    def _task_field_parsers(self) -> dict[str, Callable[[str], Any]]:
+        """Gets a dict from project fields to parser/validator functions that take a string and return a value for that field."""
+        return {
+            'name': validate_task_name,
+            'description': empty_is_none,
+            'project_id': self._parse_project,
+            'priority': empty_is_none,
+            'expected_difficulty': empty_is_none,
+            'expected_duration': empty_is_none,
+            'due': parse_date_as_string,
+            'tags': parse_string_set,
+            'links': parse_string_set,
+        }
+
     @require_board
     def new_task(self, name: Optional[str] = None) -> None:
         """Creates a new task."""
         assert self.board is not None
-        params: dict[str, dict[str, Any]] = {
-            'name': {
-                'prompt': 'Task name',
-                'parse': validate_task_name
-            },
-            'description': {
-                'parse': empty_is_none
-            },
-            'project_id': {
-                'prompt': 'Project ID or name [not bold]\\[optional][/]',
-                'parse': self._parse_project
-            },
-            'priority': {
-                'prompt': 'Priority [not bold]\\[optional, 0-10][/]',
-                'parse': empty_is_none
-            },
-            'expected_difficulty': {
-                'prompt': 'Expected difficulty [not bold]\\[optional, 0-10][/]',
-                'parse': empty_is_none
-            },
-            'expected_duration': {
-                'prompt': 'Expected duration [not bold]\\[optional, e.g. "3 days", "2 months"][/]',
-                'parse': parse_duration
-            },
-            'due': {
-                'prompt': 'Due date [not bold]\\[optional][/]',
-                'parse': parse_date_as_string
-            },
-            'tags': {
-                'prompt': 'Tags [not bold]\\[optional, comma-separated][/]',
-                'parse': parse_string_set
-            },
-            'links': {
-                'prompt': 'Links [not bold]\\[optional, comma-separated][/]',
-                'parse': parse_string_set
-            }
+        parsers = self._task_field_parsers
+        prompts = {
+            'name': 'Task name',
+            'description': 'Description',
+            'project_id': 'Project ID or name [not bold]\\[optional][/]',
+            'priority': 'Priority [not bold]\\[optional, 0-10][/]',
+            'expected_difficulty': 'Expected difficulty [not bold]\\[optional, 0-10][/]',
+            'expected_duration': 'Expected duration [not bold]\\[optional, e.g. "3 days", "2 months"][/]',
+            'due': 'Due date [not bold]\\[optional][/]',
+            'tags': 'Tags [not bold]\\[optional, comma-separated][/]',
+            'links': 'Links [not bold]\\[optional, comma-separated][/]',
         }
         # only prompt for the fields specified in the configs
         task_fields = set(self.config.task.new_task_fields)
@@ -598,7 +595,13 @@ class BoardInterface:
         else:
             task_fields.discard('name')
             defaults = {'name': validate_task_name(name)}
-        prompters: dict[str, FieldPrompter] = {field: FieldPrompter(Task, field, **kwargs) for (field, kwargs) in params.items() if field in task_fields}
+        prompters: dict[str, FieldPrompter] = {}
+        for (fld, prompt) in prompts.items():
+            if fld in task_fields:
+                kwargs: dict[str, Any] = {'prompt': prompt}
+                if fld in parsers:
+                    kwargs['parse'] = parsers[fld]
+                prompters[fld] = FieldPrompter(Task, fld, **kwargs)
         try:
             task = model_from_prompt(Task, prompters, defaults=defaults)
         except KeyboardInterrupt:  # go back to main REPL
