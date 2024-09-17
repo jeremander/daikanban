@@ -2,7 +2,8 @@ from datetime import datetime
 
 import pytest
 
-from daikanban.model import Board, Project, Task
+from daikanban.board import Board
+from daikanban.model import Project, Task
 
 from . import make_uuid
 

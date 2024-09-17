@@ -2,8 +2,9 @@ from pathlib import Path
 from typing import Any, Optional
 
 from daikanban import logger
+from daikanban.board import Board, load_board
 from daikanban.config import get_config
-from daikanban.model import Board, BoardFileError, load_board
+from daikanban.errors import BoardFileError
 
 
 # default settings for typer app

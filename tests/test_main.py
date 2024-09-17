@@ -5,8 +5,8 @@ import sys
 import pytest
 
 from daikanban import __version__
+from daikanban.board import Board
 from daikanban.cli.main import APP
-from daikanban.model import Board
 from daikanban.utils import get_current_time
 
 from . import make_uuid, match_patterns

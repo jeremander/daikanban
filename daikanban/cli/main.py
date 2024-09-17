@@ -7,13 +7,13 @@ from rich import print
 import typer
 
 from daikanban import __version__, logger
+from daikanban.board import Board
 from daikanban.cli import APP_KWARGS
 import daikanban.cli.config
 from daikanban.cli.exporter import ExportFormat, export_board
 from daikanban.cli.importer import ImportFormat, import_board
+from daikanban.errors import KanbanError
 from daikanban.interface import BoardInterface
-from daikanban.model import Board
-from daikanban.utils import KanbanError
 
 
 #######

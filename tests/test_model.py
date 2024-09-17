@@ -6,8 +6,10 @@ from pydantic import ValidationError
 from pydantic_core import Url
 import pytest
 
+from daikanban.board import Board, load_board
 from daikanban.config import DEFAULT_DATETIME_FORMAT, get_config
-from daikanban.model import AmbiguousProjectNameError, AmbiguousTaskNameError, Board, DuplicateProjectError, Project, ProjectNotFoundError, Relation, Task, TaskNotFoundError, TaskStatus, TaskStatusAction, TaskStatusError, UUIDImmutableError, VersionMismatchError, load_board
+from daikanban.errors import AmbiguousProjectNameError, AmbiguousTaskNameError, DuplicateProjectError, ProjectNotFoundError, TaskNotFoundError, TaskStatusError, UUIDImmutableError, VersionMismatchError
+from daikanban.model import Project, Relation, Task, TaskStatus, TaskStatusAction
 from daikanban.task import TASK_SCORERS
 from daikanban.utils import case_insensitive_match, fuzzy_match, get_current_time
 

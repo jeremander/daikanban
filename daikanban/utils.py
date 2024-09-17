@@ -8,6 +8,8 @@ from typing import Any, Callable, Iterable, Optional
 import pendulum
 from typing_extensions import TypeAlias
 
+from daikanban.errors import UserInputError
+
 
 SECS_PER_HOUR = 3600
 HOURS_PER_DAY = 24
@@ -226,17 +228,6 @@ def err_style(obj: object) -> str:
     if s:
         s = s[0].upper() + s[1:]
     return style_str(s, 'red')
-
-
-##########
-# ERRORS #
-##########
-
-class KanbanError(ValueError):
-    """Custom error type for Kanban errors."""
-
-class UserInputError(KanbanError):
-    """Class for user input errors."""
 
 
 ########

@@ -2,8 +2,9 @@ from typing import IO, Any
 
 from typing_extensions import Self
 
+from daikanban.board import Board
 from daikanban.io import JSONExporter, JSONImporter, JSONReadable, JSONWritable
-from daikanban.model import Board, ModelJSONEncoder
+from daikanban.model import ModelJSONEncoder
 
 
 class BoardDict(dict[str, Any], JSONReadable, JSONWritable):

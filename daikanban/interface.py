@@ -20,8 +20,10 @@ from rich.table import Table
 from typing_extensions import Concatenate, Doc, ParamSpec
 
 from daikanban import PKG_DIR, logger
+from daikanban.board import Board, load_board
 from daikanban.config import Config, get_config
-from daikanban.model import Board, BoardFileError, DefaultColor, Id, KanbanError, Model, Project, Task, TaskStatus, TaskStatusAction, TaskStatusError, load_board, name_style, path_style, proj_id_style, status_style, task_id_style
+from daikanban.errors import BoardFileError, KanbanError
+from daikanban.model import DefaultColor, Id, Model, Project, Task, TaskStatus, TaskStatusAction, TaskStatusError, name_style, path_style, proj_id_style, status_style, task_id_style
 from daikanban.prompt import FieldPrompter, Prompter, model_from_prompt, simple_input
 from daikanban.utils import NotGiven, NotGivenType, UserInputError, err_style, fuzzy_match, get_current_time, get_duration_between, human_readable_duration, parse_key_value_pair, parse_string_set, prefix_match, style_str
 

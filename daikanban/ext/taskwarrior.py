@@ -7,8 +7,9 @@ from pydantic import UUID4, AnyUrl
 from pydantic.dataclasses import dataclass
 from typing_extensions import Self
 
+from daikanban.board import Board
 from daikanban.io import JSONExporter, JSONImporter, JSONReadable, JSONWritable
-from daikanban.model import Board, Id, Model, ModelJSONEncoder, Project, Task
+from daikanban.model import Id, Model, ModelJSONEncoder, Project, Task
 from daikanban.task import TaskStatus
 from daikanban.utils import IdCollection, get_current_time
 

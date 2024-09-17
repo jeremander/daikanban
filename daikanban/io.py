@@ -8,7 +8,7 @@ from typing import IO, Any, ClassVar, Generic, Type, TypeVar, Union
 
 from typing_extensions import Self
 
-from daikanban.model import Board
+from daikanban.board import Board
 
 
 T = TypeVar('T')

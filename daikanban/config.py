@@ -253,11 +253,11 @@ class Config(ConfigDataclass, TOMLDataclass, doc_as_comment=True):  # type: igno
 
     def resolve_board_name_or_path(self, name: str | Path) -> Path:
         """Given the name or path to a board file, returns the absolute path."""
-        if not (is_path := Path(name)).suffix:
-            name = str(name) + '.json'
-        if (path := Path(name)).is_absolute() or is_path:
+        if (path := Path(name)).is_absolute():
             return path
-        # user entered a name rather than a path, so resolve it relative to the board directory
+        # user entered a name or relative filename, so resolve it relative to the board directory
+        if Path(name).suffix.lower() != '.json':
+            name = str(name) + '.json'
         return self.get_board_dir() / name
 
     @property

@@ -3,9 +3,11 @@ from contextlib import suppress
 from pydantic_core import Url
 import pytest
 
+from daikanban.board import Board
 from daikanban.config import get_config
+from daikanban.errors import TaskStatusError
 from daikanban.interface import BoardInterface, parse_string_set
-from daikanban.model import Board, Project, Task, TaskStatusAction, TaskStatusError
+from daikanban.model import Project, Task, TaskStatusAction
 from daikanban.utils import UserInputError, get_current_time
 
 from . import match_patterns, patch_stdin
