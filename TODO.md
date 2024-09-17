@@ -2,8 +2,7 @@
 
 ## `v0.2.0`
 
-- Let user set `project` as alternative to `project_id`
-- Let user use project/task name instead of ID, for parent, project_id, blocked_by
+- Let user use project/task name instead of ID, for blocked_by
 - Config customization
   - Board directory
     - Default board file

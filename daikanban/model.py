@@ -917,13 +917,14 @@ class Board(Model):
                 pairs.append((id_, name == t.name))
         incomplete_ids = self._filter_id_matches(incomplete_pairs)
         complete_ids = self._filter_id_matches(complete_pairs)
-        # prioritize exact matches, and incomplete over complete
-        if any(exact for (_, exact) in incomplete_pairs):
-            return incomplete_ids[0]
         def _get_id(ids: list[Id], err: str) -> Id:
             if len(ids) > 1:
                 raise AmbiguousTaskNameError(err)
             return ids[0]
+        # prioritize exact matches, and incomplete over complete
+        incomplete_exact_ids = [id_ for (id_, exact) in incomplete_pairs if exact]
+        if incomplete_exact_ids:
+            return _get_id(incomplete_exact_ids, f'Ambiguous task name {name!r}')
         if any(exact for (_, exact) in complete_pairs):
             return _get_id(complete_ids, f'Multiple completed tasks match name {name!r}')
         if incomplete_ids:

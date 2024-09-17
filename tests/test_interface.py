@@ -165,6 +165,19 @@ class TestInterface:
             self._test_output(capsys, monkeypatch, user_input, board=board)
         # set duplicate project name
         board.create_project(Project(name='proj'))
+        # set project parent
+        user_input = [('project set 1 parent 0', None)]
+        self._test_output(capsys, monkeypatch, user_input, out="Updated field 'parent' for project proj with ID 1", board=board)
+        user_input = [('project set 1 parent proj0', None)]
+        self._test_output(capsys, monkeypatch, user_input, out="Updated field 'parent' for project proj with ID 1", board=board)
+        # set project parent to invalid value
+        user_input = [('project set 1 parent 2', None)]
+        with pytest.raises(UserInputError, match='Project with ID 2 not found'):
+            self._test_output(capsys, monkeypatch, user_input, board=board)
+        user_input = [('project set 1 parent fake', None)]
+        with pytest.raises(UserInputError, match='Invalid project name'):
+            self._test_output(capsys, monkeypatch, user_input, board=board)
+        # rename project to duplicate another one
         user_input = [('project set 1 name proj0', None)]
         self._test_output(capsys, monkeypatch, user_input, err='Duplicate project name', board=board)
         # attempt to set the project ID
@@ -174,6 +187,10 @@ class TestInterface:
         # attempt to set an invalid field
         user_input = [('project set 1 fake abc', None)]
         with pytest.raises(UserInputError, match="Unknown field 'fake'"):
+            self._test_output(capsys, monkeypatch, user_input, board=board)
+        # attempt to set parent to ambiguous project name
+        user_input = [('project set 1 parent proj0', None)]
+        with pytest.raises(UserInputError, match="Ambiguous project name 'proj0'"):
             self._test_output(capsys, monkeypatch, user_input, board=board)
 
     # TASK
@@ -341,6 +358,17 @@ class TestInterface:
         for cmd in ['task set 1 project', 'task set 1 project_id', 'task set 1 project=', "task set 1 project=''", "task set 1 project_id=''"]:
             user_input = [(cmd, None)]
             self._test_output(capsys, monkeypatch, user_input, out="Updated field 'project_id' for task task0 with ID 1", board=board)
+        # set task parent
+        user_input = [('task set 1 parent 0', None)]
+        self._test_output(capsys, monkeypatch, user_input, out="Updated field 'parent' for task task0 with ID 1", board=board)
+        # set task parent to ambiguous task name
+        user_input = [('task set 1 parent task0', None)]
+        with pytest.raises(UserInputError, match="Ambiguous task name 'task0'"):
+            self._test_output(capsys, monkeypatch, user_input, board=board)
+        # name 'task' matches two instances of 'task0' (fuzzily)
+        user_input = [('task set 1 parent task', None)]
+        with pytest.raises(UserInputError, match="Ambiguous task name 'task'"):
+            self._test_output(capsys, monkeypatch, user_input, board=board)
 
     # BOARD
 

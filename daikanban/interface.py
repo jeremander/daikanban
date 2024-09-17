@@ -410,11 +410,11 @@ class BoardInterface:
         obj = getattr(self.board, f'get_{name}')(id_)
         # if field has a known parser, parse the value now
         parsers = getattr(self, f'_{name}_field_parsers')
-        if (value is not None) and (field in parsers):
-            value = parsers[field](value)
-        # otherwise, defer the validation to object update via pydantic
-        kwargs = {field: value}
         try:
+            if (value is not None) and (field in parsers):
+                value = parsers[field](value)
+            # otherwise, defer the validation to object update via pydantic
+            kwargs = {field: value}
             getattr(self.board, f'update_{name}')(id_, **kwargs)
         except (KanbanError, TypeError, ValidationError) as e:
             msg = e.errors()[0]['msg'] if isinstance(e, ValidationError) else str(e)
@@ -447,6 +447,7 @@ class BoardInterface:
             'name': validate_project_name,
             'description': empty_is_none,
             'links': parse_string_set,
+            'parent': self._parse_project,
         }
 
     @require_board
@@ -589,6 +590,7 @@ class BoardInterface:
             'due': parse_date_as_string,
             'tags': parse_string_set,
             'links': parse_string_set,
+            'parent': self._parse_task,
         }
 
     @require_board
