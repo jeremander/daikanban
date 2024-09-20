@@ -392,9 +392,32 @@ class TestInterface:
 
     # BOARD
 
+    def test_board_new(self, capsys, monkeypatch, set_tmp_board_path, use_regular_print):
+        """Tests 'board new'."""
+        board_cfg = get_config().board
+        board_dir = board_cfg.board_dir_path
+        default_out = ['Creating new DaiKanban board.']
+        out = default_out + ['Board name:', 'Output filename', r'\(.*board1.json\)', 'Board description', r'Saved DaiKanban board .*board1.*to .*board1\.json']
+        self._test_output(capsys, monkeypatch, [('board new', ['board1', '', ''])], out=out, interface=BoardInterface())
+        assert (board_dir / 'board1.json').exists()
+        out = default_out + ['Output filename', r'\(.*board2.json\)', 'Board description', r'Saved DaiKanban board .*board2.*to .*board2\.json']
+        self._test_output(capsys, monkeypatch, [('board new board2', ['', ''])], out=out, interface=BoardInterface())
+        assert (board_dir / 'board2.json').exists()
+        out = default_out + ['Output filename', r'\(.*board3.json\)', 'Board description', r'Saved DaiKanban board .*board3.*to .*myboard\.json']
+        p = board_dir / 'myboard.json'
+        self._test_output(capsys, monkeypatch, [('board new board3', [str(p), ''])], out=out, interface=BoardInterface())
+        assert p.exists()
+        assert not (board_dir / 'board3.json').exists()
+        out = default_out + [r'Board name \(board3\):', 'Board description', r'Saved DaiKanban board .*myboard.*to .*board3\.json']
+        self._test_output(capsys, monkeypatch, [('board new board3.json', ['myboard', ''])], out=out, interface=BoardInterface())
+        assert (board_dir / 'board3.json').exists()
+        out = default_out + [r'Board name \(board4\):', 'Board description', r'Saved DaiKanban board .*board4.*to .*board4\.json']
+        self._test_output(capsys, monkeypatch, [('board new board4.json', ['', ''])], out=out, interface=BoardInterface())
+        assert (board_dir / 'board4.json').exists()
+
     def test_board_show_empty(self, capsys):
         """Tests 'board show' when there are no tasks."""
-        self._test_output(capsys, None, [('board show', None)], r'\[No tasks\]')
+        self._test_output(capsys, None, [('board show', None)], out=r'\[No tasks\]')
 
     def test_board_show_one_task(self, capsys, monkeypatch):
         """Tests 'board show' through the life cycle of a single task."""
@@ -451,7 +474,7 @@ class TestInterface:
         interface = BoardInterface()
         out = [no_default_msg, 'empty_board.json\nempty_file.JSON\n']
         self._test_output(capsys, monkeypatch, [('board list', None)], out=out, err=f'Board directory: {board_dir}', interface=interface)
-        out = [no_default_msg, no_board_msg]
+        out = [no_default_msg, 'Default board file does not exist. You can create it with:']
         self._test_output(capsys, monkeypatch, [('board load', None)], out=out, interface=interface)
         with pytest.raises(BoardNotLoadedError, match='No board has been loaded.'):
             self._test_output(capsys, monkeypatch, [('board show', None)], interface=interface)

@@ -330,12 +330,12 @@ class BoardInterface:
     def add_board_help(self, grid: Table) -> None:
         """Adds entries to help menu related to boards."""
         statuses = ', '.join(TaskStatus)
-        grid.add_row('\\[b]oard', '\\[d]elete', 'delete current board')
-        grid.add_row('', '\\[n]ew', 'create new board')
-        grid.add_row('', '\\[l]oad [not bold]\\[FILENAME][/]', 'load board from file')
+        grid.add_row('\\[b]oard', 'list', 'list all boards')
+        grid.add_row('', '\\[d]elete', 'delete current board')
+        grid.add_row('', '\\[n]ew [not bold]\\[NAME][/]', 'create new board')
+        grid.add_row('', 'load [not bold]\\[NAME][/]', 'load board from file')
         grid.add_row('', 'schema', 'show board JSON schema')
         grid.add_row('', '\\[s]how', 'show current board, can provide extra filters like:')
-        # grid.add_row('', '', '  status=\\[STATUSES] project=\\[PROJECT_IDS] tag=\\[TAGS] limit=\\[SIZE] since=\\[WHEN]')
         grid.add_row('', '', f'  status=\\[STATUSES]  | list of statuses ({statuses})')
         grid.add_row('', '', '  project=\\[PROJECTS] | list of project names or IDs')
         grid.add_row('', '', '  tag=\\[TAGS]         | list of tags')
@@ -742,7 +742,8 @@ class BoardInterface:
             print(f'Loaded board with {self.board._num_proj_num_task_str}')
         else:
             cmd = cmd_style(f'board new {path}')
-            print(f'Board file does not exist. You can create it with:\n{cmd}')
+            s = 'Default board' if (path == self.config.board.default_board_path) else 'Board'
+            print(f'{s} file does not exist. You can create it with:\n{cmd}')
 
     def save_board(self) -> None:
         """Saves the state of the current board to its JSON file."""
@@ -771,7 +772,7 @@ class BoardInterface:
                 path = str(p)
             else:  # user provided a name, so prompt only for the path
                 name = str(name_or_path)
-                path = prompt_for_path(path)
+                path = prompt_for_path(str(p))
         board_path = Path(path)
         create = (not board_path.exists()) or Confirm.ask(f'A file named {path_style(path)} already exists.\n\tOverwrite?')
         if create:
@@ -985,9 +986,9 @@ class BoardInterface:
             tok1 = tokens[1]
             if prefix_match(tok1, 'delete'):
                 return self.delete_board()
-            if prefix_match(tok1, 'list'):
+            if prefix_match(tok1, 'list', minlen=2):
                 return self.list_boards()
-            if prefix_match(tok1, 'load'):
+            if prefix_match(tok1, 'load', minlen=2):
                 name_or_path = tokens[2] if (ntokens >= 3) else None
                 return self.load_board(name_or_path=name_or_path)
             if prefix_match(tok1, 'new'):

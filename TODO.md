@@ -4,7 +4,6 @@
 
 - Config customization
   - Board management
-    - Have `board new [name_or_path]` fill in the name/path without prompting.
     - Have `board new` do a `mkdir` with `parents=True`, if needed.
 
 ## `v0.2.1`
