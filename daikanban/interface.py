@@ -22,8 +22,8 @@ from typing_extensions import Concatenate, Doc, ParamSpec
 from daikanban import PKG_DIR, logger
 from daikanban.board import Board, load_board
 from daikanban.config import Config, get_config
-from daikanban.errors import BoardFileError, KanbanError
-from daikanban.model import DefaultColor, Id, Model, Project, Task, TaskStatus, TaskStatusAction, TaskStatusError, name_style, path_style, proj_id_style, status_style, task_id_style
+from daikanban.errors import BoardFileError, BoardNotLoadedError, InvalidTaskStatusError, KanbanError
+from daikanban.model import DefaultColor, Id, Model, Project, Task, TaskStatus, TaskStatusAction, TaskStatusError, cmd_style, name_style, path_style, proj_id_style, status_style, task_id_style
 from daikanban.prompt import FieldPrompter, Prompter, model_from_prompt, simple_input
 from daikanban.utils import NotGiven, NotGivenType, UserInputError, err_style, fuzzy_match, get_current_time, get_duration_between, human_readable_duration, parse_key_value_pair, parse_string_set, prefix_match, style_str
 
@@ -38,20 +38,6 @@ BI = TypeVar('BI', bound='BoardInterface')
 P = ParamSpec('P')
 
 BILLBOARD_ART_PATH = PKG_DIR / 'billboard_art.txt'
-
-
-##########
-# ERRORS #
-##########
-
-class BoardNotLoadedError(KanbanError):
-    """Error type for when a board has not yet been loaded."""
-
-class InvalidTaskStatusError(UserInputError):
-    """Error type for when the user provides an invalid task status."""
-    def __init__(self, status: str) -> None:
-        self.status = status
-        super().__init__(f'Invalid task status {status!r}')
 
 
 ####################
@@ -228,7 +214,7 @@ def require_board(func: Callable[Concatenate[BI, P], None]) -> Callable[Concaten
     return wrapped
 
 def list_boards(config: Optional[Config] = None, active_board_path: Optional[Path] = None) -> None:
-    """Prints out a list of available boards based on the configs.
+    """Prints out a list of boards in the configured board directory.
     If configs are not given, uses the global configs.
     If an active_board_path is given, marks it with a '*' symbol."""
     config = get_config() if (config is None) else config
@@ -253,7 +239,7 @@ class BoardInterface:
     This object maintains a state containing the currently loaded board and configurations."""
     board_path: Annotated[Optional[Path], Doc('path of current board')] = None
     board: Annotated[Optional[Board], Doc('current DaiKanban board')] = None
-    config: Annotated[Config, Doc('global configurations')] = field(default_factory=Config)
+    config: Annotated[Config, Doc('global configurations')] = field(default_factory=get_config)
 
     def _parse_id(self, item_type: str, s: str) -> Optional[Id]:
         s = s.strip()
@@ -539,7 +525,7 @@ class BoardInterface:
         _ = task.apply_status_action(action)
         def parse_datetime(s: str) -> datetime:
             task = board.get_task(id_)
-            config = get_config()
+            config = self.config
             dt = config.time.parse_datetime(s)
             if dt < task.created_time:
                 created_str = config.time.render_datetime(task.created_time)
@@ -668,7 +654,7 @@ class BoardInterface:
         def _get_proj(task: Task) -> Optional[str]:
             return None if (task.project_id is None) else self._project_str_from_id(task.project_id)
         def _get_date(dt: Optional[datetime]) -> Optional[str]:
-            return None if (dt is None) else dt.strftime(get_config().time.date_format)
+            return None if (dt is None) else dt.strftime(self.config.time.date_format)
         duration = None if (task.expected_duration is None) else pendulum.duration(days=task.expected_duration).in_words()
         return TaskRow(
             id=task_id_style(id_, bold=True),
@@ -724,6 +710,10 @@ class BoardInterface:
         print(f"Reset task {name_style(task.name)} with ID {task_id_style(id_)} to the 'todo' state")
 
     # BOARD
+
+    def list_boards(self) -> None:
+        """Prints out a list of boards in the configured board directory."""
+        list_boards(config=self.config, active_board_path=self.board_path)
 
     @require_board
     def delete_board(self) -> None:
@@ -919,7 +909,7 @@ class BoardInterface:
     ) -> None:
         """Displays the board to the screen using the current configurations."""
         if self.board is None:
-            raise BoardNotLoadedError("No board has been loaded.\nRun 'board new' to create a new board or 'board load' to load an existing one.")
+            raise BoardNotLoadedError(f"No board has been loaded.\nRun {cmd_style('board new')} to create a new board or {cmd_style('board load')} to load an existing one.")
         limit = self._get_task_limit(limit)
         scorer = self.config.task.scorer
         (col_by_status, col_colors) = self._column_info(statuses)
@@ -983,6 +973,8 @@ class BoardInterface:
             tok1 = tokens[1]
             if prefix_match(tok1, 'delete'):
                 return self.delete_board()
+            if prefix_match(tok1, 'list'):
+                return self.list_boards()
             if prefix_match(tok1, 'load'):
                 board_path = tokens[2] if (ntokens >= 3) else None
                 return self.load_board(board_path)
@@ -1071,14 +1063,24 @@ class BoardInterface:
         print('👋 Goodbye!')
         sys.exit(0)
 
+    def _set_board_path_to_default(self) -> None:
+        """Sets the `board_path` attribute to the configured default, if it exists."""
+        if (default_path := self.config.board.default_board_path).exists():
+            self.board_path = default_path
+        else:
+            cmd = cmd_style(f'board new {default_path}')
+            print(f'No default board exists. You can create one with:\n{cmd}')
+
     def launch_shell(self, board_path: Optional[Path] = None) -> None:
         """Launches an interactive shell to interact with a board.
         Optionally a board path may be provided, which will be loaded after the shell launches."""
         print(get_billboard_art())
         print('[bold italic cyan]Welcome to DaiKanban![/]')
         print(style_str("Type 'h' for help.", DefaultColor.faint))
-        # TODO: load default board from global config
-        if board_path is not None:
+        if self.board_path is None:
+            self._set_board_path_to_default()
+        print()
+        if self.board_path:
             with logger.catch_errors(BoardFileError):
                 self.load_board(board_path)
         try:

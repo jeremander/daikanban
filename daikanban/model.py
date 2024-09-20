@@ -101,11 +101,12 @@ UrlSet: TypeAlias = Annotated[set[Url], BeforeValidator(_parse_url_set)]
 
 class DefaultColor(StrEnum):
     """Enum for default color map."""
-    name = 'magenta'
-    field_name = 'deep_pink4'
-    proj_id = 'purple4'
-    task_id = 'dark_orange3'
-    path = 'dodger_blue2'
+    name = 'magenta'  # name of something
+    field_name = 'deep_pink4'  # name of a project/task field
+    proj_id = 'purple4'  # project ID
+    task_id = 'dark_orange3'  # task ID
+    path = 'dodger_blue2'  # path to a file
+    cmd = 'green'  # command to run
     error = 'red'
     faint = 'bright_black'
 
@@ -124,6 +125,10 @@ def task_id_style(id_: Id, bold: bool = False) -> str:
 def path_style(path: str | Path, bold: bool = False) -> str:
     """Renders a path as a rich-styled string."""
     return style_str(path, DefaultColor.path, bold=bold)
+
+def cmd_style(cmd: str) -> str:
+    """Renders a command as a rich-styled string."""
+    return style_str(cmd, DefaultColor.cmd)
 
 def status_style(status: TaskStatus) -> str:
     """Renders a TaskStatus as a rich-styled string with the appropriate color."""

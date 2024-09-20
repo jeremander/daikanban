@@ -1,5 +1,5 @@
 from contextlib import suppress
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import IO, Any, ClassVar, Optional
 import uuid
 
@@ -71,7 +71,7 @@ class TwTask(Model):
         udas = {}
         for (key, val) in d.items():
             with suppress(TypeError, ValueError):
-                val = datetime.strptime(val, DATE_FORMAT)
+                val = datetime.strptime(val, DATE_FORMAT).replace(tzinfo=timezone.utc)
             if key in cls.__dataclass_fields__:
                 d2[key] = val
             else:  # treat any unrecognized field as a UDA

@@ -19,6 +19,12 @@ class InconsistentTimestampError(KanbanError):
 class TaskStatusError(KanbanError):
     """Error that occurs when a task's status is invalid for a certain operation."""
 
+class InvalidTaskStatusError(UserInputError):
+    """Error type for when the user provides an invalid task status."""
+    def __init__(self, status: str) -> None:
+        self.status = status
+        super().__init__(f'Invalid task status {status!r}')
+
 class ProjectNotFoundError(KanbanError):
     """Error that occurs when a project ID is not found."""
     def __init__(self, project_id: int | UUID4) -> None:
@@ -62,6 +68,9 @@ class VersionMismatchError(KanbanError):
 
 class BoardFileError(KanbanError):
     """Error reading or writing a board file."""
+
+class BoardNotLoadedError(KanbanError):
+    """Error type for when a board has not yet been loaded."""
 
 
 @contextmanager
