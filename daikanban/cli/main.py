@@ -12,8 +12,9 @@ from daikanban.cli import APP_KWARGS
 import daikanban.cli.config
 from daikanban.cli.exporter import ExportFormat, export_board
 from daikanban.cli.importer import ImportFormat, import_board
+from daikanban.config import get_config
 from daikanban.errors import KanbanError
-from daikanban.interface import BoardInterface
+from daikanban.interface import BoardInterface, list_boards
 
 
 #######
@@ -48,6 +49,13 @@ def import_(
     """Import board from another format."""
     import_board(format, board_file=board, input_file=input_file)
     logger.done()
+
+@APP.command(name='list', short_help='list all boards')
+def list_() -> None:
+    """List all board files."""
+    cfg = get_config()
+    default_board_path = cfg.board.default_board_path
+    list_boards(cfg, active_board_path=default_board_path)
 
 @APP.command(short_help='create new board')
 def new() -> None:

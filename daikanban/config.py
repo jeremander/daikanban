@@ -110,6 +110,11 @@ class BoardConfig(TOMLDataclass):
         """Gets the absolute path to the default board file."""
         return self.resolve_board_name_or_path(self.default_board)
 
+    @property
+    def all_board_paths(self) -> list[Path]:
+        """Gets a list of absolute paths of all JSON files in the board directory."""
+        return [p for p in self.board_dir_path.glob('*') if str(p).lower().endswith('.json')]
+
 
 @dataclass
 class TimeConfig(TOMLDataclass):

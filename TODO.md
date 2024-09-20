@@ -4,12 +4,11 @@
 
 - Config customization
   - Board management
+    - `board list` in shell to list all JSON files in the board directory
     - Load default board when entering shell. Print message to use `board load` to switch boards.
-    - If default board doesn't exist, suggest the user create one with `board new [default_path]`.
+      - If default board doesn't exist, suggest the user create one with `board new [default_path]`.
     - If `board load` attempts to load nonexistent path, suggest the user create it with `board new [path]`.
-    - Have `board new [name_or_path]` fill in the name/path without prompting.
-    - `board list` to list all JSON files in the board directory
-      - Implement this in `BoardManager`
+      - Have `board new [name_or_path]` fill in the name/path without prompting.
     - Tests
       - Test various functionality, patching the board directory to a temporary one
       - Test `cli` subcommand
@@ -79,6 +78,7 @@
 
 - Set up Github Actions, test coverage
 - Encapsulate notion of a *filter*.
+  - Create new library for boolean algebra of predicates? With `FieldPredicate` that checks existence of field at construction time.
 - How to set lists like blocking tasks, relations?
   - Should probably be one at a time, might need special sub-subcommand like:
     - `task set [ID] blocker [BLOCKER_ID]`

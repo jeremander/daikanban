@@ -227,6 +227,25 @@ def require_board(func: Callable[Concatenate[BI, P], None]) -> Callable[Concaten
         func(self, *args, **kwargs)
     return wrapped
 
+def list_boards(config: Optional[Config] = None, active_board_path: Optional[Path] = None) -> None:
+    """Prints out a list of available boards based on the configs.
+    If configs are not given, uses the global configs.
+    If an active_board_path is given, marks it with a '*' symbol."""
+    config = get_config() if (config is None) else config
+    board_dir = config.board.board_dir_path
+    print(f'Board directory: {board_dir}\n', file=sys.stderr)
+    board_paths = config.board.all_board_paths
+    pairs = [(p == active_board_path, p) for p in board_paths]
+    if not pairs:
+        print('[No boards]', file=sys.stderr)
+    has_active = any(flag for (flag, _) in pairs)
+    for (flag, p) in pairs:
+        if has_active:
+            prefix = '* ' if flag else '  '
+        else:
+            prefix = ''
+        print(prefix + p.name)
+
 
 @dataclass
 class BoardInterface:
