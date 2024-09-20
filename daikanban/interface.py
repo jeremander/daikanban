@@ -25,7 +25,7 @@ from daikanban.config import Config, get_config
 from daikanban.errors import BoardFileError, BoardNotLoadedError, InvalidTaskStatusError, KanbanError
 from daikanban.model import DefaultColor, Id, Model, Project, Task, TaskStatus, TaskStatusAction, TaskStatusError, cmd_style, name_style, path_style, proj_id_style, status_style, task_id_style
 from daikanban.prompt import FieldPrompter, Prompter, model_from_prompt, simple_input
-from daikanban.utils import NotGiven, NotGivenType, UserInputError, err_style, fuzzy_match, get_current_time, get_duration_between, human_readable_duration, parse_key_value_pair, parse_string_set, prefix_match, style_str
+from daikanban.utils import NotGiven, NotGivenType, UserInputError, err_style, fuzzy_match, get_current_time, get_duration_between, human_readable_duration, parse_key_value_pair, parse_string_set, prefix_match, style_str, to_snake_case
 
 
 if TYPE_CHECKING:
@@ -768,7 +768,7 @@ class BoardInterface:
         prompt_for_path = lambda default: simple_input('Output filename', default=default).strip()
         if name_or_path is None:  # prompt for name and path
             name = prompt_for_name(None)
-            default_path = str(self.config.board.resolve_board_name_or_path(name))
+            default_path = str(self.config.board.resolve_board_name_or_path(to_snake_case(name)))
             path = prompt_for_path(default_path)
         else:
             p = self.config.board.resolve_board_name_or_path(name_or_path)
@@ -777,7 +777,9 @@ class BoardInterface:
                 path = str(p)
             else:  # user provided a name, so prompt only for the path
                 name = str(name_or_path)
-                path = prompt_for_path(str(p))
+                # convert name to snake case for a more reasonable filename
+                default_path = str(self.config.board.resolve_board_name_or_path(to_snake_case(name)))
+                path = prompt_for_path(default_path)
         board_path = Path(path)
         if not board_path.is_absolute():  # interpret paths relative to board directory, rather than current directory
             board_path = self.config.board.board_dir_path / path

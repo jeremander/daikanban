@@ -398,9 +398,10 @@ class TestInterface:
         board_cfg = get_config().board
         board_dir = board_cfg.board_dir_path
         default_out = ['Creating new DaiKanban board.']
-        out = default_out + ['Board name:', 'Output filename', r'\(.*board1.json\)', 'Board description', r'Saved DaiKanban board .*board1.*to .*board1\.json']
-        self._test_output(capsys, monkeypatch, [('board new', ['board1', '', ''])], out=out, interface=BoardInterface())
-        assert (board_dir / 'board1.json').exists()
+        out = default_out + ['Board name:', 'Output filename', r'\(.*board_1.json\)', 'Board description', r'Saved DaiKanban board .*Board 1.*to .*board\_1\.json']
+        self._test_output(capsys, monkeypatch, [('board new', ['Board 1', '', ''])], out=out, interface=BoardInterface())
+        # name gets converted to snake case
+        assert (board_dir / 'board_1.json').exists()
         out = default_out + ['Output filename', r'\(.*board2.json\)', 'Board description', r'Saved DaiKanban board .*board2.*to .*board2\.json']
         self._test_output(capsys, monkeypatch, [('board new board2', ['', ''])], out=out, interface=BoardInterface())
         assert (board_dir / 'board2.json').exists()
