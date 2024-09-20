@@ -1,4 +1,5 @@
 from datetime import datetime
+from pathlib import Path
 
 import pytest
 
@@ -14,6 +15,21 @@ STARTED_TIME = datetime.strptime('2024-01-02', '%Y-%m-%d')
 COMPLETED_TIME = datetime.strptime('2024-01-03', '%Y-%m-%d')
 DUE_TIME = datetime.strptime('2024-01-04', '%Y-%m-%d')
 
+
+@pytest.fixture(scope='session', autouse=True)
+def _tmp_home_dir(tmp_path_factory):
+    """Sets the user's home directory to a temporary path."""
+    home_dir = tmp_path_factory.mktemp('home')
+    with pytest.MonkeyPatch.context() as ctx:
+        ctx.setattr(Path, 'home', lambda: home_dir)
+        yield
+
+@pytest.fixture
+def set_tmp_board_path(tmpdir, monkeypatch):
+    """Fixture to set the board path to a temporary directory in the global configurations."""
+    cfg = get_config()
+    monkeypatch.setattr(cfg.board, 'board_dir', str(tmpdir))
+    return None
 
 @pytest.fixture(scope='module')
 def test_board() -> Board:
@@ -44,8 +60,15 @@ def test_board() -> Board:
     return Board(name='myboard', created_time=CREATED_TIME, projects=projects, tasks=tasks)
 
 @pytest.fixture
-def set_tmp_board_path(tmpdir, monkeypatch):
-    """Fixture to set the board path to a temporary directory in the global configurations."""
-    cfg = get_config()
-    monkeypatch.setattr(cfg.board, 'board_dir', str(tmpdir))
+def populate_board_dir(set_tmp_board_path, test_board):
+    """Fixture to populate the board directory with some example board JSON files."""
+    board_cfg = get_config().board
+    board_dir = board_cfg.board_dir_path
+    # default_board_path = board_cfg.default_board_path
+    # save test board as the default board
+    test_board.save(board_cfg.default_board_path)
+    # save an empty board
+    Board(name='empty').save(board_dir / 'empty_board.json')
+    # save an empty file as JSON (will error loaded)
+    (board_dir / 'empty_file.JSON').touch()
     return None

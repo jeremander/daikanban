@@ -5,32 +5,35 @@ from pathlib import Path
 from pydantic import ValidationError
 import pytest
 
-from daikanban.config import DEFAULT_DATE_FORMAT, Config, TaskConfig, TimeConfig, get_config
+from daikanban.config import DEFAULT_DATE_FORMAT, Config, TaskConfig, TimeConfig, get_config, user_config_path, user_dir
 from daikanban.task import DEFAULT_TASK_SCORER_NAME, TASK_SCORERS, TaskScorer
 from daikanban.utils import HOURS_PER_DAY, SECS_PER_DAY, UserInputError, get_current_time
 
 
+def test_config_path():
+    assert user_dir() == Path.home() / '.daikanban'
+    assert user_config_path() == Path.home() / '.daikanban' / 'config.toml'
+
+
+class TestBoardConfig:
+
+    def test_board_config(self, set_tmp_board_path):
+        """Tests that the configured board paths are what we expect."""
+        cfg = get_config()
+        board_dir = Path(cfg.board.board_dir)
+        assert board_dir.exists()
+        assert cfg.board.board_dir_path == board_dir
+        assert cfg.board.default_board_path == board_dir / 'board.json'
+
+    def test_all_board_paths(self, populate_board_dir):
+        """Tests that the list of all board paths is what we expect for a specific example."""
+        board_cfg = get_config().board
+        p = board_cfg.board_dir_path
+        board_paths = board_cfg.all_board_paths
+        assert board_paths == [p / filename for filename in ['board.json', 'empty_board.json', 'empty_file.JSON']]
+
+
 MINS_PER_DAY = 60 * HOURS_PER_DAY
-
-
-def test_work_time_bounds():
-    _ = TimeConfig(hours_per_work_day=0.01)
-    _ = TimeConfig(hours_per_work_day=24)
-    with pytest.raises(ValidationError, match='Input should be greater than 0'):
-        _ = TimeConfig(hours_per_work_day=-1)
-    with pytest.raises(ValidationError, match='Input should be greater than 0'):
-        _ = TimeConfig(hours_per_work_day=0)
-    with pytest.raises(ValidationError, match='Input should be less than or equal to 24'):
-        _ = TimeConfig(hours_per_work_day=24.01)
-    _ = TimeConfig(days_per_work_week=0.01)
-    _ = TimeConfig(days_per_work_week=7)
-    with pytest.raises(ValidationError, match='Input should be greater than 0'):
-        _ = TimeConfig(days_per_work_week=-1)
-    with pytest.raises(ValidationError, match='Input should be greater than 0'):
-        _ = TimeConfig(days_per_work_week=0)
-    with pytest.raises(ValidationError, match='Input should be less than or equal to 7'):
-        _ = TimeConfig(days_per_work_week=7.01)
-
 
 # (time, is_future)
 VALID_RELATIVE_TIMES = [
@@ -74,25 +77,6 @@ INVALID_RELATIVE_TIMES = [
     # ('in 2 mins, 5:00', True),
 ]
 
-@pytest.mark.parametrize(['string', 'is_future', 'valid'], [
-    *[(s, is_future, True) for (s, is_future) in VALID_RELATIVE_TIMES],
-    *[(s, is_future, False) for (s, is_future) in INVALID_RELATIVE_TIMES]
-])
-def test_parse_relative_time(string, is_future, valid):
-    config = get_config().time
-    if valid:
-        dt = config.parse_datetime(string)
-    else:
-        with pytest.raises(UserInputError, match='Invalid time'):
-            _ = config.parse_datetime(string)
-        return
-    assert isinstance(dt, datetime)
-    now = get_current_time()
-    if is_future:
-        assert dt > now
-    else:
-        assert dt < now
-
 VALID_DURATIONS = [
     ('1 second', 1 / SECS_PER_DAY),
     ('1 seconds', 1 / SECS_PER_DAY),
@@ -133,61 +117,100 @@ INVALID_DURATIONS = [
     '1.2.3 days',
 ]
 
-@pytest.mark.parametrize(['string', 'days'], VALID_DURATIONS)
-def test_parse_duration_valid(string, days):
-    config = get_config().time
-    dur = config.parse_duration(string)
-    assert isinstance(dur, float)
-    assert dur == pytest.approx(days)
 
-@pytest.mark.parametrize('string', INVALID_DURATIONS)
-def test_parse_duration_invalid(string):
-    config = get_config().time
-    with pytest.raises(UserInputError, match='Invalid time duration|Time duration cannot be negative'):
-        _ = config.parse_duration(string)
+class TestTimeConfig:
 
-def test_global_config():
-    dt = date(2024, 1, 1)
-    def _pretty_value(val):
-        return get_config().pretty_value(val)
-    orig_config = get_config()
-    assert orig_config.time.date_format == DEFAULT_DATE_FORMAT
-    assert _pretty_value(dt) == dt.strftime(DEFAULT_DATE_FORMAT)
-    new_config = deepcopy(orig_config)
-    new_date_format = '*%Y-%m-%d*'
-    new_config.time.date_format = new_date_format
-    assert _pretty_value(dt) == dt.strftime(DEFAULT_DATE_FORMAT)
-    with new_config.as_config():
-        assert _pretty_value(dt) == '*2024-01-01*'
-        assert _pretty_value(dt) == dt.strftime(new_date_format)
+    def test_work_time_bounds(self):
+        _ = TimeConfig(hours_per_work_day=0.01)
+        _ = TimeConfig(hours_per_work_day=24)
+        with pytest.raises(ValidationError, match='Input should be greater than 0'):
+            _ = TimeConfig(hours_per_work_day=-1)
+        with pytest.raises(ValidationError, match='Input should be greater than 0'):
+            _ = TimeConfig(hours_per_work_day=0)
+        with pytest.raises(ValidationError, match='Input should be less than or equal to 24'):
+            _ = TimeConfig(hours_per_work_day=24.01)
+        _ = TimeConfig(days_per_work_week=0.01)
+        _ = TimeConfig(days_per_work_week=7)
+        with pytest.raises(ValidationError, match='Input should be greater than 0'):
+            _ = TimeConfig(days_per_work_week=-1)
+        with pytest.raises(ValidationError, match='Input should be greater than 0'):
+            _ = TimeConfig(days_per_work_week=0)
+        with pytest.raises(ValidationError, match='Input should be less than or equal to 7'):
+            _ = TimeConfig(days_per_work_week=7.01)
+
+    @pytest.mark.parametrize(['string', 'is_future', 'valid'], [
+        *[(s, is_future, True) for (s, is_future) in VALID_RELATIVE_TIMES],
+        *[(s, is_future, False) for (s, is_future) in INVALID_RELATIVE_TIMES]
+    ])
+    def test_parse_relative_time(self, string, is_future, valid):
+        config = get_config().time
+        if valid:
+            dt = config.parse_datetime(string)
+        else:
+            with pytest.raises(UserInputError, match='Invalid time'):
+                _ = config.parse_datetime(string)
+            return
+        assert isinstance(dt, datetime)
+        now = get_current_time()
+        if is_future:
+            assert dt > now
+        else:
+            assert dt < now
+
+    @pytest.mark.parametrize(['string', 'days'], VALID_DURATIONS)
+    def test_parse_duration_valid(self, string, days):
+        config = get_config().time
+        dur = config.parse_duration(string)
+        assert isinstance(dur, float)
+        assert dur == pytest.approx(days)
+
+    @pytest.mark.parametrize('string', INVALID_DURATIONS)
+    def test_parse_duration_invalid(self, string):
+        config = get_config().time
+        with pytest.raises(UserInputError, match='Invalid time duration|Time duration cannot be negative'):
+            _ = config.parse_duration(string)
+
+
+class TestTaskConfig:
+
+    def test_task_scorer(self):
+        config = get_config()
+        assert config.task.scorer_name == DEFAULT_TASK_SCORER_NAME
+        assert DEFAULT_TASK_SCORER_NAME in TASK_SCORERS
+        assert isinstance(TASK_SCORERS[DEFAULT_TASK_SCORER_NAME], TaskScorer)
+        fake_scorer_name = 'fake-scorer'
+        assert fake_scorer_name not in TASK_SCORERS
+        with pytest.raises(ValidationError, match='Unknown task scorer'):
+            _ = TaskConfig(scorer_name=fake_scorer_name)
+
+
+class TestConfig:
+
+    def test_global_config(self):
+        dt = date(2024, 1, 1)
+        def _pretty_value(val):
+            return get_config().pretty_value(val)
+        orig_config = get_config()
+        assert orig_config.time.date_format == DEFAULT_DATE_FORMAT
+        assert _pretty_value(dt) == dt.strftime(DEFAULT_DATE_FORMAT)
+        new_config = deepcopy(orig_config)
+        new_date_format = '*%Y-%m-%d*'
+        new_config.time.date_format = new_date_format
+        assert _pretty_value(dt) == dt.strftime(DEFAULT_DATE_FORMAT)
+        with new_config.as_config():
+            assert _pretty_value(dt) == '*2024-01-01*'
+            assert _pretty_value(dt) == dt.strftime(new_date_format)
+            cur_config = get_config()
+            assert cur_config != orig_config
+            assert cur_config is new_config
+            assert cur_config.time.date_format == new_date_format
+        # original configs are restored
         cur_config = get_config()
-        assert cur_config != orig_config
-        assert cur_config is new_config
-        assert cur_config.time.date_format == new_date_format
-    # original configs are restored
-    cur_config = get_config()
-    assert cur_config != new_config
-    assert cur_config is orig_config
-    assert cur_config.time.date_format == DEFAULT_DATE_FORMAT
-    assert _pretty_value(dt) == dt.strftime(DEFAULT_DATE_FORMAT)
+        assert cur_config != new_config
+        assert cur_config is orig_config
+        assert cur_config.time.date_format == DEFAULT_DATE_FORMAT
+        assert _pretty_value(dt) == dt.strftime(DEFAULT_DATE_FORMAT)
 
-def test_task_scorer():
-    config = get_config()
-    assert config.task.scorer_name == DEFAULT_TASK_SCORER_NAME
-    assert DEFAULT_TASK_SCORER_NAME in TASK_SCORERS
-    assert isinstance(TASK_SCORERS[DEFAULT_TASK_SCORER_NAME], TaskScorer)
-    fake_scorer_name = 'fake-scorer'
-    assert fake_scorer_name not in TASK_SCORERS
-    with pytest.raises(ValidationError, match='Unknown task scorer'):
-        _ = TaskConfig(scorer_name=fake_scorer_name)
-
-def test_toml_round_trip():
-    config = get_config()
-    assert Config.from_toml_string(config.to_toml_string()) == config
-
-def test_board_manager(set_tmp_board_path):
-    cfg = get_config()
-    board_dir = Path(cfg.board.board_dir)
-    assert board_dir.exists()
-    assert cfg.board.board_dir_path == board_dir
-    assert cfg.board.default_board_path == board_dir / 'board.json'
+    def test_toml_round_trip(self):
+        config = get_config()
+        assert Config.from_toml_string(config.to_toml_string()) == config

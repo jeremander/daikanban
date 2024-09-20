@@ -7,12 +7,20 @@ import pytest
 from daikanban import __version__
 from daikanban.board import Board
 from daikanban.cli.main import APP
+from daikanban.config import get_config
 from daikanban.utils import get_current_time
 
 from . import make_uuid, match_patterns
 
 
 EXEC_PATH = Path(__file__).parents[1] / 'daikanban' / 'main.py'
+
+
+@pytest.fixture
+def use_regular_print(monkeypatch):
+    """Fixture to use the regular print function instead of rich.print."""
+    monkeypatch.setattr('daikanban.interface.print', print)
+    return None
 
 
 class TestMain:
@@ -34,16 +42,34 @@ class TestMain:
                 pytest.fail('app should raise SystemExit')
 
     def test_help(self, capsys):
+        """Tests that the help menu is displayed when calling the program with `--help` or with no arguments."""
         patterns = ['Commands', r'--help\s+-h\s+Show this message and exit.', r'new\s+create new board']
         for cmd in [[], ['--help']]:
             self._test_main(capsys, cmd, out_patterns=patterns)
 
     def test_version(self, capsys):
+        """Tests that the --version flag prints out the current version."""
         self._test_main(capsys, ['--version'], f'{__version__}\n', exact=True)
 
-    def test_schema(self, capsys, monkeypatch):
-        # use regular print instead of rich.print
-        monkeypatch.setattr('daikanban.interface.print', print)
+    def test_list(self, capsys, use_regular_print, populate_board_dir):
+        """Tests the 'list' subcommand, which prints out the board path and list of filenames."""
+        board_cfg = get_config().board
+        board_dir = board_cfg.board_dir_path
+        err = [f'Board directory: {board_dir}\n\n']
+        out = ['* board.json\n  empty_board.json\n  empty_file.JSON\n']
+        self._test_main(capsys, ['list'], out_patterns=out, err_patterns=err, exact=True)
+        # delete default board
+        (board_dir / 'board.json').unlink()
+        out = ['empty_board.json\nempty_file.JSON\n']
+        self._test_main(capsys, ['list'], out_patterns=out, err_patterns=err, exact=True)
+        # delete all boards
+        for p in board_dir.glob('*'):
+            p.unlink()
+        err = [err[0] + '[No boards]\n']
+        self._test_main(capsys, ['list'], out_patterns=[''], err_patterns=err, exact=True)
+
+    def test_schema(self, capsys, use_regular_print):
+        """Tests the 'schema' subcommand which prints the Board JSON schema."""
         schema = json.dumps(Board.json_schema(mode='serialization'), indent=2) + '\n'
         self._test_main(capsys, ['schema'], out_patterns=schema, exact=True)
 
@@ -63,6 +89,7 @@ class TestMain:
         ('taskwarrior', 'json'),
     ])
     def test_export_import(self, capsys, test_board, tmp_path, fmt, output_ext):
+        """Tests exporting and importing boards to different formats."""
         board_path = tmp_path / 'board.json'
         export_path = tmp_path / f'export.{output_ext}'
         test_board.save(board_path)
