@@ -736,7 +736,7 @@ class BoardInterface:
             if name_or_path is None:
                 print(f"Loading default board from {path_style(path)}.\nTo switch boards, use {cmd_style('board load')}")
             else:
-                print(f'Loading board from {path_style(path)}.')
+                print(f'Loading board from {path_style(path)}')
             self.board = load_board(path, config=self.config)
             self.board_path = path
             print(f'Loaded board with {self.board._num_proj_num_task_str}')

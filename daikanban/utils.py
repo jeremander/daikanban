@@ -238,8 +238,15 @@ class IdCollection:
     """Class maintaining a collection of ID numbers (starting at 0), with the ability to retrieve the smallest unused ID."""
 
     def __init__(self, ids: set[int] = set()) -> None:  # noqa: B006
-        self.ids = ids
+        self.ids = set(ids)
         self.free_id = 0
+        self._update()
+
+    def __len__(self) -> int:
+        return len(self.ids)
+
+    def __contains__(self, elt: object) -> bool:
+        return elt in self.ids
 
     def _update(self) -> None:
         while self.free_id in self.ids:

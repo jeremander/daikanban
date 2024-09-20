@@ -130,11 +130,18 @@ class TaskwarriorImporter(JSONImporter[TaskList]):
                 proj_id = proj_id_by_name[proj_name]
             else:
                 proj_id = None
-            task_id = task_ids.free_id if (task.id is None) else task.id
+            task_id = task.id
+            if (task_id is None) or (task_id in task_ids):  # ensure a unique ID
+                task_id = task_ids.free_id
+            assert task_id not in task_ids.ids
             udas = dict(task.udas) if task.udas else {}
             udas.pop('project_id', None)  # for now, ignore a stored project ID
             if task.start:
                 created_time = min(created_time, task.start)
+                first_started_time: Optional[datetime] = task.start
+            else:
+                # taskwarrior may have end time but no start time, but daikanban needs one, so we use the created time
+                first_started_time = created_time if (task.status == 'completed') else None
             dkb_task = Task(
                 name=task.description,
                 uuid=task.uuid or uuid.uuid4(),
@@ -148,10 +155,10 @@ class TaskwarriorImporter(JSONImporter[TaskList]):
                 links=set(map(AnyUrl, udas.pop('links', []))) or None,
                 created_time=created_time,
                 modified_time=task.modified or get_current_time(),
-                first_started_time=task.start,
+                first_started_time=first_started_time,
                 last_started_time=None,
                 last_paused_time=task.end if (task.start and (task.status == 'pending')) else None,
-                completed_time=task.end if (task.start and (task.status == 'completed')) else None,
+                completed_time=task.end if (task.end and (task.status == 'completed')) else None,
                 prior_time_worked=None,
                 # TODO: identify blocking task IDs
                 blocked_by=None,

@@ -27,6 +27,10 @@
       - Option to save current configs to the config file (after prompt confirmation)
   - Priority/difficulty upper bounds?
   - Logging level
+- Field aliases for `task set`:
+  - Let `due`/`due_date` -> `due_time`
+  - `duration` -> `expected_duration`
+- Support "end of month", "eom", etc. for times.
 - Time tracking via logs
   - Use `type` field to indicate type of status action.
     - Three types, `start`, `stop`, `done`. The latter two are essentially the same.
@@ -47,6 +51,8 @@
     - First stop log must be >= `first_started_time`
     - Last stop log must be <= min(`completed_time`, `last_paused_time`)
 - Add an icon indicating a note exists for a project or task
+- "Reindex" command to set all indices to lowest possible values.
+- Make `bs` an alias for `board show`, etc.
 - `project set` or `task set` multiple values at once?
   - Likewise, set one or more values at creation time
 - Change "updated field" text when setting project/field so that it shows the value too?
