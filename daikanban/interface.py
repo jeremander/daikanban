@@ -731,15 +731,18 @@ class BoardInterface:
     def load_board(self, name: Optional[str | Path] = None) -> None:
         """Loads a board from a JSON file.
         If none is provided, prompts the user interactively."""
-        if name is None:
-            path = self.config.board.default_board_path
-            print(f"Loading default board from {path_style(path)}.\nTo switch boards, use {cmd_style('board load')}")
+        path = self.config.board.default_board_path if (name is None) else self.config.board.resolve_board_name_or_path(name)
+        if path.exists():
+            if name is None:
+                print(f"Loading default board from {path_style(path)}.\nTo switch boards, use {cmd_style('board load')}")
+            else:
+                print(f'Loading board from {path_style(path)}.')
+            self.board = load_board(path, config=self.config)
+            self.board_path = path
+            print(f'Loaded board with {self.board._num_proj_num_task_str}')
         else:
-            path = self.config.board.resolve_board_name_or_path(name)
-            print(f'Loading board from {path_style(path)}.')
-        self.board = load_board(path, config=self.config)
-        self.board_path = path
-        print(f'Loaded board with {self.board._num_proj_num_task_str}')
+            cmd = cmd_style(f'board new {path}')
+            print(f'Board file does not exist. You can create it with:\n{cmd}')
 
     def save_board(self) -> None:
         """Saves the state of the current board to its JSON file."""

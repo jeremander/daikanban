@@ -5,7 +5,7 @@ import pytest
 
 from daikanban.board import Board
 from daikanban.config import get_config
-from daikanban.errors import BoardFileError, BoardNotLoadedError, TaskStatusError
+from daikanban.errors import BoardNotLoadedError, TaskStatusError
 from daikanban.interface import BoardInterface, parse_string_set
 from daikanban.model import Project, Task, TaskStatusAction
 from daikanban.utils import UserInputError, get_current_time
@@ -436,25 +436,29 @@ class TestInterface:
         """Tests the behavior of 'board load' and 'board list'."""
         board_cfg = get_config().board
         board_dir = board_cfg.board_dir_path
+        no_default_msg = 'No default board exists. You can create one with:'
+        no_board_msg = 'Board file does not exist. You can create it with:'
         # default board gets loaded
         interface = BoardInterface()
         out = r'\* board.json\n  empty_board.json\n  empty_file.JSON\n'
         self._test_output(capsys, monkeypatch, [('board list', None)], out=out, err=f'Board directory: {board_dir}', interface=interface)
         out = ['Loading default board', 'To switch boards', 'Loaded board with 1 project, 3 tasks']
         self._test_output(capsys, monkeypatch, [('board load', None), ('board show', None)], out=out, interface=interface)
+        # load nonexistent board
+        self._test_output(capsys, monkeypatch, [('board load fake_board.json', None)], out=no_board_msg, interface=interface)
         # delete default board
         board_cfg.default_board_path.unlink()
         interface = BoardInterface()
-        out = 'empty_board.json\nempty_file.JSON\n'
+        out = [no_default_msg, 'empty_board.json\nempty_file.JSON\n']
         self._test_output(capsys, monkeypatch, [('board list', None)], out=out, err=f'Board directory: {board_dir}', interface=interface)
-        with pytest.raises(BoardFileError, match='does not exist'):
-            self._test_output(capsys, monkeypatch, [('board load', None)])
+        out = [no_default_msg, no_board_msg]
+        self._test_output(capsys, monkeypatch, [('board load', None)], out=out, interface=interface)
         with pytest.raises(BoardNotLoadedError, match='No board has been loaded.'):
             self._test_output(capsys, monkeypatch, [('board show', None)], interface=interface)
         # delete all boards
         for p in board_dir.glob('*'):
             p.unlink()
         interface = BoardInterface()
-        self._test_output(capsys, monkeypatch, [('board list', None)], out='No default board exists. You can create one with:', err=f'Board directory: {board_dir}', interface=interface)
+        self._test_output(capsys, monkeypatch, [('board list', None)], out=no_default_msg, err=f'Board directory: {board_dir}', interface=interface)
         with pytest.raises(BoardNotLoadedError, match='No board has been loaded.'):
             self._test_output(capsys, monkeypatch, [('board show', None)], interface=interface)

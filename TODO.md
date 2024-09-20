@@ -4,9 +4,8 @@
 
 - Config customization
   - Board management
-    - If `board load` attempts to load nonexistent path, suggest the user create it with `board new [path]`.
-      - Have `board new [name_or_path]` fill in the name/path without prompting.
-      - Have `board new` do a `mkdir` with `parents=True`, if needed.
+    - Have `board new [name_or_path]` fill in the name/path without prompting.
+    - Have `board new` do a `mkdir` with `parents=True`, if needed.
   - Particular configs:
     - [x] Which items to include when making new tasks (priority/difficulty/duration can be omitted, with default)
     - [x] Default size limit
