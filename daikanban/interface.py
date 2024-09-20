@@ -733,11 +733,10 @@ class BoardInterface:
         If none is provided, prompts the user interactively."""
         if name is None:
             path = self.config.board.default_board_path
-            s = 'default board'
+            print(f"Loading default board from {path_style(path)}.\nTo switch boards, use {cmd_style('board load')}")
         else:
             path = self.config.board.resolve_board_name_or_path(name)
-            s = 'board'
-        print(f'Loading {s} from {path_style(path)}')
+            print(f'Loading board from {path_style(path)}.')
         self.board = load_board(path, config=self.config)
         self.board_path = path
         print(f'Loaded board with {self.board._num_proj_num_task_str}')

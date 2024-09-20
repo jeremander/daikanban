@@ -440,7 +440,7 @@ class TestInterface:
         interface = BoardInterface()
         out = r'\* board.json\n  empty_board.json\n  empty_file.JSON\n'
         self._test_output(capsys, monkeypatch, [('board list', None)], out=out, err=f'Board directory: {board_dir}', interface=interface)
-        out = ['Loading default board', 'Loaded board with 1 project, 3 tasks']
+        out = ['Loading default board', 'To switch boards', 'Loaded board with 1 project, 3 tasks']
         self._test_output(capsys, monkeypatch, [('board load', None), ('board show', None)], out=out, interface=interface)
         # delete default board
         board_cfg.default_board_path.unlink()

@@ -4,7 +4,6 @@
 
 - Config customization
   - Board management
-    - Load default board when entering shell. Print message to use `board load` to switch boards.
     - If `board load` attempts to load nonexistent path, suggest the user create it with `board new [path]`.
       - Have `board new [name_or_path]` fill in the name/path without prompting.
       - Have `board new` do a `mkdir` with `parents=True`, if needed.
