@@ -2,9 +2,8 @@
 
 ## `v0.2.0`
 
-- Config customization
-  - Board management
-    - Have `board new` do a `mkdir` with `parents=True`, if needed.
+- Update CHANGELOG
+- Issue release
 
 ## `v0.2.1`
 

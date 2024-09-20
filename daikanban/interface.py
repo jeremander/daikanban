@@ -230,7 +230,7 @@ def list_boards(config: Optional[Config] = None, active_board_path: Optional[Pat
             prefix = '* ' if flag else '  '
         else:
             prefix = ''
-        print(prefix + p.name)
+        print(f'  {prefix}{p.name}')
 
 
 @dataclass
@@ -749,8 +749,13 @@ class BoardInterface:
         """Saves the state of the current board to its JSON file."""
         if self.board is not None:
             assert self.board_path is not None
-            # TODO: save in background if file size starts to get large?
+            if not self.board_path.parent.is_dir():
+                if self.board_path.parent.is_file():
+                    raise BoardFileError(f'{self.board_path.parent} is a file')
+                # parent directory doesn't exist, so create it
+                self.board_path.parent.mkdir(parents=True)
             try:
+                # TODO: save in background if file size starts to get large?
                 self.board.save(self.board_path, indent=self.config.file.json_indent)
             except OSError as e:
                 raise BoardFileError(str(e)) from None
@@ -767,13 +772,15 @@ class BoardInterface:
             path = prompt_for_path(default_path)
         else:
             p = self.config.board.resolve_board_name_or_path(name_or_path)
-            if name_or_path == p.name:  # user provided a path, so prompt only for the name
+            if name_or_path in [p.name, str(p)]:  # user provided a path, so prompt only for the name
                 name = prompt_for_name(p.stem)
                 path = str(p)
             else:  # user provided a name, so prompt only for the path
                 name = str(name_or_path)
                 path = prompt_for_path(str(p))
         board_path = Path(path)
+        if not board_path.is_absolute():  # interpret paths relative to board directory, rather than current directory
+            board_path = self.config.board.board_dir_path / path
         create = (not board_path.exists()) or Confirm.ask(f'A file named {path_style(path)} already exists.\n\tOverwrite?')
         if create:
             description = simple_input('Board description').strip() or None
@@ -955,6 +962,7 @@ class BoardInterface:
             table.add_row(*subtables)
             print(table)
         else:
+            print(f'[bold italic blue]{self.board.name}[/]')
             msg = 'No tasks'
             if (statuses is not None) or (projects is not None) or (tags is not None) or (limit is not None):
                 msg += ' matching criteria'

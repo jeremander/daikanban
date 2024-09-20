@@ -1,4 +1,5 @@
 from contextlib import suppress
+import shutil
 
 from pydantic_core import Url
 import pytest
@@ -404,9 +405,8 @@ class TestInterface:
         self._test_output(capsys, monkeypatch, [('board new board2', ['', ''])], out=out, interface=BoardInterface())
         assert (board_dir / 'board2.json').exists()
         out = default_out + ['Output filename', r'\(.*board3.json\)', 'Board description', r'Saved DaiKanban board .*board3.*to .*myboard\.json']
-        p = board_dir / 'myboard.json'
-        self._test_output(capsys, monkeypatch, [('board new board3', [str(p), ''])], out=out, interface=BoardInterface())
-        assert p.exists()
+        self._test_output(capsys, monkeypatch, [('board new board3', ['myboard.json', ''])], out=out, interface=BoardInterface())
+        assert (board_dir / 'myboard.json').exists()
         assert not (board_dir / 'board3.json').exists()
         out = default_out + [r'Board name \(board3\):', 'Board description', r'Saved DaiKanban board .*myboard.*to .*board3\.json']
         self._test_output(capsys, monkeypatch, [('board new board3.json', ['myboard', ''])], out=out, interface=BoardInterface())
@@ -414,6 +414,11 @@ class TestInterface:
         out = default_out + [r'Board name \(board4\):', 'Board description', r'Saved DaiKanban board .*board4.*to .*board4\.json']
         self._test_output(capsys, monkeypatch, [('board new board4.json', ['', ''])], out=out, interface=BoardInterface())
         assert (board_dir / 'board4.json').exists()
+        # delete board directory: creating a new board should create it again
+        shutil.rmtree(board_dir)
+        out = default_out + ['Board name:', 'Output filename', r'\(.*board1.json\)', 'Board description', r'Saved DaiKanban board .*board1.*to .*board1\.json']
+        self._test_output(capsys, monkeypatch, [('board new', ['board1', '', ''])], out=out, interface=BoardInterface())
+        assert (board_dir / 'board1.json').exists()
 
     def test_board_show_empty(self, capsys):
         """Tests 'board show' when there are no tasks."""
@@ -463,7 +468,7 @@ class TestInterface:
         no_board_msg = 'Board file does not exist. You can create it with:'
         # default board gets loaded
         interface = BoardInterface()
-        out = r'\* board.json\n  empty_board.json\n  empty_file.JSON\n'
+        out = r'  \* board.json\n    empty_board.json\n    empty_file.JSON\n'
         self._test_output(capsys, monkeypatch, [('board list', None)], out=out, err=f'Board directory: {board_dir}', interface=interface)
         out = ['Loading default board', 'To switch boards', 'Loaded board with 1 project, 3 tasks']
         self._test_output(capsys, monkeypatch, [('board load', None), ('board show', None)], out=out, interface=interface)
@@ -472,7 +477,7 @@ class TestInterface:
         # delete default board
         board_cfg.default_board_path.unlink()
         interface = BoardInterface()
-        out = [no_default_msg, 'empty_board.json\nempty_file.JSON\n']
+        out = [no_default_msg, '  empty_board.json\n  empty_file.JSON\n']
         self._test_output(capsys, monkeypatch, [('board list', None)], out=out, err=f'Board directory: {board_dir}', interface=interface)
         out = [no_default_msg, 'Default board file does not exist. You can create it with:']
         self._test_output(capsys, monkeypatch, [('board load', None)], out=out, interface=interface)

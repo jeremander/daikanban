@@ -49,11 +49,11 @@ class TestMain:
         board_cfg = get_config().board
         board_dir = board_cfg.board_dir_path
         err = [f'Board directory: {board_dir}\n\n']
-        out = ['* board.json\n  empty_board.json\n  empty_file.JSON\n']
+        out = ['  * board.json\n    empty_board.json\n    empty_file.JSON\n']
         self._test_main(capsys, ['list'], out_patterns=out, err_patterns=err, exact=True)
         # delete default board
         (board_dir / 'board.json').unlink()
-        out = ['empty_board.json\nempty_file.JSON\n']
+        out = ['  empty_board.json\n  empty_file.JSON\n']
         self._test_main(capsys, ['list'], out_patterns=out, err_patterns=err, exact=True)
         # delete all boards
         for p in board_dir.glob('*'):
