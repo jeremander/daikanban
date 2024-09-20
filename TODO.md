@@ -4,14 +4,10 @@
 
 - Config customization
   - Board management
-    - `board list` in shell to list all JSON files in the board directory
     - Load default board when entering shell. Print message to use `board load` to switch boards.
-      - If default board doesn't exist, suggest the user create one with `board new [default_path]`.
     - If `board load` attempts to load nonexistent path, suggest the user create it with `board new [path]`.
       - Have `board new [name_or_path]` fill in the name/path without prompting.
-    - Tests
-      - Test various functionality, patching the board directory to a temporary one
-      - Test `cli` subcommand
+      - Have `board new` do a `mkdir` with `parents=True`, if needed.
   - Particular configs:
     - [x] Which items to include when making new tasks (priority/difficulty/duration can be omitted, with default)
     - [x] Default size limit

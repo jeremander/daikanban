@@ -5,7 +5,7 @@ import pytest
 
 from daikanban.board import Board
 from daikanban.config import get_config
-from daikanban.errors import TaskStatusError
+from daikanban.errors import BoardFileError, BoardNotLoadedError, TaskStatusError
 from daikanban.interface import BoardInterface, parse_string_set
 from daikanban.model import Project, Task, TaskStatusAction
 from daikanban.utils import UserInputError, get_current_time
@@ -39,13 +39,17 @@ class TestInterface:
     def _table_row(cells):
         return r'[│┃]\s*' + r'\s*[│┃]\s*'.join(cells) + r'\s*[│┃]'
 
-    def _test_output(self, capsys, monkeypatch, user_input, out=None, err=None, board=None):
+    def _test_output(self, capsys, monkeypatch, user_input, out=None, err=None, board=None, interface=None):
+        _ = capsys.readouterr()  # clear any extant captured output
         class MockBoardInterface(BoardInterface):
             def save_board(self) -> None:
                 # do not attempt to save board to a file
                 pass
-        board = board or new_board()
-        interface = MockBoardInterface(board=board)
+        if interface is None:
+            board = board or new_board()
+            interface = MockBoardInterface(board=board)
+        if interface.board_path is None:
+            interface._set_board_path_to_default()
         for (command, prompt_input) in user_input:
             if prompt_input:
                 assert isinstance(prompt_input, list)
@@ -389,9 +393,11 @@ class TestInterface:
     # BOARD
 
     def test_board_show_empty(self, capsys):
+        """Tests 'board show' when there are no tasks."""
         self._test_output(capsys, None, [('board show', None)], r'\[No tasks\]')
 
     def test_board_show_one_task(self, capsys, monkeypatch):
+        """Tests 'board show' through the life cycle of a single task."""
         board = new_board()
         user_input = [('task new', ['task', 'My task.', '', '7', '', '', '', '']), ('board show', None)]
         outputs = [r'todo \(1\)'] + [self._table_row(row) for row in [['id', 'name', 'score'], ['0', 'task', '.*']]]
@@ -404,6 +410,7 @@ class TestInterface:
         self._test_output(capsys, monkeypatch, user_input, outputs, board=board)
 
     def test_board_sort_tasks(self, capsys, monkeypatch):
+        """Tests how tasks are sorted in 'board show'."""
         board = new_board()
         for i in range(3):
             board.create_task(Task(name=f'task{i}'))
@@ -424,3 +431,30 @@ class TestInterface:
         # status column should *not* be shown
         with pytest.raises(AssertionError, match="pattern 'status' not found"):
             self._test_output(capsys, monkeypatch, [('board show', None)], ['status'], board=board)
+
+    def test_board_load_and_list(self, capsys, monkeypatch, populate_board_dir, use_regular_print):
+        """Tests the behavior of 'board load' and 'board list'."""
+        board_cfg = get_config().board
+        board_dir = board_cfg.board_dir_path
+        # default board gets loaded
+        interface = BoardInterface()
+        out = r'\* board.json\n  empty_board.json\n  empty_file.JSON\n'
+        self._test_output(capsys, monkeypatch, [('board list', None)], out=out, err=f'Board directory: {board_dir}', interface=interface)
+        out = ['Loading default board', 'Loaded board with 1 project, 3 tasks']
+        self._test_output(capsys, monkeypatch, [('board load', None), ('board show', None)], out=out, interface=interface)
+        # delete default board
+        board_cfg.default_board_path.unlink()
+        interface = BoardInterface()
+        out = 'empty_board.json\nempty_file.JSON\n'
+        self._test_output(capsys, monkeypatch, [('board list', None)], out=out, err=f'Board directory: {board_dir}', interface=interface)
+        with pytest.raises(BoardFileError, match='does not exist'):
+            self._test_output(capsys, monkeypatch, [('board load', None)])
+        with pytest.raises(BoardNotLoadedError, match='No board has been loaded.'):
+            self._test_output(capsys, monkeypatch, [('board show', None)], interface=interface)
+        # delete all boards
+        for p in board_dir.glob('*'):
+            p.unlink()
+        interface = BoardInterface()
+        self._test_output(capsys, monkeypatch, [('board list', None)], out='No default board exists. You can create one with:', err=f'Board directory: {board_dir}', interface=interface)
+        with pytest.raises(BoardNotLoadedError, match='No board has been loaded.'):
+            self._test_output(capsys, monkeypatch, [('board show', None)], interface=interface)

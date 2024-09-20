@@ -16,13 +16,6 @@ from . import make_uuid, match_patterns
 EXEC_PATH = Path(__file__).parents[1] / 'daikanban' / 'main.py'
 
 
-@pytest.fixture
-def use_regular_print(monkeypatch):
-    """Fixture to use the regular print function instead of rich.print."""
-    monkeypatch.setattr('daikanban.interface.print', print)
-    return None
-
-
 class TestMain:
 
     def _test_main(self, capsys, args, out_patterns=None, err_patterns=None, exact=False):

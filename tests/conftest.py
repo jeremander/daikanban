@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -10,11 +10,19 @@ from daikanban.model import Project, Task
 from . import make_uuid
 
 
-CREATED_TIME = datetime.strptime('2024-01-01', '%Y-%m-%d')
-STARTED_TIME = datetime.strptime('2024-01-02', '%Y-%m-%d')
-COMPLETED_TIME = datetime.strptime('2024-01-03', '%Y-%m-%d')
-DUE_TIME = datetime.strptime('2024-01-04', '%Y-%m-%d')
+make_dt = lambda s: datetime.strptime(s, '%Y-%m-%d').astimezone(timezone.utc)
 
+CREATED_TIME = make_dt('2024-01-01')
+STARTED_TIME = make_dt('2024-01-02')
+COMPLETED_TIME = make_dt('2024-01-03')
+DUE_TIME = make_dt('2024-01-04')
+
+
+@pytest.fixture
+def use_regular_print(monkeypatch):
+    """Fixture to use the regular print function instead of rich.print."""
+    monkeypatch.setattr('daikanban.interface.print', print)
+    return None
 
 @pytest.fixture(scope='session', autouse=True)
 def _tmp_home_dir(tmp_path_factory):
@@ -64,7 +72,6 @@ def populate_board_dir(set_tmp_board_path, test_board):
     """Fixture to populate the board directory with some example board JSON files."""
     board_cfg = get_config().board
     board_dir = board_cfg.board_dir_path
-    # default_board_path = board_cfg.default_board_path
     # save test board as the default board
     test_board.save(board_cfg.default_board_path)
     # save an empty board
