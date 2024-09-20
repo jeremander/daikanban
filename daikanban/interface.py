@@ -728,12 +728,12 @@ class BoardInterface:
             assert self.board is not None
             print(f'Deleted board {name_style(self.board.name)} from {path}')
 
-    def load_board(self, name: Optional[str | Path] = None) -> None:
+    def load_board(self, name_or_path: Optional[str | Path] = None) -> None:
         """Loads a board from a JSON file.
         If none is provided, prompts the user interactively."""
-        path = self.config.board.default_board_path if (name is None) else self.config.board.resolve_board_name_or_path(name)
+        path = self.config.board.default_board_path if (name_or_path is None) else self.config.board.resolve_board_name_or_path(name_or_path)
         if path.exists():
-            if name is None:
+            if name_or_path is None:
                 print(f"Loading default board from {path_style(path)}.\nTo switch boards, use {cmd_style('board load')}")
             else:
                 print(f'Loading board from {path_style(path)}.')
@@ -754,14 +754,24 @@ class BoardInterface:
             except OSError as e:
                 raise BoardFileError(str(e)) from None
 
-    def new_board(self) -> None:
+    def new_board(self, name_or_path: Optional[str | Path] = None) -> None:
         """Interactively creates a new DaiKanban board.
         Implicitly loads that board afterward."""
         print('Creating new DaiKanban board.\n')
-        name = simple_input('Board name', match=r'.*[^\s].*')
-        default_path = str(self.config.board.resolve_board_name_or_path(name))
-        path = simple_input('Output filename', default=default_path).strip()
-        path = path or default_path
+        prompt_for_name = lambda default: simple_input('Board name', match=r'.*[^\s].*', default=default)
+        prompt_for_path = lambda default: simple_input('Output filename', default=default).strip()
+        if name_or_path is None:  # prompt for name and path
+            name = prompt_for_name(None)
+            default_path = str(self.config.board.resolve_board_name_or_path(name))
+            path = prompt_for_path(default_path)
+        else:
+            p = self.config.board.resolve_board_name_or_path(name_or_path)
+            if name_or_path == p.name:  # user provided a path, so prompt only for the name
+                name = prompt_for_name(p.stem)
+                path = str(p)
+            else:  # user provided a name, so prompt only for the path
+                name = str(name_or_path)
+                path = prompt_for_path(path)
         board_path = Path(path)
         create = (not board_path.exists()) or Confirm.ask(f'A file named {path_style(path)} already exists.\n\tOverwrite?')
         if create:
@@ -978,10 +988,11 @@ class BoardInterface:
             if prefix_match(tok1, 'list'):
                 return self.list_boards()
             if prefix_match(tok1, 'load'):
-                board_path = tokens[2] if (ntokens >= 3) else None
-                return self.load_board(board_path)
+                name_or_path = tokens[2] if (ntokens >= 3) else None
+                return self.load_board(name_or_path=name_or_path)
             if prefix_match(tok1, 'new'):
-                return self.new_board()
+                name_or_path = tokens[2] if (ntokens >= 3) else None
+                return self.new_board(name_or_path=name_or_path)
             if prefix_match(tok1, 'show'):
                 # parse '='-delimited arguments
                 d = dict([parse_key_value_pair(tok, strict=True) for tok in tokens[2:]])  # type: ignore[misc]

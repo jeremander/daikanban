@@ -6,6 +6,15 @@
   - Board management
     - Have `board new [name_or_path]` fill in the name/path without prompting.
     - Have `board new` do a `mkdir` with `parents=True`, if needed.
+
+## `v0.2.1`
+
+- Provide informative error/warning if loaded config file does not match latest schema
+  - Ideally load what we can of the file and warn if there's an unknown field (no fields should be required).
+    - Currently we probably just silently fail to notice unknown fields?
+    - Enable "strict" mode in `DataclassFromDict` conversion to get a warning, then re-load more permissively?
+- Config customization
+  - CLI command to reset configs to the basic defaults
   - Particular configs:
     - [x] Which items to include when making new tasks (priority/difficulty/duration can be omitted, with default)
     - [x] Default size limit
@@ -13,14 +22,6 @@
     - [ ] Show dates as timestamps or human-readable relative times
     - [ ] Default colors (E.g. project IDs are too dark on dark terminal)
       - Can we detect terminal color?
-
-## `v0.2.1`
-
-- Provide informative error/warning if loaded config file does not match latest schema
-  - Ideally load what we can of the file and warn if there's an unknown field (no fields should be required).
-    - Currently we probably just silently fail to notice unknown fields?
-- Config customization
-  - CLI command to reset configs to the basic defaults
   - Shell option to interact with configs
     - View/get/set
     - Setting TOML values can be tricky, but doable
