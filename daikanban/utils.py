@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from enum import Enum
 import operator
 import re
-from typing import Any, Callable, Iterable, Optional
+from typing import Any, Callable, Iterable, Optional, cast
 
 import pendulum
 from typing_extensions import TypeAlias
@@ -26,7 +26,7 @@ class StrEnum(str, Enum):
     NOTE: this class exists in the standard library in Python >= 3.11."""
 
     def __str__(self) -> str:
-        return self.value
+        return cast(str, self.value)
 
 
 class NotGivenType(Enum):
@@ -154,7 +154,7 @@ def human_readable_duration(days: float, prefer_days: bool = False) -> str:
 def replace_relative_day(s: str) -> str:
     """Given a time string containing yesterday/today/tomorrow, or an expression like "last Friday" or "next Tuesday", replaces it with the appropriate date."""
     pattern1 = '(yesterday|today|tomorrow)'
-    def replace1(match: re.Match) -> str:
+    def replace1(match: re.Match[str]) -> str:
         now = pendulum.now()
         expr = match.group(0)
         if expr == 'yesterday':
@@ -166,7 +166,7 @@ def replace_relative_day(s: str) -> str:
         return day.to_date_string()
     pattern2 = r'(last|next)\s+(mon|tues?|wed(nes)?|thu(rs?)?|fri|sat(ur)?|sun)(day)?'
     weekday_map = {day: i for (i, day) in enumerate(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'])}
-    def replace2(match: re.Match) -> str:
+    def replace2(match: re.Match[str]) -> str:
         now = pendulum.now()
         groups = match.groups()
         past = (groups[0] == 'last')
@@ -183,7 +183,7 @@ def replace_relative_time_expression(s: str) -> str:
     """Resolves a relative time expression to an absolute one."""
     s = replace_relative_day(s)
     pattern = r'(in\s+)?(\d+)\s+(sec(ond)?|min(ute)?|hr|hour|day|week|month|yr|year)s?(\s+(ago|from\s+now))?'
-    def replace(match: re.Match) -> str:
+    def replace(match: re.Match[str]) -> str:
         groups = match.groups()
         is_future = (groups[0] is not None) and ('in' in groups[0])
         is_past = (groups[-1] == 'ago')

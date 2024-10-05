@@ -9,12 +9,13 @@ from fancy_dataclass import ConfigDataclass, TOMLDataclass
 import pendulum
 from pydantic import Field
 from pydantic.dataclasses import dataclass
-import pytimeparse
+import pytimeparse  # type: ignore[import-untyped]
 from typing_extensions import Doc
 
 from daikanban import PROG
+from daikanban.errors import UserInputError
 from daikanban.task import TaskConfig, TaskStatus
-from daikanban.utils import HOURS_PER_DAY, SECS_PER_DAY, NameMatcher, UserInputError, case_insensitive_match, convert_number_words_to_digits, get_current_time, replace_relative_time_expression, whitespace_insensitive_match
+from daikanban.utils import HOURS_PER_DAY, SECS_PER_DAY, NameMatcher, case_insensitive_match, convert_number_words_to_digits, get_current_time, replace_relative_time_expression, whitespace_insensitive_match
 
 
 ############
@@ -161,7 +162,7 @@ class TimeConfig(TOMLDataclass):
                 dt: datetime = pendulum.parse(s, strict=False, tz=pendulum.local_timezone())  # type: ignore
                 assert isinstance(dt, datetime)
                 return dt
-            except (AssertionError, pendulum.parsing.ParserError):
+            except (AssertionError, pendulum.parsing.exceptions.ParserError):
                 # TODO: handle work day/week?
                 # (difficult since calculating relative times requires knowing which hours/days are work times
                 raise err from None
@@ -185,8 +186,8 @@ class TimeConfig(TOMLDataclass):
         pat_work_weeks = float_regex + r'\s+work[-\s]*weeks?'
         def from_work_weeks(work_weeks: float) -> float:
             return from_work_days(self.days_per_work_week * work_weeks)
-        def _repl(func: Callable[[float], float]) -> Callable[[re.Match], str]:
-            def _get_day_str(match: re.Match) -> str:
+        def _repl(func: Callable[[float], float]) -> Callable[[re.Match[str]], str]:
+            def _get_day_str(match: re.Match[str]) -> str:
                 val = float(match.groups(0)[0])
                 return f'{func(val)} days'
             return _get_day_str
@@ -207,7 +208,7 @@ class TimeConfig(TOMLDataclass):
             raise UserInputError('Invalid time duration') from None
         if secs < 0:
             raise UserInputError('Time duration cannot be negative')
-        return secs / SECS_PER_DAY
+        return float(secs) / SECS_PER_DAY
 
 
 @dataclass

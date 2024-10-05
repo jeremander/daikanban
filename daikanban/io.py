@@ -30,7 +30,7 @@ class FileReadable(ABC, Generic[T_IO]):
         """Constructs an object from a file-like object."""
 
 
-FR = TypeVar('FR', bound=FileReadable)
+FR = TypeVar('FR', bound=FileReadable[Any])
 
 
 class BaseImporter(ABC, Generic[FR]):
@@ -64,7 +64,7 @@ class FileWritable(ABC, Generic[T_IO]):
         """Writes to a file-like object."""
 
 
-FW = TypeVar('FW', bound=FileWritable)
+FW = TypeVar('FW', bound=FileWritable[Any])
 
 
 class BaseExporter(ABC, Generic[FW]):

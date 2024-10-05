@@ -389,7 +389,7 @@ class TestBoard:
         assert board.get_project(0) != proj
         assert board.get_project(0).name == 'mynewproj'
         with pytest.raises(ProjectNotFoundError):
-            _ = board.update_project(1, name='proj')
+            board.update_project(1, name='proj')
         board.delete_project(0)
         assert len(board.projects) == 0
         with pytest.raises(ProjectNotFoundError):
@@ -608,7 +608,7 @@ class TestBoard:
         board1.update_with_board(board2)
         assert board1 == orig_board1
         # test version mismatch
-        board2.version = board1.version + 1
+        board2.version = board1.version + 1  # type: ignore[assignment]
         with pytest.raises(VersionMismatchError, match=f'Attempted to update version {board1.version} board with version {board2.version} board'):
             board1.update_with_board(board2)
         (board1.version, board2.version) = (board2.version, board1.version)

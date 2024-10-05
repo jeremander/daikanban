@@ -1,7 +1,7 @@
 from enum import Enum
 from importlib import import_module
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional, cast
 
 from daikanban import logger
 from daikanban.cli import _load_board
@@ -14,10 +14,10 @@ class ExportFormat(str, Enum):
     taskwarrior = 'taskwarrior'
 
     @property
-    def exporter(self) -> BaseExporter:
+    def exporter(self) -> BaseExporter[Any]:
         """Gets the BaseExporter class associated with this format."""
         mod = import_module(f'daikanban.ext.{self.name}')
-        return mod.EXPORTER
+        return cast(BaseExporter[Any], mod.EXPORTER)
 
 
 def export_board(export_format: ExportFormat, board_file: Optional[Path] = None, output_file: Optional[Path] = None) -> None:

@@ -40,7 +40,7 @@ def _check_url(url: Any) -> str:
     if (parsed.scheme in ['', 'http', 'https']) and ('.' not in parsed.netloc) and ('.' not in parsed.path):
         raise ValueError('Invalid URL')
     # if scheme is absent, assume https
-    return url if parsed.scheme else f'https://{url}'
+    return str(url) if parsed.scheme else f'https://{url}'
 
 def _parse_datetime(obj: str | datetime) -> datetime:
     return get_config().time.parse_datetime(obj) if isinstance(obj, str) else obj
@@ -444,7 +444,7 @@ class Task(Model):
             d['project_id'] = '-'
         return d
 
-    @computed_field  # type: ignore[misc]
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def status(self) -> TaskStatus:
         """Gets the current status of the task."""
@@ -456,7 +456,7 @@ class Task(Model):
             return TaskStatus.complete
         return TaskStatus.active
 
-    @computed_field  # type: ignore[misc]
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def lead_time(self) -> Optional[Duration]:
         """If the task is completed, returns the lead time (in days), which is the elapsed time from created to completed.
@@ -467,7 +467,7 @@ class Task(Model):
             return get_duration_between(self.created_time, self.completed_time)
         return None
 
-    @computed_field  # type: ignore[misc]
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def cycle_time(self) -> Optional[Duration]:
         """If the task is completed, returns the cycle time (in days), which is the elapsed time from started to completed.
@@ -478,7 +478,7 @@ class Task(Model):
             return get_duration_between(self.first_started_time, self.completed_time)
         return None
 
-    @computed_field  # type: ignore[misc]
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def total_time_worked(self) -> Duration:
         """Gets the total time (in days) worked on the task."""
@@ -490,7 +490,7 @@ class Task(Model):
                 dur += get_duration_between(last_started_time, final_time)
         return dur
 
-    @computed_field  # type: ignore[misc]
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def is_overdue(self) -> bool:
         """Returns True if the task is overdue (i.e. it was not completed before the due time)."""

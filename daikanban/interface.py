@@ -22,10 +22,11 @@ from typing_extensions import Concatenate, Doc, ParamSpec
 from daikanban import PKG_DIR, logger
 from daikanban.board import Board, load_board
 from daikanban.config import Config, get_config
-from daikanban.errors import BoardFileError, BoardNotLoadedError, InvalidTaskStatusError, KanbanError
-from daikanban.model import DefaultColor, Id, Model, Project, Task, TaskStatus, TaskStatusAction, TaskStatusError, cmd_style, name_style, path_style, proj_id_style, status_style, task_id_style
+from daikanban.errors import BoardFileError, BoardNotLoadedError, InvalidTaskStatusError, KanbanError, TaskStatusError, UserInputError
+from daikanban.model import DefaultColor, Id, Model, Project, Task, TaskStatusAction, cmd_style, name_style, path_style, proj_id_style, status_style, task_id_style
 from daikanban.prompt import FieldPrompter, Prompter, model_from_prompt, simple_input
-from daikanban.utils import NotGiven, NotGivenType, UserInputError, err_style, fuzzy_match, get_current_time, get_duration_between, human_readable_duration, parse_key_value_pair, parse_string_set, prefix_match, style_str, to_snake_case
+from daikanban.task import TaskStatus
+from daikanban.utils import NotGiven, NotGivenType, err_style, fuzzy_match, get_current_time, get_duration_between, human_readable_duration, parse_key_value_pair, parse_string_set, prefix_match, style_str, to_snake_case
 
 
 if TYPE_CHECKING:
@@ -156,7 +157,7 @@ def simple_task_row_type(*fields: str) -> type:
     kwargs: dict[str, Any] = {}
     for name in fields:
         if name == 'id':
-            val: tuple[Any, Optional[Field]] = (str, field(metadata={'justify': 'right'}))
+            val: tuple[Any, Optional[Field[Any]]] = (str, field(metadata={'justify': 'right'}))
         elif name == 'name':
             val = (str, None)
         elif name == 'project':
@@ -211,7 +212,7 @@ def require_board(func: Callable[Concatenate[BI, P], None]) -> Callable[Concaten
         if self.board is None:
             raise BoardNotLoadedError("No board has been loaded.\nRun 'board load' to load a board.")
         func(self, *args, **kwargs)
-    return wrapped
+    return wrapped  # type: ignore[return-value]
 
 def list_boards(config: Optional[Config] = None, active_board_path: Optional[Path] = None) -> None:
     """Prints out a list of boards in the configured board directory.
@@ -262,7 +263,7 @@ class BoardInterface:
         # otherwise, parse as a name
         method = getattr(self.board, f'get_{item_type}_id_by_name')
         if ((id_ := method(s, fuzzy_match)) is not None):
-            return id_
+            return cast(Id, id_)
         raise UserInputError(f'Invalid {item_type} name {name_style(s)}')
 
     def _parse_project_id(self, id_str: str) -> Optional[Id]:
@@ -467,7 +468,7 @@ class BoardInterface:
             'description': 'Description',
             'links': 'Links [not bold]\\[optional, comma-separated][/]',
         }
-        prompters: dict[str, FieldPrompter] = {}
+        prompters: dict[str, FieldPrompter[Project, Any]] = {}
         for (fld, prompt) in prompts.items():
             kwargs: dict[str, Any] = {'prompt': prompt}
             if fld in parsers:
@@ -627,7 +628,7 @@ class BoardInterface:
         else:
             task_fields.discard('name')
             defaults = {'name': validate_task_name(name)}
-        prompters: dict[str, FieldPrompter] = {}
+        prompters: dict[str, FieldPrompter[Task, Any]] = {}
         for (fld, prompt) in prompts.items():
             if fld in task_fields:
                 kwargs: dict[str, Any] = {'prompt': prompt}
@@ -764,8 +765,10 @@ class BoardInterface:
         """Interactively creates a new DaiKanban board.
         Implicitly loads that board afterward."""
         print('Creating new DaiKanban board.\n')
-        prompt_for_name = lambda default: simple_input('Board name', match=r'.*[^\s].*', default=default)
-        prompt_for_path = lambda default: simple_input('Output filename', default=default).strip()
+        def prompt_for_name(default: Optional[str]) -> str:
+            return simple_input('Board name', match=r'.*[^\s].*', default=default)
+        def prompt_for_path(default: Optional[str]) -> str:
+            return simple_input('Output filename', default=default).strip()
         if name_or_path is None:  # prompt for name and path
             name = prompt_for_name(None)
             default_path = str(self.config.board.resolve_board_name_or_path(to_snake_case(name)))
@@ -823,7 +826,7 @@ class BoardInterface:
 
     def _filter_task_by_project_or_tag(self, projects: Optional[list[str]] = None, tags: Optional[list[str]] = None) -> Callable[[Task], bool]:
         """Given project names/IDs and tags, returns a function that filters tasks based on whether their projects or tags match any of the provided values."""
-        filters = []
+        filters: list[Callable[[Task], bool]] = []
         if projects:
             project_id_set = {id_ for id_or_name in projects if (id_:= self._parse_project(id_or_name)) is not None}
             # show task if its project ID matches one in the list
@@ -831,7 +834,7 @@ class BoardInterface:
         if tags:
             tag_set = set(tags)
             # show task if any tag matches one in the list
-            filters.append(lambda task: task.tags and task.tags.intersection(tag_set))
+            filters.append(lambda task: bool(task.tags and task.tags.intersection(tag_set)))
         if filters:
             return lambda task: any(flt(task) for flt in filters)
         # no filters, so permit any task
@@ -855,7 +858,7 @@ class BoardInterface:
             raise UserInputError('Must provide a time in the past')
         return since
 
-    def _get_task_col_settings(self, col: str, color: str, since: Optional[datetime]) -> TaskColSettings:
+    def _get_task_col_settings(self, col: str, color: str, since: Optional[datetime]) -> TaskColSettings[Any]:
         def _get_task_kwargs(id_: Id, task: Task) -> dict[str, Any]:
             proj_str = None if (task.project_id is None) else self._project_str_from_id(task.project_id)
             icons = task.status_icons
@@ -888,7 +891,7 @@ class BoardInterface:
     def _get_column_settings_by_column(self,
         statuses: Optional[list[str]] = None,
         since: datetime | None | NotGivenType = NotGiven,
-    ) -> dict[str, TaskColSettings]:
+    ) -> dict[str, TaskColSettings[Any]]:
         """Gets a mapping from columns to TaskColSettings."""
         since = self._get_completed_since(since)
         (col_by_status, col_colors) = self._column_info(statuses)
