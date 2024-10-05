@@ -85,7 +85,17 @@ Projects and tasks can be referred to either by their ID (a unique number assign
 
 For now, DaiKanban boards are saved as local JSON files that you need to load explicitly, either by running `board load [FILENAME]` within the shell, or launching the program like `daikanban shell --board [FILENAME]`.
 
-🚧 In the near future, multiple boards will be stored inside a canonical directory, along with a global configuration file in which you can set up a default board.
+You can store multiple board files in your canonical board directory, including a default board file that will load automatically. This can be set using the global [configuration file](#configuration).
+
+### Configuration
+
+To customize configurations, create a new config file:
+
+```shell
+daikanban config new
+```
+
+This creates a TOML file you can modify. You can override default settings like what board columns are displayed, how many tasks to show, preferred date format, and much more.
 
 ### Flexible dates & times
 
@@ -102,7 +112,6 @@ This makes it easy to enter these kinds of fields naturally as a human, without 
 
 ## 🚧 Future Work
 
-- Configurable settings
 - Syncing with external platforms (Github, Jira)
 - Custom task statuses
 - Blocking tasks
@@ -116,9 +125,10 @@ This makes it easy to enter these kinds of fields naturally as a human, without 
 
 🛠️ Feel free to submit pull requests, ask questions, or make bugfix/feature requests on [Github Issues](https://github.com/jeremander/daikanban/issues).
 
-✨ This library is built on [pydantic], [typer], and [rich]. Check them out!
+✨ This library is built on [pydantic], [fancy-dataclass], [typer], and [rich]. Check them out!
 
 [clikan]: https://github.com/kitplummer/clikan
+[fancy-dataclass]: https://github.com/jeremander/fancy-dataclass
 [kanban-python]: https://github.com/Zaloog/kanban-python
 [pydantic]: https://github.com/pydantic/pydantic
 [rich]: https://github.com/Textualize/rich
