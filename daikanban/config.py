@@ -114,7 +114,7 @@ class BoardConfig(TOMLDataclass):
     @property
     def all_board_paths(self) -> list[Path]:
         """Gets a list of absolute paths of all JSON files in the board directory."""
-        return [p for p in self.board_dir_path.glob('*') if str(p).lower().endswith('.json')]
+        return sorted([p for p in self.board_dir_path.glob('*') if str(p).lower().endswith('.json')])
 
 
 @dataclass

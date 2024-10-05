@@ -58,7 +58,7 @@ jobs:
         run: hatch run lint:run-mypy
       - name: Test (pytest)
         run: |
-          hatch run test:test --verbosity=0
+          hatch run test:test -m "not display" --verbosity=0
           hatch run test.py3.11:cov-report
       - name: Coverage Badge
         if: github.ref == 'refs/heads/main'
@@ -70,6 +70,7 @@ jobs:
           git add coverage-badge.svg
           git commit -m "ci: update coverage badge"
       - name: Push changes
+        if: github.ref == 'refs/heads/main'
         uses: ad-m/github-push-action@master
         with:
           github_token: ${{ secrets.github_token }}

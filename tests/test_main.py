@@ -34,6 +34,7 @@ class TestMain:
             else:
                 pytest.fail('app should raise SystemExit')
 
+    @pytest.mark.display
     def test_help(self, capsys):
         """Tests that the help menu is displayed when calling the program with `--help` or with no arguments."""
         patterns = ['Commands', r'--help\s+-h\s+Show this message and exit.', r'new\s+create new board']

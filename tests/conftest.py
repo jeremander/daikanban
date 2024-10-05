@@ -10,7 +10,7 @@ from daikanban.model import Project, Task
 from . import make_uuid
 
 
-make_dt = lambda s: datetime.strptime(s, '%Y-%m-%d').astimezone(timezone.utc)
+make_dt = lambda s: datetime.strptime(s + 'Z-0500', '%Y-%m-%dZ%z').astimezone(timezone.utc)
 
 CREATED_TIME = make_dt('2024-01-01')
 STARTED_TIME = make_dt('2024-01-02')

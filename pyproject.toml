@@ -21,7 +21,7 @@ dependencies = [
   "pendulum >= 3.0",
   "pydantic >= 2.6",
   "pytimeparse >= 1.1",
-  "typer >= 0.9",
+  "typer >= 0.12",
   "typing-extensions >= 4.10"
 ]
 
@@ -121,3 +121,6 @@ disable_error_code = ["assignment"]
 
 [tool.pytest.ini_options]
 addopts = "--verbose --cov=daikanban"
+markers = """
+  display: tests display output (might fail in CI due to terminal issues with rich pretty-printing)
+"""
