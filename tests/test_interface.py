@@ -70,9 +70,9 @@ class TestInterface:
 
     @pytest.mark.parametrize(['cmd', 'regex'], [
         ('help', r'User options\s+\[h\]elp\s+show help menu\s+\[q\]uit\s+exit the shell'),
-        ('board help', 'Board options\s+\[b\]oard'),
-        ('project help', 'Project options\s+\[p\]roject'),
-        ('task help', 'Task options\s+\[t\]ask'),
+        ('board help', r'Board options\s+\[b\]oard'),
+        ('project help', r'Project options\s+\[p\]roject'),
+        ('task help', r'Task options\s+\[t\]ask'),
     ])
     def test_help(self, capsys, cmd, regex):
         """Tests output of various shell help commands."""
