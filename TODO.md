@@ -2,8 +2,7 @@
 
 ## `v0.2.1`
 
-- Set up hatch scripts (Python version test matrix)
-- Set up Github Actions, test coverage
+- Set up Github Actions, test coverage, coverage badge
 - Provide informative error/warning if loaded config file does not match latest schema
   - Ideally load what we can of the file and warn if there's an unknown field (no fields should be required).
     - Currently we probably just silently fail to notice unknown fields?

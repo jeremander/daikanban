@@ -1,0 +1,76 @@
+name: daikanban
+
+on:
+  push:
+    branches:
+      - '*'  # matches every branch that doesn't contain a '/'
+      - '!coverage-badge'
+  pull_request:
+
+jobs:
+  build:
+    name: "Code checks"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: |
+            3.10
+            3.12
+            3.11
+      - name: Set up pip cache
+        if: runner.os == 'Linux'
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('pyproject.toml') }}
+          restore-keys: ${{ runner.os }}-pip-
+      - name: Install hatch
+        run: pip install hatch
+      - name: Configure hatch
+        run: hatch config set dirs.env.virtual .venv
+      - name: Cache hatch virtualenv
+        uses: actions/cache@v4
+        id: cache-venv
+        with:
+          path: ./.venv/
+          # cache key depends on pyproject.toml
+          key: ${{ runner.os }}-venv-${{ hashFiles('pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-venv-
+      - name: Create virtualenvs
+        # build virtualenvs, but only if they're not already cached
+        run: hatch env create lint && hatch env create test
+        if: steps.cache-venv.outputs.cache-hit != 'true'
+      - name: Lines of code (radon)
+        run: hatch run lint:run-loc-summarize | tee loc-summary.txt
+      - name: Upload lines of code
+        uses: actions/upload-artifact@v4
+        with:
+          name: loc-summary
+          path: loc-summary.txt
+      - name: Lint (ruff)
+        run: hatch run lint:run-ruff
+      - name: Python compatibility (vermin)
+        run: hatch run lint:run-vermin
+      - name: Type-check (mypy)
+        run: hatch run lint:run-mypy
+      - name: Test (pytest)
+        run: |
+          hatch run test:test --verbosity=0
+          hatch run test.py3.11:cov-report
+      - name: Coverage Badge
+        run: |
+          hatch run badge:badges
+          git checkout -B coverage-badge
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add coverage-badge.svg
+          git commit -m "ci: update coverage badge"
+      - name: Push changes
+        uses: ad-m/github-push-action@master
+        with:
+          github_token: ${{ secrets.github_token }}
+          branch: coverage-badge
+          force: true
