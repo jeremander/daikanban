@@ -61,6 +61,7 @@ jobs:
           hatch run test:test --verbosity=0
           hatch run test.py3.11:cov-report
       - name: Coverage Badge
+        if: github.ref == 'refs/heads/main'
         run: |
           hatch run badge:badges
           git checkout -B coverage-badge
