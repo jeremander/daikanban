@@ -7,7 +7,7 @@ name = "daikanban"
 dynamic = ["version"]
 description = "A kanban-style project task queue."
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = "MIT"
 keywords = ["kanban", "productivity"]
 authors = [
@@ -21,7 +21,7 @@ dependencies = [
   "pendulum >= 3.0",
   "pydantic >= 2.6",
   "pytimeparse >= 1.1",
-  "typer[all] >= 0.9",
+  "typer >= 0.9",
   "typing-extensions >= 4.10"
 ]
 
@@ -34,10 +34,29 @@ Issues = "https://github.com/jeremander/daikanban/issues"
 Source = "https://github.com/jeremander/daikanban"
 
 [tool.hatch.build.targets.sdist]
-exclude = ["TODO.txt"]
+exclude = ["TODO.md"]
 
 [tool.hatch.version]
 path = "daikanban/__init__.py"
+
+[tool.hatch.envs.lint]
+dependencies = [
+  "mypy>=1.11",
+  "py-gadzooks>=0.2.9",
+  "ruff>=0.6",
+  "vermin>=1.6",
+]
+
+[tool.hatch.envs.lint.scripts]
+# linting
+run-ruff = "ruff check"
+# ensure compatibility with Py3.10 and higher
+run-vermin = "vermin {args:.}"
+# type-checking
+run-mypy = "mypy --install-types --non-interactive {args:daikanban tests}"
+# print info about lines of code
+run-loc-summarize = "gadzooks loc-summarize daikanban"
+all = ["run-ruff", "run-vermin", "run-mypy", "run-loc-summarize"]
 
 [tool.hatch.envs.default]
 dependencies = [
@@ -49,7 +68,7 @@ dependencies = [
 test = "pytest {args:tests}"
 
 # [[tool.hatch.envs.all.matrix]]
-# python = ["3.9", "3.10", "3.11", "3.12"]
+# python = ["3.10", "3.11", "3.12"]
 
 [tool.hatch.envs.types]
 dependencies = [

@@ -38,6 +38,8 @@ You may have more than one board (e.g. to separate personal and business tasks),
 pip install daikanban
 ```
 
+Requires 3.10 or higher.
+
 ## Usage
 
 View help menu:
