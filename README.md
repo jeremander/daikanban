@@ -1,6 +1,8 @@
 # DaiKanban <br/> 大看板
 
 [![PyPI - Version](https://img.shields.io/pypi/v/daikanban)](https://pypi.org/project/daikanban)
+![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/jeremander/daikanban/workflow.yml)
+![Coverage Status](https://github.com/jeremander/daikanban/raw/coverage-badge/coverage-badge.svg)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://raw.githubusercontent.com/jeremander/daikanban/main/LICENSE)
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
 
