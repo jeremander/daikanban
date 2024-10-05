@@ -7,7 +7,7 @@ import pytest
 from daikanban import __version__
 from daikanban.board import Board
 from daikanban.cli.main import APP
-from daikanban.config import get_config
+from daikanban.config import get_config, user_config_exists, user_config_path, user_dir
 from daikanban.utils import get_current_time
 
 from . import make_uuid, match_patterns
@@ -43,6 +43,22 @@ class TestMain:
     def test_version(self, capsys):
         """Tests that the --version flag prints out the current version."""
         self._test_main(capsys, ['--version'], f'{__version__}\n', exact=True)
+
+    def test_config(self, capsys, tmpdir, monkeypatch):
+        """Tests various 'config' subcommands."""
+        tmp_home = Path(tmpdir / 'home')
+        monkeypatch.setattr(Path, 'home', lambda: tmp_home)
+        assert not user_config_exists()
+        p = user_dir()
+        assert p == tmp_home / '.daikanban'
+        assert not p.exists()
+        p.mkdir(parents=True)
+        self._test_main(capsys, ['config', 'new'], err_patterns='Saved default config file')
+        assert user_config_exists()
+        cfg_path = user_config_path()
+        self._test_main(capsys, ['config', 'path'], f'{cfg_path}\n', exact=True)
+        cfg_str = cfg_path.read_text()
+        self._test_main(capsys, ['config', 'show'], f'{cfg_str}\n', exact=True)
 
     def test_list(self, capsys, use_regular_print, populate_board_dir):
         """Tests the 'list' subcommand, which prints out the board path and list of filenames."""

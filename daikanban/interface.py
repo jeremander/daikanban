@@ -416,7 +416,7 @@ class BoardInterface:
         assert id_ is not None
         obj = getattr(self.board, f'get_{name}')(id_)
         # if field has a known parser, parse the value now
-        parsers = getattr(self, f'_{name}_field_parsers')
+        parsers = getattr(self, f'_get_{name}_field_parsers')(is_update=True)
         try:
             if (value is not None) and (field in parsers):
                 value = parsers[field](value)
@@ -447,9 +447,9 @@ class BoardInterface:
         self.save_board()
         print(f'Deleted project {name_style(proj.name)} with ID {proj_id_style(id_)}')
 
-    @property
-    def _project_field_parsers(self) -> dict[str, Callable[[str], Any]]:
-        """Gets a dict from project fields to parser/validator functions that take a string and return a value for that field."""
+    def _get_project_field_parsers(self, is_update: bool = True) -> dict[str, Callable[[str], Any]]:
+        """Gets a dict from project fields to parser/validator functions that take a string and return a value for that field.
+        If is_update=True, this is for updating a project; otherwise, it is for a new project."""
         return {
             'name': validate_project_name,
             'description': empty_is_none,
@@ -461,7 +461,7 @@ class BoardInterface:
     def new_project(self, name: Optional[str] = None) -> None:
         """Creates a new project."""
         assert self.board is not None
-        parsers = self._project_field_parsers
+        parsers = self._get_project_field_parsers(is_update=False)
         prompts = {
             'name': 'Project name',
             'description': 'Description',
@@ -583,16 +583,16 @@ class BoardInterface:
         self.save_board()
         print(f'Deleted task {name_style(task.name)} with ID {task_id_style(id_)}')
 
-    @property
-    def _task_field_parsers(self) -> dict[str, Callable[[str], Any]]:
-        """Gets a dict from project fields to parser/validator functions that take a string and return a value for that field."""
+    def _get_task_field_parsers(self, is_update: bool = True) -> dict[str, Callable[[str], Any]]:
+        """Gets a dict from project fields to parser/validator functions that take a string and return a value for that field.
+        If is_update=True, this is for updating a task; otherwise, it is for a new task."""
         def _parse_task_set(s: str) -> Optional[set[Id]]:
             # parse comma-separated list of task IDs and/or names
             return {task_id for elt in (parse_string_set(s) or set()) if (task_id := self._parse_task(elt)) is not None} or None
         return {
             'name': validate_task_name,
             'description': empty_is_none,
-            'project_id': self._parse_project_id,
+            'project_id': self._parse_project_id if is_update else self._parse_project,
             'project': self._parse_project,
             'priority': empty_is_none,
             'expected_difficulty': empty_is_none,
@@ -608,7 +608,7 @@ class BoardInterface:
     def new_task(self, name: Optional[str] = None) -> None:
         """Creates a new task."""
         assert self.board is not None
-        parsers = self._task_field_parsers
+        parsers = self._get_task_field_parsers(is_update=False)
         prompts = {
             'name': 'Task name',
             'description': 'Description',
