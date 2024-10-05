@@ -1,9 +1,5 @@
 # TODO list
 
-## `v0.2.0`
-
-- Issue release
-
 ## `v0.2.1`
 
 - Provide informative error/warning if loaded config file does not match latest schema
@@ -110,6 +106,8 @@
     - Don't need complicated logic to remap the IDs (but still need to deal with broken references)
   - Cons:
     - Take up more space in JSON
+- Allow subsection of config for specific board?
+  - E.g. `[boards.myboard.display]` in TOML, etc.
 - Shell features
   - ASCII billboard art is hot garbage
   - Consider having a yes/no user prompt before resetting/deleting a task?
@@ -159,6 +157,10 @@
 - Better schema documentation
   - Go into more detail about the meaning(s) of priority/difficulty/duration
 - Support task logs
+  - `task log new [ID/NAME] "my log message"` (can also set other fields `time`, `type`, `rating`)
+  - `task log show [ID/NAME]` (shows list of logs with indices)
+  - `task log set [ID/NAME] [LOG_INDEX] [ATTRIBUTES...]`
+  - `task log delete [ID/NAME] [LOG_INDEX]`
 - Analytics
   - Kanban metrics
     - Lead time (todo to complete) & cycle time (active to complete)

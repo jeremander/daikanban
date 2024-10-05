@@ -66,14 +66,29 @@ class TestInterface:
         match_patterns(out, res.out)
         match_patterns(err, res.err)
 
+    # HELP
+
+    @pytest.mark.parametrize(['cmd', 'regex'], [
+        ('help', r'User options\s+\[h\]elp\s+show help menu\s+\[q\]uit\s+exit the shell'),
+        ('board help', 'Board options\s+\[b\]oard'),
+        ('project help', 'Project options\s+\[p\]roject'),
+        ('task help', 'Task options\s+\[t\]ask'),
+    ])
+    def test_help(self, capsys, cmd, regex):
+        """Tests output of various shell help commands."""
+        self._test_output(capsys, None, [(cmd, None)], regex)
+
     # PROJECT
 
     def test_project_show_empty(self, capsys):
         self._test_output(capsys, None, [('project show', None)], r'\[No projects\]')
 
     def test_project_new(self, capsys, monkeypatch):
-        user_input = [('project new', ['proj', 'My project.', '']), ('project show', None)]
+        user_input = [('project new', ['proj', 'My project.', '']), ('project show', None), ('project show 0', None)]
+        # output of 'project show'
         outputs = [self._table_row(row) for row in [['id', 'name', 'created', '# tasks'], ['0', 'proj', '.*', '0']]]
+        # output of 'project show 0'
+        outputs.append(r'ID.*0.*name.*proj.*uuid.*description.*My project\.')
         self._test_output(capsys, monkeypatch, user_input, outputs)
         # create project with an invalid name
         user_input = [('project new 123', [])]
@@ -206,8 +221,11 @@ class TestInterface:
         self._test_output(capsys, None, [('task show', None)], r'\[No tasks\]')
 
     def test_task_new(self, capsys, monkeypatch):
-        user_input = [('task new', ['task', 'My task.', '', '7', '', '', '', '']), ('task show', None)]
+        user_input = [('task new', ['task', 'My task.', '', '7', '', '', '', '']), ('task show', None), ('task show 0', None)]
+        # output of 'task show'
         outputs = [self._table_row(row) for row in [['id', 'name', 'pri…ty', 'create', 'status'], ['0', 'task', '7', '.*', 'todo']]]
+        # output of 'task show 0'
+        outputs.append(r'ID.*0.*name.*task.*uuid.*description.*My task\..*created_time.*status.*todo.*project')
         self._test_output(capsys, monkeypatch, user_input, outputs)
         # create task with an invalid name
         user_input = [('task new 123', [])]

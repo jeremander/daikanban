@@ -734,7 +734,7 @@ class BoardInterface:
         path = self.config.board.default_board_path if (name_or_path is None) else self.config.board.resolve_board_name_or_path(name_or_path)
         if path.exists():
             if name_or_path is None:
-                print(f"Loading default board from {path_style(path)}.\nTo switch boards, use {cmd_style('board load')}")
+                print(f"Loading default board from {path_style(path)}\nTo switch boards, use {cmd_style('board load')}")
             else:
                 print(f'Loading board from {path_style(path)}')
             self.board = load_board(path, config=self.config)
