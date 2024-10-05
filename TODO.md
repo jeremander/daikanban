@@ -2,7 +2,6 @@
 
 ## `v0.2.0`
 
-- Update CHANGELOG
 - Issue release
 
 ## `v0.2.1`

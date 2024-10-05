@@ -16,9 +16,44 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.2.0]
+
+### Added
+
+- `config` subcommand
+  - `new`: create TOML configuration file
+  - `path`: show path to the config file
+  - `show`: print out config file
+  - Can configure directory containing "default" boards.
+- `list` subcommand: lists all boards installed in configured board directory.
+- Data model updates
+  - `Log` attributes:
+    - `type` (string): type of the log
+  - `Task` and `Project` attributes:
+    - `uuid` (UUID4): unique identifier
+    - `modified_time` (datetime): time last modified
+    - `notes` (list of strings): notes about the task
+    - `relations` (list of `Relation`s): arbitrary relations with other projects/tasks
+    - `extra` (dict): any extra data associated with the task/project
+- Import/export API
+  - `import` subcommand: import board from file
+  - `export` subcommand: export board to file
+  - `daikanban` JSON import/export (standard board format)
+  - [taskwarrior](https://taskwarrior.org) JSON import/export
+- Environment variable `DKB_DEBUG` (debug mode), if set, will have exceptions emit their full traceback.
+
 ### Changed
 
 - More flexible datetime parsing. Now accepts things like "yesterday at 8", "2 days from now at 5 PM", and "last Tuesday".
+- Group tasks by status within each column in board view.
+- Projects/tasks can now have duplicate names.
+- Project/task names cannot be all digits.
+- `=` can be used as a field/value delimiter in `project set` and `task set`.
+- `board new [NAME_OR_PATH]` fills in the board name or path without prompting.
+
+### Fixed
+
+- Do not allow user to update project/task IDs.
 
 ## [0.1.2]
 
@@ -69,6 +104,7 @@ Types of changes:
   - Help menu
 - [README](README.md) and [CHANGELOG](#changelog).
 
-[unreleased]: https://github.com/jeremander/daikanban/compare/v0.1.0...HEAD
+[unreleased]: https://github.com/jeremander/daikanban/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/jeremander/daikanban/releases/tag/v0.2.0
 [0.1.1]: https://github.com/jeremander/daikanban/releases/tag/v0.1.1
 [0.1.0]: https://github.com/jeremander/daikanban/releases/tag/v0.1.0
