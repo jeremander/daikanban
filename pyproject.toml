@@ -43,6 +43,7 @@ path = "daikanban/__init__.py"
 dependencies = [
   "mypy>=1.11",
   "py-gadzooks>=0.2.9",
+  "pytest",
   "ruff>=0.6",
   "vermin>=1.6",
 ]
@@ -58,24 +59,30 @@ run-mypy = "mypy --install-types --non-interactive {args:daikanban tests}"
 run-loc-summarize = "gadzooks loc-summarize daikanban"
 all = ["run-ruff", "run-vermin", "run-mypy", "run-loc-summarize"]
 
-[tool.hatch.envs.default]
+[tool.hatch.envs.test]
 dependencies = [
   "pytest",
   "pytest-cov"
 ]
 
-[tool.hatch.envs.default.scripts]
+[tool.hatch.envs.test.scripts]
 test = "pytest {args:tests}"
+test-debug = "pytest --pdb {args:tests}"
+cov-report = ["- coverage combine", "coverage report", "coverage html"]
+cov = ["test", "cov-report"]
 
-# [[tool.hatch.envs.all.matrix]]
-# python = ["3.10", "3.11", "3.12"]
+[[tool.hatch.envs.test.matrix]]
+python = ["3.10", "3.11", "3.12"]
 
-[tool.hatch.envs.types]
+[tool.hatch.envs.badge]
 dependencies = [
-  "mypy>=1.0",
+  "coverage",
+  "genbadge[tests,coverage]"
 ]
-[tool.hatch.envs.types.scripts]
-check = "mypy --install-types --non-interactive {args:daikanban tests}"
+
+[tool.hatch.envs.badge.scripts]
+badge-cov = ["coverage xml", "genbadge coverage -i coverage.xml"]
+badges = ["badge-cov"]
 
 [tool.hatch.publish.index]
 disable = true
@@ -97,6 +104,20 @@ exclude_lines = [
 
 [tool.commitizen]
 tag_format = "v$major.$minor.$patch"
+
+[tool.mypy]
+exclude = ["tmp.*"]
+warn_unused_configs = true
+strict = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+strict = false
+disable_error_code = ["arg-type", "attr-defined", "no-untyped-call", "no-untyped-def"]
+
+[[tool.mypy.overrides]]
+module = "tests.test_interface"
+disable_error_code = ["assignment"]
 
 [tool.pytest.ini_options]
 addopts = "--verbose --cov=daikanban"
