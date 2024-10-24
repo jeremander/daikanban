@@ -68,13 +68,25 @@ VALID_RELATIVE_TIMES = [
     ('last wed', False),
     ('next Tuesday', True),
     ('next sun, 9', True),
+    ('in 7.5 seconds', True),
+    ('1.7 seconds ago', False),
+    ('in 0.5 mins', True),
+    ('in 1.0 minutes', True),
+    ('in 0.5 hours', True),
+    ('in 0.5 days', True),
+    ('4.12 weeks', True),
+    ('9.0 months', True),
+    ('in 3.14 years', True),
 ]
 
 INVALID_RELATIVE_TIMES = [
     ('invalid time', True),
     ('3', True),
     ('in 1 year ago', True),
-    # ('in 2 mins, 5:00', True),
+    # ('in 2 mins, 5:00', True),  # TODO: disallow this
+    ('in -2 days', True),
+    ('in -2.5 days', True),
+    ('2 hours, 3 mins', True),  # TODO: parse this properly
 ]
 
 VALID_DURATIONS = [

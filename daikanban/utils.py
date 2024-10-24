@@ -6,6 +6,7 @@ import re
 from typing import Any, Callable, Iterable, Optional, cast
 
 import pendulum
+from pendulum.datetime import DateTime
 from typing_extensions import TypeAlias
 
 from daikanban.errors import UserInputError
@@ -14,6 +15,8 @@ from daikanban.errors import UserInputError
 SECS_PER_HOUR = 3600
 HOURS_PER_DAY = 24
 DAYS_PER_WEEK = 7
+DAYS_PER_MONTH = 30.5
+DAYS_PER_YEAR = 365.25
 SECS_PER_DAY = SECS_PER_HOUR * HOURS_PER_DAY
 
 
@@ -182,7 +185,7 @@ def replace_relative_day(s: str) -> str:
 def replace_relative_time_expression(s: str) -> str:
     """Resolves a relative time expression to an absolute one."""
     s = replace_relative_day(s)
-    pattern = r'(in\s+)?(\d+)\s+(sec(ond)?|min(ute)?|hr|hour|day|week|month|yr|year)s?(\s+(ago|from\s+now))?'
+    pattern = r'(in\s+)?(\d*\.?\d+)\s+(sec(ond)?|min(ute)?|hr|hour|day|week|month|yr|year)s?(\s+(ago|from\s+now))?'
     def replace(match: re.Match[str]) -> str:
         groups = match.groups()
         is_future = (groups[0] is not None) and ('in' in groups[0])
@@ -190,25 +193,29 @@ def replace_relative_time_expression(s: str) -> str:
         is_future |= (groups[-1] is not None) and ('from' in groups[-1])
         if is_past and is_future:  # invalid, so bail
             return match.string
-        amount = int(groups[1])
+        amount = float(groups[1])
         unit = groups[2]
         now = pendulum.now()
-        diff_func = now.subtract if is_past else now.add
-        if unit == 'sec':
-            return diff_func(seconds=amount).to_datetime_string()
-        elif unit == 'min':
-            return diff_func(minutes=amount).to_datetime_string()
-        elif unit in ['hr', 'hour']:
-            return diff_func(hours=amount).to_datetime_string()
-        elif unit == 'day':
-            return diff_func(days=amount).to_date_string()
-        elif unit == 'week':
-            return diff_func(weeks=amount).to_date_string()
-        elif unit == 'month':
-            return diff_func(months=amount).to_date_string()
-        else:
-            assert unit in ['yr', 'year']
-            return diff_func(years=amount).to_date_string()
+        diff_func = DateTime.subtract if is_past else DateTime.add
+        # diff_func = now.subtract if is_past else now.add
+        if unit.startswith('sec'):
+            return diff_func(now, seconds=amount).to_datetime_string()
+        if unit.startswith('min'):
+            return diff_func(now, minutes=amount).to_datetime_string()  # type: ignore[arg-type]
+        if unit in ['hr', 'hour']:
+            return diff_func(now, hours=amount).to_datetime_string()  # type: ignore[arg-type]
+        if unit == 'day':
+            return diff_func(now, days=amount).to_date_string()  # type: ignore[arg-type]
+        if unit == 'week':
+            return diff_func(now, weeks=amount).to_date_string()  # type: ignore[arg-type]
+        if unit == 'month':
+            months = int(amount)
+            days = (amount - months) * DAYS_PER_MONTH
+            return diff_func(diff_func(now, months=months), days=days).to_date_string()  # type: ignore[arg-type]
+        assert unit in ['yr', 'year']
+        years = int(amount)
+        days = (amount - years) * DAYS_PER_YEAR
+        return diff_func(diff_func(now, years=years), days=days).to_date_string()  # type: ignore[arg-type]
     return re.sub(pattern, replace, s)
 
 

@@ -97,6 +97,7 @@
 
 ## Future
 
+- Fix parsing relative time expressions with mixed units, e.g. "in 2 hours, 3 mins."
 - Make it an error if relation has an unknown ID?
   - Error upon creation/update
 - "Context" (i.e. persistent filter)
