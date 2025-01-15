@@ -2,8 +2,8 @@ from copy import deepcopy
 from datetime import datetime, timedelta
 import uuid
 
+from pydantic import AnyUrl as Url
 from pydantic import ValidationError
-from pydantic_core import Url
 import pytest
 
 from daikanban.board import Board, load_board

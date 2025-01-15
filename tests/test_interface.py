@@ -1,7 +1,7 @@
 from contextlib import suppress
 import shutil
 
-from pydantic_core import Url
+from pydantic import AnyUrl as Url
 import pytest
 
 from daikanban.board import Board

@@ -273,7 +273,7 @@ class DisplayConfig(TOMLDataclass):
 
 
 @dataclass
-class Config(ConfigDataclass, TOMLDataclass, doc_as_comment=True):  # type: ignore[misc]
+class Config(ConfigDataclass, TOMLDataclass, doc_as_comment=True):
     """Global configurations for daikanban"""
     case_sensitive: Annotated[
         bool,
