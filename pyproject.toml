@@ -8,7 +8,7 @@ dynamic = ["version"]
 description = "A kanban-style project task queue."
 readme = "README.md"
 requires-python = ">=3.10"
-license = "MIT"
+license = {file = "LICENSE"}
 keywords = ["kanban", "productivity"]
 authors = [
   { name = "Jeremy Silver", email = "jeremys@nessiness.com" }
