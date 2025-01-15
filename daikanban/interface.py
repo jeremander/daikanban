@@ -990,7 +990,10 @@ class BoardInterface:
         prompt = prompt.strip()
         if not prompt:
             return None
-        tokens = shlex.split(prompt)
+        try:
+            tokens = shlex.split(prompt)
+        except ValueError as e:
+            raise UserInputError(str(e)) from None
         ntokens = len(tokens)
         tok0 = tokens[0]
         if prefix_match(tok0, 'board'):

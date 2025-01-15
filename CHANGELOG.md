@@ -16,9 +16,23 @@ Types of changes:
 
 ## [Unreleased]
 
-Set minimum Python version to 3.10.
+## [0.2.1]
+
+### Added
+
+- Github Actions workflow, more lint checking.
+
+### Changed
+
+- Set minimum Python version to 3.10.
+
+### Fixed
+
+- Allow relative times in fractional units (e.g. "in 0.5 hours," "4.5 days ago").
 
 ## [0.2.0]
+
+2024-10-05
 
 ### Added
 
@@ -59,6 +73,8 @@ Set minimum Python version to 3.10.
 
 ## [0.1.2]
 
+2024-05-31
+
 ### Added
 
 - More flexible input:
@@ -84,6 +100,8 @@ Set minimum Python version to 3.10.
 
 ## [0.1.1]
 
+2024-03-27
+
 ### Added
 
 - Shell:
@@ -92,6 +110,8 @@ Set minimum Python version to 3.10.
 - Basic unit tests for shell interface.
 
 ## [0.1.0]
+
+2024-03-17
 
 ### Added
 
