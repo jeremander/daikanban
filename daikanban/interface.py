@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Annotated, Any, Callable, Generic, Iterable, O
 import pendulum
 import pendulum.parsing
 from pydantic import ValidationError
-from rich import print
+from rich import print  # noqa: A004
 from rich.console import Console
 from rich.prompt import Confirm
 from rich.table import Table
@@ -177,7 +177,7 @@ def simple_task_row_type(*fields: str) -> type:
             raise ValueError(f'Unrecognized Task field {name}')
         kwargs[name] = val
     items = [(name, tp) if (fld is None) else (name, tp, fld) for (name, (tp, fld)) in kwargs.items()]
-    return make_dataclass('SimpleTaskRow', items)  # type: ignore[arg-type]
+    return make_dataclass('SimpleTaskRow', items)
 
 
 @dataclass
@@ -408,7 +408,7 @@ class BoardInterface:
     def _update_project_or_task(self, id_or_name: str, field: str, value: Optional[str], is_task: bool) -> None:
         """Updates an attribute of a project or task."""
         assert self.board is not None
-        cls: Type[Model] = Task if is_task else Project  # type: ignore[assignment]
+        cls: Type[Model] = Task if is_task else Project
         name = cls.__name__.lower()
         id_field = f'{name}_id'
         if (field in cls._computed_fields()) or (field == id_field):

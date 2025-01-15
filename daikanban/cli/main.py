@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import Annotated, Optional
 
-from rich import print
+from rich import print  # noqa: A004
 import typer
 
 from daikanban import __version__, logger
