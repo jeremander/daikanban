@@ -365,7 +365,7 @@ class Task(Model):
     )
     links: Optional[UrlSet] = Field(
         default=None,
-        description='Links associated with the project'
+        description='Links associated with the task'
     )
     created_time: Datetime = Field(
         default_factory=get_current_time,

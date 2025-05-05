@@ -8,11 +8,12 @@ dynamic = ["version"]
 description = "A kanban-style project task queue."
 readme = "README.md"
 requires-python = ">=3.10"
-license = {file = "LICENSE"}
+# license = {file = "LICENSE"}
+# license = "MIT"
 keywords = ["kanban", "productivity"]
-authors = [
-  { name = "Jeremy Silver", email = "jeremys@nessiness.com" }
-]
+# authors = [
+#   { name = "Jeremy Silver", email = "jeremys@nessiness.com" }
+# ]
 classifiers = [
   "Programming Language :: Python"
 ]
@@ -34,7 +35,7 @@ Issues = "https://github.com/jeremander/daikanban/issues"
 Source = "https://github.com/jeremander/daikanban"
 
 [tool.hatch.build.targets.sdist]
-exclude = ["TODO.md"]
+include = ["/daikanban", "/tests"]
 
 [tool.hatch.version]
 path = "daikanban/__init__.py"
