@@ -437,7 +437,7 @@ class Task(Model):
             # make durations human-readable
             if field in d:
                 val = getattr(self, field)
-                if (val is not None):
+                if val is not None:
                     assert isinstance(val, float)
                     d[field] = '-' if (val == 0) else human_readable_duration(val)
         if self.project_id is None:
@@ -526,7 +526,7 @@ class Task(Model):
         return ' '.join(icons) if icons else None
 
     def check_consistent_times(self) -> Self:  # noqa: C901
-        """Checks the consistence of various timestamps stored in the Task.
+        """Checks the consistency of various timestamps stored in the Task.
         If any is invalid, raises an InconsistentTimestampError."""
         def _invalid(msg: str) -> InconsistentTimestampError:
             return InconsistentTimestampError(f'{msg}\n\t{self}')
