@@ -97,6 +97,7 @@
 
 ## Future
 
+- Do zero-stripping of date segments for readability? (See `daikanban_web`).
 - Fix parsing relative time expressions with mixed units, e.g. "in 2 hours, 3 mins."
 - Make it an error if relation has an unknown ID?
   - Error upon creation/update
@@ -217,7 +218,7 @@
 - Backup/restore
 - Web app
   - `web` subcommand of main CLI
-  - `streamlit`? `fastui`?
+  - `streamlit`
   - Some cloud solution for syncing your board file
 - Notifications
   - Could be *chosen tasks for today*, *tasks due soon*, etc.

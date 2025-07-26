@@ -493,7 +493,7 @@ class BoardInterface:
         """Shows project list."""
         assert self.board is not None
         num_tasks_by_project = self.board.num_tasks_by_project
-        rows = [ProjectRow(id=proj_id_style(id_, bold=True), name=proj.name, created=proj.created_time.strftime('%Y-%m-%d'), num_tasks=num_tasks_by_project[id_]) for (id_, proj) in self.board.projects.items()]
+        rows = [ProjectRow(id=proj_id_style(id_, bold=True), name=proj.name, created=proj.created_time.strftime(self.config.time.date_format), num_tasks=num_tasks_by_project[id_]) for (id_, proj) in self.board.projects.items()]
         if rows:
             table = make_table(ProjectRow, rows)
             print(table)
