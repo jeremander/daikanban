@@ -11,8 +11,8 @@ from daikanban.utils import HOURS_PER_DAY, SECS_PER_DAY, UserInputError, get_cur
 
 
 def test_config_path():
-    assert user_dir() == Path.home() / '.daikanban'
-    assert user_config_path() == Path.home() / '.daikanban' / 'config.toml'
+    assert user_dir() == Path.home() / '.config/daikanban'
+    assert user_config_path() == Path.home() / '.config/daikanban/config.toml'
 
 
 class TestBoardConfig:

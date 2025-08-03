@@ -35,7 +35,7 @@ DEFAULT_DAYS_PER_WORK_WEEK = 5
 
 def user_dir() -> Path:
     """Gets the path to the user's directory where configs, etc. will be stored."""
-    return Path.home() / f'.{PROG}'
+    return Path.home() / '.config' / PROG
 
 def user_config_path() -> Path:
     """Gets the path to the user's config file."""
@@ -83,7 +83,7 @@ class BoardConfig(TOMLDataclass):
     """Board configurations."""
     board_dir: Annotated[
         str,
-        Doc('directory for board files (can be a path relative to ~/.daikanban)')
+        Doc('directory for board files (can be a path relative to ~/.config/daikanban)')
     ] = DEFAULT_BOARD_DIR
     default_board: Annotated[
         str,

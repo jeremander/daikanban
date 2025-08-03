@@ -51,7 +51,7 @@ class TestMain:
         monkeypatch.setattr(Path, 'home', lambda: tmp_home)
         assert not user_config_exists()
         p = user_dir()
-        assert p == tmp_home / '.daikanban'
+        assert p == tmp_home / '.config/daikanban'
         assert not p.exists()
         p.mkdir(parents=True)
         self._test_main(capsys, ['config', 'new'], err_patterns='Saved default config file')
