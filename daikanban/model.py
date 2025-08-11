@@ -643,7 +643,7 @@ class Task(Model):
     def reset(self) -> Self:
         """Resets a task to the 'todo' state, regardless of its current state.
         This will preserve the original creation metadata except for timestamps, due time, blocking tasks, and logs."""
-        kwargs: dict[str, Any] = {field: None for field in self.RESET_FIELDS}
+        kwargs: dict[str, Any] = dict.fromkeys(self.RESET_FIELDS, None)
         kwargs['modified_time'] = get_current_time()
         return self._replace(**kwargs)
 

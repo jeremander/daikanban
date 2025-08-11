@@ -11,7 +11,7 @@ from rich.console import Console
 from rich.logging import RichHandler
 
 
-__version__ = '0.2.1'
+__version__ = '0.2.2'
 
 PKG_DIR = Path(__file__).parent
 PROG = PKG_DIR.name
