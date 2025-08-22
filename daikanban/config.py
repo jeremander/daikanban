@@ -15,7 +15,7 @@ from typing_extensions import Doc
 from daikanban import PROG
 from daikanban.errors import UserInputError
 from daikanban.task import TaskConfig, TaskStatus
-from daikanban.utils import HOURS_PER_DAY, SECS_PER_DAY, NameMatcher, case_insensitive_match, convert_number_words_to_digits, get_current_time, replace_relative_time_expression, whitespace_insensitive_match
+from daikanban.utils import HOURS_PER_DAY, SECS_PER_DAY, NameMatcher, case_insensitive_match, convert_number_words_to_digits, fix_datetime_string, get_current_time, replace_relative_time_expression, whitespace_insensitive_match
 
 
 ############
@@ -154,10 +154,8 @@ class TimeConfig(TOMLDataclass):
         try:  # prefer the standard datetime format
             return datetime.strptime(s, self.datetime_format)
         except ValueError:  # attempt to parse string more flexibly
-            # pendulum doesn't allow single-digit hours for some reason, so pad it with a zero
-            tokens = s.split()
-            if (len(tokens) >= 2) and (tok := tokens[-1]).isdigit() and (len(tok) == 1):
-                s = ' '.join(tokens[:-1] + ['0' + tok])
+            # pendulum has some parsing quirks, so preprecess its input
+            s = fix_datetime_string(s)
             try:
                 dt: datetime = pendulum.parse(s, strict=False, tz=pendulum.local_timezone())  # type: ignore
                 assert isinstance(dt, datetime)

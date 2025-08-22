@@ -154,6 +154,11 @@ def human_readable_duration(days: float, prefer_days: bool = False) -> str:
     # hacky way to truncate the seconds
     return re.sub(r'\s+\d+ seconds?', '', s)
 
+_WEEKDAY_PATTERN = r'(mon|tues?|wed(nes)?|thu(rs?)?|fri|sat(ur)?|sun)(day)?'
+WEEKDAY_REGEX = re.compile(_WEEKDAY_PATTERN, re.IGNORECASE)
+RELATIVE_WEEKDAY_REGEX = re.compile(r'(last|next)\s+' + _WEEKDAY_PATTERN, re.IGNORECASE)
+DATE_REGEX = re.compile(r'\d{4}\-\d{2}\-\d{2}')
+
 def replace_relative_day(s: str) -> str:
     """Given a time string containing yesterday/today/tomorrow, or an expression like "last Friday" or "next Tuesday", replaces it with the appropriate date."""
     pattern1 = '(yesterday|today|tomorrow)'
@@ -167,7 +172,6 @@ def replace_relative_day(s: str) -> str:
         else:  # tomorrow
             day = now.add(days=1)
         return day.to_date_string()
-    pattern2 = r'(last|next)\s+(mon|tues?|wed(nes)?|thu(rs?)?|fri|sat(ur)?|sun)(day)?'
     weekday_map = {day: i for (i, day) in enumerate(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'])}
     def replace2(match: re.Match[str]) -> str:
         now = pendulum.now()
@@ -180,7 +184,7 @@ def replace_relative_day(s: str) -> str:
         else:
             diff = (7 - diff) if (diff >= 0) else -diff
         return now.add(days=diff).to_date_string()
-    return re.sub(pattern2, replace2, re.sub(pattern1, replace1, s))
+    return RELATIVE_WEEKDAY_REGEX.sub(replace2, re.sub(pattern1, replace1, s))
 
 def replace_relative_time_expression(s: str) -> str:
     """Resolves a relative time expression to an absolute one."""
@@ -197,7 +201,6 @@ def replace_relative_time_expression(s: str) -> str:
         unit = groups[2]
         now = pendulum.now()
         diff_func = DateTime.subtract if is_past else DateTime.add
-        # diff_func = now.subtract if is_past else now.add
         if unit.startswith('sec'):
             return diff_func(now, seconds=amount).to_datetime_string()
         if unit.startswith('min'):
@@ -217,6 +220,25 @@ def replace_relative_time_expression(s: str) -> str:
         days = (amount - years) * DAYS_PER_YEAR
         return diff_func(diff_func(now, years=years), days=days).to_date_string()  # type: ignore[arg-type]
     return re.sub(pattern, replace, s)
+
+def fix_datetime_string(s: str) -> str:
+    """Fixes a datetime string so that pendulum will parse it properly."""
+    tokens = s.split()
+    if len(tokens) <= 1:
+        return s
+    three_four_digits_pattern = re.compile(r'\d{3,4}')
+    if any(DATE_REGEX.fullmatch(tok) or WEEKDAY_REGEX.fullmatch(tok) for tok in tokens) and (sum(bool(three_four_digits_pattern.fullmatch(tok)) for tok in tokens) == 1):
+        # day-of-week and time with no colon: time gets treated as a year
+        def _fix_digits(tok: str) -> str:
+            if tok.isdigit():
+                return tok[:-2] + ':' + tok[-2:]
+            return tok
+        tokens = [_fix_digits(tok) for tok in tokens]
+        return ' '.join(tokens)
+    if (tok := tokens[-1]).isdigit() and (len(tok) == 1):
+        # pendulum doesn't allow single-digit hours for some reason, so pad it with a zero
+        return ' '.join(tokens[:-1] + ['0' + tok])
+    return s
 
 
 #########

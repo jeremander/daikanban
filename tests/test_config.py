@@ -2,6 +2,7 @@ from copy import deepcopy
 from datetime import date, datetime
 from pathlib import Path
 
+import pendulum
 from pydantic import ValidationError
 import pytest
 
@@ -34,6 +35,8 @@ class TestBoardConfig:
 
 
 MINS_PER_DAY = 60 * HOURS_PER_DAY
+
+TOMORROW = pendulum.now().add(days=1).strftime('%A')
 
 # (time, is_future)
 VALID_RELATIVE_TIMES = [
@@ -77,16 +80,27 @@ VALID_RELATIVE_TIMES = [
     ('4.12 weeks', True),
     ('9.0 months', True),
     ('in 3.14 years', True),
+    (f'{TOMORROW} 09:30', True),
+    (f'{TOMORROW} 9:30', True),
+    (f'{TOMORROW} 0930', True),
+    (f'{TOMORROW} 930', True),
+    (f'0930 {TOMORROW}', True),
+    (f'930 {TOMORROW}', True),
+    ('next tues 0930', True),
+    ('next tues 930', True),
+    ('last wed 0600', False),
+    ('0659 last wed', False),
 ]
 
 INVALID_RELATIVE_TIMES = [
-    ('invalid time', True),
-    ('3', True),
-    ('in 1 year ago', True),
-    # ('in 2 mins, 5:00', True),  # TODO: disallow this
-    ('in -2 days', True),
-    ('in -2.5 days', True),
-    ('2 hours, 3 mins', True),  # TODO: parse this properly
+    'invalid time',
+    '3',
+    'in 1 year ago',
+    # 'in 2 mins, 5:00',  # TODO: disallow this
+    'in -2 days',
+    'in -2.5 days',
+    '2 hours, 3 mins',  # TODO: parse this properly
+    '{TOMORROW} 0960',
 ]
 
 VALID_DURATIONS = [
@@ -152,7 +166,7 @@ class TestTimeConfig:
 
     @pytest.mark.parametrize(['string', 'is_future', 'valid'], [
         *[(s, is_future, True) for (s, is_future) in VALID_RELATIVE_TIMES],
-        *[(s, is_future, False) for (s, is_future) in INVALID_RELATIVE_TIMES]
+        *[(s, None, False) for s in INVALID_RELATIVE_TIMES]
     ])
     def test_parse_relative_time(self, string, is_future, valid):
         config = get_config().time
