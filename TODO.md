@@ -1,5 +1,10 @@
 # TODO list
 
+- Add type annotations to tests, avoid passing in fixtures as parameters everywhere.
+- Switch to `fancy_dataclass` for CLI and config management?
+- Switch to `sqlite`?
+  - Make `BoardInterface` an ABC with abstractmethods for performing CRUD, or use DI to inject a class specifically for CRUD.
+    - For testing, just have an in-memory only version
 - Sort feature for `project show` and `task show`
   - If something like `project show sort=name` or `project show sort=name:ASC`, how to avoid ambiguity? Just the fact of having an equals?
 - Provide informative error/warning if loaded config file does not match latest schema
@@ -130,7 +135,6 @@
     - Would require settings to specify exactly which hours/days are working times
     - (This may be more effort than it's worth)
     - But currently comparisons are kind of wrong: true durations will be in actual time while expected durations may be in *worked* time
-- Migrate from `pydantic` to `fancy_dataclass` for simplicity?
 - [prompt_toolkit](https://python-prompt-toolkit.readthedocs.io) for better prompt auto-completion, etc.
 - Allow custom task status labels?
   - todo/active/paused/complete are still the primary ones; extras would presumably be "sub-statuses" of active
