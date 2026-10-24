@@ -10,7 +10,7 @@ import pendulum
 import pendulum.parsing
 from pydantic import Field
 from pydantic.dataclasses import dataclass
-import pytimeparse  # type: ignore[import-untyped]
+import pytimeparse
 from typing_extensions import Doc
 
 from daikanban import PROG
@@ -201,7 +201,7 @@ class TimeConfig(TOMLDataclass):
             raise UserInputError('Empty duration string') from None
         s = self._replace_work_durations(convert_number_words_to_digits(s))
         try:
-            secs = pytimeparse.parse(s)
+            secs = pytimeparse.parse(s)  # type: ignore[attr-defined]
             assert secs is not None
         except (AssertionError, ValueError):
             raise UserInputError('Invalid time duration') from None
