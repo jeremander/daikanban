@@ -45,6 +45,8 @@ jobs:
         # build virtualenvs, but only if they're not already cached
         run: hatch env create lint && hatch env create test
         if: steps.cache-venv.outputs.cache-hit != 'true'
+      - name: Lint environment
+        run: hatch run lint:pip freeze
       - name: Lines of code (radon)
         run: hatch run lint:run-loc-summarize | tee loc-summary.txt
       - name: Upload lines of code
