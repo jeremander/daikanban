@@ -16,7 +16,17 @@ from typing_extensions import Doc
 from daikanban import PROG
 from daikanban.errors import UserInputError
 from daikanban.task import TaskConfig, TaskStatus
-from daikanban.utils import HOURS_PER_DAY, SECS_PER_DAY, NameMatcher, case_insensitive_match, convert_number_words_to_digits, fix_datetime_string, get_current_time, replace_relative_time_expression, whitespace_insensitive_match
+from daikanban.utils import (
+    HOURS_PER_DAY,
+    SECS_PER_DAY,
+    NameMatcher,
+    case_insensitive_match,
+    convert_number_words_to_digits,
+    fix_datetime_string,
+    get_current_time,
+    replace_relative_time_expression,
+    whitespace_insensitive_match,
+)
 
 
 ############
@@ -190,7 +200,12 @@ class TimeConfig(TOMLDataclass):
                 val = float(match.groups(0)[0])
                 return f'{func(val)} days'
             return _get_day_str
-        for (pat, func) in [(pat_years, from_years), (pat_months, from_months), (pat_work_weeks, from_work_weeks), (pat_work_days, from_work_days)]:
+        for (pat, func) in [
+            (pat_years, from_years),
+            (pat_months, from_months),
+            (pat_work_weeks, from_work_weeks),
+            (pat_work_days, from_work_days),
+        ]:
             s = re.sub(pat, _repl(func), s)
         return s
 
@@ -226,7 +241,7 @@ class ColumnConfig(TOMLDataclass):
 
     def get_sort_keys(self) -> list[TaskSortKey]:
         """Gets a list of sort keys with which to sort tasks."""
-        keys = self.sort_by if isinstance(self.sort_by, list | tuple) else [self.sort_by]  # pyrefly: ignore[implicit-any-type-argument]
+        keys = self.sort_by if isinstance(self.sort_by, list | tuple) else [self.sort_by]
         return [TaskSortKey(key) if isinstance(key, str) else key for key in keys]
 
 

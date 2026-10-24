@@ -43,8 +43,14 @@ def export(
 @APP.command(name='import', short_help='import board')
 def import_(
     format: Annotated[ImportFormat, typer.Option('-f', '--format', show_default=False, help='Import format')],  # noqa: A002
-    board: Annotated[Optional[str], typer.Option('-b', '--board', show_default=False, help='DaiKanban board name or path to update')] = None,
-    input_file: Annotated[Optional[Path], typer.Option('-i', '--input-file', show_default=False, help='file to import')] = None,
+    board: Annotated[
+        Optional[str],
+        typer.Option('-b', '--board', show_default=False, help='DaiKanban board name or path to update'),
+    ] = None,
+    input_file: Annotated[
+        Optional[Path],
+        typer.Option('-i', '--input-file', show_default=False, help='file to import'),
+    ] = None,
 ) -> None:
     """Import board from another format."""
     import_board(format, board_name_or_path=board, input_file=input_file)

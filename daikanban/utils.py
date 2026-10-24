@@ -91,7 +91,8 @@ def fuzzy_match(name1: str, name2: str) -> bool:
     return (s1 == s2) or ((len(s1) >= 3) and s2.startswith(s1))
 
 def first_name_match(matcher: NameMatcher, name1: str, names2: Iterable[str]) -> Optional[str]:
-    """Given a NameMatcher, query name, and an iterable of names to compare against, returns the first name that matches (if there is one), otherwise None."""
+    """Given a NameMatcher, query name, and an iterable of names to compare against, returns the first name that matches
+    (if there is one), otherwise None."""
     return next((name2 for name2 in names2 if matcher(name1, name2)), None)
 
 def parse_string_set(s: str) -> Optional[set[str]]:
@@ -160,7 +161,8 @@ RELATIVE_WEEKDAY_REGEX = re.compile(r'(last|next)\s+' + _WEEKDAY_PATTERN, re.IGN
 DATE_REGEX = re.compile(r'\d{4}\-\d{2}\-\d{2}')
 
 def replace_relative_day(s: str) -> str:
-    """Given a time string containing yesterday/today/tomorrow, or an expression like "last Friday" or "next Tuesday", replaces it with the appropriate date."""
+    """Given a time string containing yesterday/today/tomorrow, or an expression like "last Friday" or "next Tuesday",
+    replaces it with the appropriate date."""
     pattern1 = '(yesterday|today|tomorrow)'
     def replace1(match: re.Match[str]) -> str:
         now = pendulum.now()
@@ -227,7 +229,10 @@ def fix_datetime_string(s: str) -> str:
     if len(tokens) <= 1:
         return s
     three_four_digits_pattern = re.compile(r'\d{3,4}')
-    if any(DATE_REGEX.fullmatch(tok) or WEEKDAY_REGEX.fullmatch(tok) for tok in tokens) and (sum(bool(three_four_digits_pattern.fullmatch(tok)) for tok in tokens) == 1):
+    if (
+        any(DATE_REGEX.fullmatch(tok) or WEEKDAY_REGEX.fullmatch(tok) for tok in tokens)
+        and (sum(bool(three_four_digits_pattern.fullmatch(tok)) for tok in tokens) == 1)
+    ):
         # day-of-week and time with no colon: time gets treated as a year
         def _fix_digits(tok: str) -> str:
             if tok.isdigit():
@@ -264,7 +269,8 @@ def err_style(obj: object) -> str:
 ########
 
 class IdCollection:
-    """Class maintaining a collection of ID numbers (starting at 0), with the ability to retrieve the smallest unused ID."""
+    """Class maintaining a collection of ID numbers (starting at 0), with the ability to retrieve the smallest
+    unused ID."""
 
     def __init__(self, ids: set[int] = set()) -> None:  # noqa: B006
         self.ids = set(ids)

@@ -43,8 +43,19 @@ class TestImportExport:
             # TODO: provide user kwargs for setting certain attributes
             kwargs = {'name': '', 'created_time': None}
             # cannot store project metadata faithfully
-            proj_kwargs = {'uuid': make_uuid(0), 'description': None, 'created_time': test_board.created_time, 'modified_time': test_board.created_time}
-            kwargs1 = {**kwargs, 'projects': {id_: proj._replace(**proj_kwargs) for (id_, proj) in board1.projects.items()}}
-            kwargs2 = {**kwargs, 'projects': {id_: proj._replace(**proj_kwargs) for (id_, proj) in board2.projects.items()}}
+            proj_kwargs = {
+                'uuid': make_uuid(0),
+                'description': None,
+                'created_time': test_board.created_time,
+                'modified_time': test_board.created_time,
+            }
+            kwargs1 = {
+                **kwargs,
+                'projects': {id_: proj._replace(**proj_kwargs) for (id_, proj) in board1.projects.items()},
+            }
+            kwargs2 = {
+                **kwargs,
+                'projects': {id_: proj._replace(**proj_kwargs) for (id_, proj) in board2.projects.items()},
+            }
             return board1._replace(**kwargs1) == board2._replace(**kwargs2)
         self._test_import_is_faithful(test_board, ImportFormat.taskwarrior.importer, filename, eq=eq)

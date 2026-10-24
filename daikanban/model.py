@@ -15,7 +15,14 @@ from typing_extensions import Self, TypeAlias
 from daikanban.config import get_config
 from daikanban.errors import InconsistentTimestampError, TaskStatusError
 from daikanban.task import TaskStatus
-from daikanban.utils import StrEnum, get_current_time, get_duration_between, human_readable_duration, parse_string_set, style_str
+from daikanban.utils import (
+    StrEnum,
+    get_current_time,
+    get_duration_between,
+    human_readable_duration,
+    parse_string_set,
+    style_str,
+)
 
 
 T = TypeVar('T')
@@ -177,8 +184,16 @@ class Model(JSONBaseDataclass, suppress_none=True, store_type='off', validate=Fa
         """Gets a dict from fields to pretty values (as strings)."""
         config = get_config()
         return {
-            **{field: config.pretty_value(val) for (field, val) in self.to_dict().items() if self._include_field(field, val)},
-            **{field: config.pretty_value(val) for field in self._computed_fields() if self._include_field(field, (val := getattr(self, field)))}
+            **{
+                field: config.pretty_value(val)
+                for (field, val) in self.to_dict().items()
+                if self._include_field(field, val)
+            },
+            **{
+                field: config.pretty_value(val)
+                for field in self._computed_fields()
+                if self._include_field(field, (val := getattr(self, field)))
+            }
         }
 
     @classmethod
@@ -421,9 +436,26 @@ class Task(Model):
     )
 
     # fields that are reset to None when a Task is reset
-    RESET_FIELDS: ClassVar[list[str]] = ['due_time', 'first_started_time', 'last_started_time', 'last_paused_time', 'completed_time', 'completed_time', 'prior_time_worked', 'blocked_by', 'parent', 'logs']
+    RESET_FIELDS: ClassVar[list[str]] = [
+        'due_time',
+        'first_started_time',
+        'last_started_time',
+        'last_paused_time',
+        'completed_time',
+        'completed_time',
+        'prior_time_worked',
+        'blocked_by',
+        'parent',
+        'logs',
+    ]
     # fields whose type is duration
-    DURATION_FIELDS: ClassVar[list[str]] = ['expected_duration', 'prior_time_worked', 'lead_time', 'cycle_time', 'total_time_worked']
+    DURATION_FIELDS: ClassVar[list[str]] = [
+        'expected_duration',
+        'prior_time_worked',
+        'lead_time',
+        'cycle_time',
+        'total_time_worked',
+    ]
 
     def __post_init__(self) -> None:
         self.check_consistent_times()
@@ -459,7 +491,8 @@ class Task(Model):
     @computed_field  # type: ignore[prop-decorator]
     @property
     def lead_time(self) -> Optional[Duration]:
-        """If the task is completed, returns the lead time (in days), which is the elapsed time from created to completed.
+        """If the task is completed, returns the lead time (in days), which is the elapsed time from created to
+        completed.
         Otherwise, returns None."""
         if self.status == TaskStatus.complete:
             assert self.created_time is not None
@@ -470,7 +503,8 @@ class Task(Model):
     @computed_field  # type: ignore[prop-decorator]
     @property
     def cycle_time(self) -> Optional[Duration]:
-        """If the task is completed, returns the cycle time (in days), which is the elapsed time from started to completed.
+        """If the task is completed, returns the cycle time (in days), which is the elapsed time from started to
+        completed.
         Otherwise, returns None."""
         if self.status == TaskStatus.complete:
             assert self.first_started_time is not None
@@ -509,7 +543,8 @@ class Task(Model):
     @property
     def status_icons(self, nearly_due_thresh: Optional[timedelta] = None) -> Optional[str]:
         """Gets one or more icons (emoji) representing the status of the task, or None if there is none.
-        If nearly_due_threshold is given, this is the time threshold before the due time within which to show a status warning."""
+        If nearly_due_threshold is given, this is the time threshold before the due time within which to show a status
+        warning."""
         nearly_due_thresh = NEARLY_DUE_THRESH if (nearly_due_thresh is None) else nearly_due_thresh
         status = self.status
         td = self.time_till_due
@@ -597,7 +632,12 @@ class Task(Model):
                 raise TaskStatusError('cannot pause a task before its last started time')
             dur = 0.0 if (self.prior_time_worked is None) else self.prior_time_worked
             dur += get_duration_between(last_started_time, dt)
-            return self._replace(last_started_time=None, last_paused_time=dt, prior_time_worked=dur, modified_time=cur_time)
+            return self._replace(
+                last_started_time=None,
+                last_paused_time=dt,
+                prior_time_worked=dur,
+                modified_time=cur_time,
+            )
         raise TaskStatusError(f"cannot pause task with status '{self.status}'")
 
     def resumed(self, dt: Optional[datetime] = None) -> Self:
@@ -616,10 +656,20 @@ class Task(Model):
                 assert self.completed_time is not None
                 if dt < self.completed_time:
                     raise TaskStatusError('cannot resume a task before its completed time')
-                return self._replace(last_started_time=dt, prior_time_worked=self.total_time_worked, completed_time=None, modified_time=cur_time)
+                return self._replace(
+                    last_started_time=dt,
+                    prior_time_worked=self.total_time_worked,
+                    completed_time=None,
+                    modified_time=cur_time,
+                )
         raise TaskStatusError(f"cannot resume task with status '{self.status}'")
 
-    def apply_status_action(self, action: TaskStatusAction, dt: Optional[datetime] = None, first_dt: Optional[datetime] = None) -> Self:
+    def apply_status_action(
+        self,
+        action: TaskStatusAction,
+        dt: Optional[datetime] = None,
+        first_dt: Optional[datetime] = None,
+    ) -> Self:
         """Applies a status action to the task, returning the new task.
             dt: datetime at which the action occurred (if consisting of two consecutive actions, the latter one)
             first_dt: if the action consists of two consecutive actions, the datetime at which the first action occurred
@@ -649,7 +699,9 @@ class Task(Model):
 
     def _map_project_ids(self, proj_id_map: Mapping[Id, Id]) -> Self:
         """Given a mapping from old project IDs to new ones, applies that mapping to any stored project IDs."""
-        return self if (self.project_id is None) else self._replace(project_id=proj_id_map.get(self.project_id, self.project_id))
+        if self.project_id is None:
+            return self
+        return self._replace(project_id=proj_id_map.get(self.project_id, self.project_id))
 
     def _map_task_ids(self, task_id_map: Mapping[Id, Id]) -> Self:
         """Given a mapping from old task IDs to new ones, applies that mapping to any stored task IDs."""

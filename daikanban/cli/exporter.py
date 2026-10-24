@@ -20,7 +20,11 @@ class ExportFormat(str, Enum):
         return cast(BaseExporter[Any], mod.EXPORTER)
 
 
-def export_board(export_format: ExportFormat, board_file: Optional[Path] = None, output_file: Optional[Path] = None) -> None:
+def export_board(
+    export_format: ExportFormat,
+    board_file: Optional[Path] = None,
+    output_file: Optional[Path] = None,
+) -> None:
     """Exports a board to a file using the given format."""
     board = _load_board(board_file)
     logger.info(f'Board has {board._num_proj_num_task_str}')

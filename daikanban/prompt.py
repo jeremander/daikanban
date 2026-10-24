@@ -44,7 +44,14 @@ def simple_input(prompt: str, default: Optional[str] = None, match: str = '.*') 
             break
     return result
 
-def validated_input(prompt: str, validator: Callable[[str], T], default: Any = None, use_prompt_suffix: bool = True, print_error: bool = True, **kwargs: Any) -> T:
+def validated_input(
+    prompt: str,
+    validator: Callable[[str], T],
+    default: Any = None,
+    use_prompt_suffix: bool = True,
+    print_error: bool = True,
+    **kwargs: Any,
+) -> T:
     """Prompts the user with the given string until the user's response passes a validator function with no error.
         prompt: prompt string
         validator: function to parse and validate the input
@@ -92,12 +99,19 @@ class Prompter(Generic[T]):
 
 @dataclass
 class FieldPrompter(Generic[M, T]):
-    """Class which prompts a user for input associated with a given dataclass field, then parses and validates the response."""
+    """Class which prompts a user for input associated with a given dataclass field, then parses and validates the
+    response."""
     model_type: type[M]
     field: str
     prompter: Prompter[T]
 
-    def __init__(self, model_type: type[M], field: str, prompt: Optional[str] = None, parse: Optional[Callable[[str], T]] = None) -> None:
+    def __init__(
+        self,
+        model_type: type[M],
+        field: str,
+        prompt: Optional[str] = None,
+        parse: Optional[Callable[[str], T]] = None,
+    ) -> None:
         self.model_type = model_type
         self.field = field
         self.readable_name = self.field.replace('_', ' ').capitalize()
@@ -127,8 +141,13 @@ class FieldPrompter(Generic[M, T]):
         return self.prompter.loop_prompt()
 
 
-def model_from_prompt(model_type: type[M], prompters: dict[str, FieldPrompter[M, Any]] = {}, defaults: dict[str, Any] = {}) -> M:  # noqa: B006
-    """Given a model type and collection of FieldPrompters, constructs an instance of the type from a sequence of user prompts.
+def model_from_prompt(
+    model_type: type[M],
+    prompters: dict[str, FieldPrompter[M, Any]] = {},  # noqa: B006
+    defaults: dict[str, Any] = {},  # noqa: B006
+) -> M:
+    """Given a model type and collection of FieldPrompters, constructs an instance of the type from a sequence of user
+    prompts.
     A collection of defaults may also be provided for any fields which are missing a prompter."""
     kwargs: dict[str, Any] = dict(defaults)
     for (field, prompter) in prompters.items():

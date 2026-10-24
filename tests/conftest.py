@@ -42,7 +42,14 @@ def set_tmp_board_path(tmpdir, monkeypatch):
 @pytest.fixture(scope='module')
 def test_board() -> Board:
     """Fixture returning an example DaiKanban Board."""
-    projects = {0: Project(name='myproj', uuid=make_uuid(0), description='My cool project.', created_time=CREATED_TIME, modified_time=CREATED_TIME)}
+    project = Project(
+        name='myproj',
+        uuid=make_uuid(0),
+        description='My cool project.',
+        created_time=CREATED_TIME,
+        modified_time=CREATED_TIME,
+    )
+    projects = {0: project}
     tasks = {}
     for i in range(3):
         tasks[i] = Task(

@@ -91,7 +91,9 @@ class TestMain:
             def _normalize_project(id_, proj):
                 return proj._replace(uuid=make_uuid(id_), description=None, modified_time=dt)
             def _normalize_projects(board):
-                return board._replace(projects={id_: _normalize_project(id_, proj) for (id_, proj) in board.projects.items()})
+                return board._replace(
+                    projects={id_: _normalize_project(id_, proj) for (id_, proj) in board.projects.items()}
+                )
             assert _normalize_projects(board1) == _normalize_projects(board2)
 
     @pytest.mark.parametrize(['fmt', 'output_ext'], [
@@ -104,7 +106,11 @@ class TestMain:
         export_path = tmp_path / f'export.{output_ext}'
         test_board.save(board_path)
         assert board_path.exists()
-        self._test_main(capsys, ['export', '-b', str(board_path), '-f', fmt, '-o', str(export_path)], err_patterns=['Exporting to', 'DONE'])
+        self._test_main(
+            capsys,
+            ['export', '-b', str(board_path), '-f', fmt, '-o', str(export_path)],
+            err_patterns=['Exporting to', 'DONE'],
+        )
         assert export_path.exists()
         if fmt == 'daikanban':
             assert test_board.to_json_string() == export_path.read_text()
@@ -112,6 +118,10 @@ class TestMain:
         board = Board(name=test_board.name, created_time=test_board.created_time)
         board.save(board_path)
         # import board to an empty board, then save it out
-        self._test_main(capsys, ['import', '-f', fmt, '-b', str(board_path), '-i', str(export_path)], err_patterns=['Importing from', 'DONE'])
+        self._test_main(
+            capsys,
+            ['import', '-f', fmt, '-b', str(board_path), '-i', str(export_path)],
+            err_patterns=['Importing from', 'DONE'],
+        )
         board = Board.load(board_path)
         self._check_board_equality(fmt, board, test_board)

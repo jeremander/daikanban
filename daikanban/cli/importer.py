@@ -22,7 +22,11 @@ class ImportFormat(str, Enum):
         return cast(BaseImporter[Any], mod.IMPORTER)
 
 
-def import_board(import_format: ImportFormat, board_name_or_path: Optional[str | Path] = None, input_file: Optional[Path] = None) -> None:
+def import_board(
+    import_format: ImportFormat,
+    board_name_or_path: Optional[str | Path] = None,
+    input_file: Optional[Path] = None,
+) -> None:
     """Imports a board from another format, then merges it with the current board and saves the updated board."""
     cfg = get_config()
     board_path = None if (board_name_or_path is None) else cfg.board.resolve_board_name_or_path(board_name_or_path)

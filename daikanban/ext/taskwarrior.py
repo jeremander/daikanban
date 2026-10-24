@@ -170,7 +170,10 @@ class TaskwarriorImporter(JSONImporter[TaskList]):
             )
             task_by_id[task_id] = dkb_task
             task_ids.add(task_id)
-        projects = [Project(name=proj_name, created_time=proj_created_by_name[proj_name]) for proj_name in proj_id_by_name]
+        projects = [
+            Project(name=proj_name, created_time=proj_created_by_name[proj_name])
+            for proj_name in proj_id_by_name
+        ]
         # TODO: let user provide board name somehow
         return Board(name='', projects=dict(enumerate(projects)), tasks=task_by_id)
 

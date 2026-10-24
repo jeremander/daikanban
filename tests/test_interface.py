@@ -95,7 +95,12 @@ class TestInterface:
         with pytest.raises(UserInputError, match='Project name .* is invalid, must have at least one letter'):
             self._test_output(capsys, monkeypatch, user_input)
         user_input = [('project new', ['123', 'a123', '', ''])]
-        self._test_output(capsys, monkeypatch, user_input, out='Project name .* is invalid, must have at least one letter')
+        self._test_output(
+            capsys,
+            monkeypatch,
+            user_input,
+            out='Project name .* is invalid, must have at least one letter',
+        )
 
     def test_project_new_another(self, capsys, monkeypatch):
         board = new_board()
@@ -110,7 +115,14 @@ class TestInterface:
         assert board.get_project(2).name == 'proj2'
         # attempt to add project with a duplicate name
         user_input = [('project new proj', [''] * 2)]
-        self._test_output(capsys, monkeypatch, user_input, out='Created new project proj with ID 3', err='Duplicate project name', board=board)
+        self._test_output(
+            capsys,
+            monkeypatch,
+            user_input,
+            out='Created new project proj with ID 3',
+            err='Duplicate project name',
+            board=board,
+        )
 
     def test_project_set(self, capsys, monkeypatch):
         now = get_current_time()
@@ -189,9 +201,21 @@ class TestInterface:
         board.create_project(Project(name='proj'))
         # set project parent
         user_input = [('project set 1 parent 0', None)]
-        self._test_output(capsys, monkeypatch, user_input, out="Updated field 'parent' for project proj with ID 1", board=board)
+        self._test_output(
+            capsys,
+            monkeypatch,
+            user_input,
+            out="Updated field 'parent' for project proj with ID 1",
+            board=board,
+        )
         user_input = [('project set 1 parent proj0', None)]
-        self._test_output(capsys, monkeypatch, user_input, out="Updated field 'parent' for project proj with ID 1", board=board)
+        self._test_output(
+            capsys,
+            monkeypatch,
+            user_input,
+            out="Updated field 'parent' for project proj with ID 1",
+            board=board,
+        )
         # set project parent to invalid value
         user_input = [('project set 1 parent 2', None)]
         with pytest.raises(UserInputError, match='Project with ID 2 not found'):
@@ -221,9 +245,16 @@ class TestInterface:
         self._test_output(capsys, None, [('task show', None)], r'\[No tasks\]')
 
     def test_task_new(self, capsys, monkeypatch):
-        user_input = [('task new', ['task', 'My task.', '', '7', '', '', '', '']), ('task show', None), ('task show 0', None)]
+        user_input = [
+            ('task new', ['task', 'My task.', '', '7', '', '', '', '']),
+            ('task show', None),
+            ('task show 0', None),
+        ]
         # output of 'task show'
-        outputs = [self._table_row(row) for row in [['id', 'name', 'pri…ty', 'create', 'status'], ['0', 'task', '7', '.*', 'todo']]]
+        outputs = [
+            self._table_row(row)
+            for row in [['id', 'name', 'pri…ty', 'create', 'status'], ['0', 'task', '7', '.*', 'todo']]
+        ]
         # output of 'task show 0'
         outputs.append(r'ID.*0.*name.*task.*uuid.*description.*My task\..*created_time.*status.*todo.*project')
         self._test_output(capsys, monkeypatch, user_input, outputs)
@@ -247,7 +278,14 @@ class TestInterface:
         assert board.get_task(2).name == 'task2'
         # add task with duplicate name
         user_input = [('task new task', [''] * 7)]
-        self._test_output(capsys, monkeypatch, user_input, out='Created new task task with ID 3', err='Duplicate task name', board=board)
+        self._test_output(
+            capsys,
+            monkeypatch,
+            user_input,
+            out='Created new task task with ID 3',
+            err='Duplicate task name',
+            board=board,
+        )
 
     def test_task_begin(self, capsys, monkeypatch):
         now = get_current_time()
@@ -291,7 +329,13 @@ class TestInterface:
         board.create_task(Task(name='task2'))
         user_input = [('task complete 2', ['yesterday', 'n'])]
         with suppress(EOFError):
-            self._test_output(capsys, monkeypatch, user_input, 'Cannot start a task before its creation time', board=board)
+            self._test_output(
+                capsys,
+                monkeypatch,
+                user_input,
+                'Cannot start a task before its creation time',
+                board=board,
+            )
         # complete task before creation time, but after start time
         board.create_task(Task(name='task3'))
         user_input = [('task complete 3', ['2 days ago', 'y', 'yesterday'])]
@@ -357,7 +401,14 @@ class TestInterface:
         # attempt to set duplicate task name
         board.create_task(Task(name='task'))
         user_input = [('task set 1 name task0', None)]
-        self._test_output(capsys, monkeypatch, user_input, out="Updated field 'name'", err='Duplicate task name', board=board)
+        self._test_output(
+            capsys,
+            monkeypatch,
+            user_input,
+            out="Updated field 'name'",
+            err='Duplicate task name',
+            board=board,
+        )
         # attempt to set the task ID
         user_input = [('task set 1 task_id 2', None)]
         with pytest.raises(UserInputError, match="Field 'task_id' cannot be updated"):
@@ -368,24 +419,60 @@ class TestInterface:
             self._test_output(capsys, monkeypatch, user_input, board=board)
         # set the project ID to a valid project
         assert board.create_project(Project(name='proj')) == 0
-        self._test_output(capsys, monkeypatch, user_input, out="Updated field 'project_id' for task task0 with ID 1", board=board)
+        self._test_output(
+            capsys,
+            monkeypatch,
+            user_input,
+            out="Updated field 'project_id' for task task0 with ID 1",
+            board=board,
+        )
         # update the project ID via "project" instead of "project_id"
         user_input = [('task set 1 project 0', None)]
-        self._test_output(capsys, monkeypatch, user_input, out="Updated field 'project_id' for task task0 with ID 1", board=board)
+        self._test_output(
+            capsys,
+            monkeypatch,
+            user_input,
+            out="Updated field 'project_id' for task task0 with ID 1",
+            board=board,
+        )
         # update the project ID via its name
         user_input = [('task set 1 project proj', None)]
-        self._test_output(capsys, monkeypatch, user_input, out="Updated field 'project_id' for task task0 with ID 1", board=board)
+        self._test_output(
+            capsys,
+            monkeypatch,
+            user_input,
+            out="Updated field 'project_id' for task task0 with ID 1",
+            board=board,
+        )
         # attempt to use a project name instead of ID with "project_id"
         user_input = [('task set 1 project_id proj', None)]
         with pytest.raises(UserInputError, match="Invalid project ID 'proj'"):
             self._test_output(capsys, monkeypatch, user_input, board=board)
         # unset the project ID
-        for cmd in ['task set 1 project', 'task set 1 project_id', 'task set 1 project=', "task set 1 project=''", "task set 1 project_id=''"]:
+        for cmd in [
+            'task set 1 project',
+            'task set 1 project_id',
+            'task set 1 project=',
+            "task set 1 project=''",
+            "task set 1 project_id=''",
+        ]:
             user_input = [(cmd, None)]
-            self._test_output(capsys, monkeypatch, user_input, out="Updated field 'project_id' for task task0 with ID 1", board=board)
+            self._test_output(
+                capsys,
+                monkeypatch,
+                user_input,
+                out="Updated field 'project_id' for task task0 with ID 1",
+                board=board,
+            )
         # set task parent
         user_input = [('task set 1 parent 0', None)]
-        self._test_output(capsys, monkeypatch, user_input, out="Updated field 'parent' for task task0 with ID 1", board=board)
+        self._test_output(
+            capsys,
+            monkeypatch,
+            user_input,
+            out="Updated field 'parent' for task task0 with ID 1",
+            board=board,
+        )
         # set task parent to ambiguous task name
         user_input = [('task set 1 parent task0', None)]
         with pytest.raises(UserInputError, match="Ambiguous task name 'task0'"):
@@ -396,17 +483,35 @@ class TestInterface:
             self._test_output(capsys, monkeypatch, user_input, board=board)
         # set blocking tasks
         user_input = [('task set 1 blocked_by 0', None)]
-        self._test_output(capsys, monkeypatch, user_input, out="Updated field 'blocked_by' for task task0 with ID 1", board=board)
+        self._test_output(
+            capsys,
+            monkeypatch,
+            user_input,
+            out="Updated field 'blocked_by' for task task0 with ID 1",
+            board=board,
+        )
         assert board.get_task(1).blocked_by == {0}
         user_input = [('task set 1 blocked_by 0,1', None)]
-        self._test_output(capsys, monkeypatch, user_input, out="Updated field 'blocked_by' for task task0 with ID 1", board=board)
+        self._test_output(
+            capsys,
+            monkeypatch,
+            user_input,
+            out="Updated field 'blocked_by' for task task0 with ID 1",
+            board=board,
+        )
         assert board.get_task(1).blocked_by == {0, 1}
         user_input = [('task set 1 blocked_by 2', None)]
         with pytest.raises(UserInputError, match="Task with ID 2 not found"):
             self._test_output(capsys, monkeypatch, user_input, board=board)
         board.update_task(1, name='task1')
         user_input = [('task set 1 blocked_by 0,task1', None)]
-        self._test_output(capsys, monkeypatch, user_input, out="Updated field 'blocked_by' for task task1 with ID 1", board=board)
+        self._test_output(
+            capsys,
+            monkeypatch,
+            user_input,
+            out="Updated field 'blocked_by' for task task1 with ID 1",
+            board=board,
+        )
         assert board.get_task(1).blocked_by == {0, 1}
 
     # BOARD
@@ -416,26 +521,80 @@ class TestInterface:
         board_cfg = get_config().board
         board_dir = board_cfg.board_dir_path
         default_out = ['Creating new DaiKanban board.']
-        out = default_out + ['Board name:', 'Output filename', r'\(.*board_1.json\)', 'Board description', r'Saved DaiKanban board .*Board 1.*to .*board\_1\.json']
-        self._test_output(capsys, monkeypatch, [('board new', ['Board 1', '', ''])], out=out, interface=BoardInterface())
+        out = default_out + [
+            'Board name:',
+            'Output filename',
+            r'\(.*board_1.json\)',
+            'Board description',
+            r'Saved DaiKanban board .*Board 1.*to .*board\_1\.json',
+        ]
+        self._test_output(
+            capsys,
+            monkeypatch,
+            [('board new', ['Board 1', '', ''])],
+            out=out,
+            interface=BoardInterface(),
+        )
         # name gets converted to snake case
         assert (board_dir / 'board_1.json').exists()
-        out = default_out + ['Output filename', r'\(.*board2.json\)', 'Board description', r'Saved DaiKanban board .*board2.*to .*board2\.json']
+        out = default_out + [
+            'Output filename',
+            r'\(.*board2.json\)',
+            'Board description',
+            r'Saved DaiKanban board .*board2.*to .*board2\.json',
+        ]
         self._test_output(capsys, monkeypatch, [('board new board2', ['', ''])], out=out, interface=BoardInterface())
         assert (board_dir / 'board2.json').exists()
-        out = default_out + ['Output filename', r'\(.*board3.json\)', 'Board description', r'Saved DaiKanban board .*board3.*to .*myboard\.json']
-        self._test_output(capsys, monkeypatch, [('board new board3', ['myboard.json', ''])], out=out, interface=BoardInterface())
+        out = default_out + [
+            'Output filename',
+            r'\(.*board3.json\)',
+            'Board description',
+            r'Saved DaiKanban board .*board3.*to .*myboard\.json',
+        ]
+        self._test_output(
+            capsys,
+            monkeypatch,
+            [('board new board3', ['myboard.json', ''])],
+            out=out,
+            interface=BoardInterface(),
+        )
         assert (board_dir / 'myboard.json').exists()
         assert not (board_dir / 'board3.json').exists()
-        out = default_out + [r'Board name \(board3\):', 'Board description', r'Saved DaiKanban board .*myboard.*to .*board3\.json']
-        self._test_output(capsys, monkeypatch, [('board new board3.json', ['myboard', ''])], out=out, interface=BoardInterface())
+        out = default_out + [
+            r'Board name \(board3\):',
+            'Board description',
+            r'Saved DaiKanban board .*myboard.*to .*board3\.json',
+        ]
+        self._test_output(
+            capsys,
+            monkeypatch,
+            [('board new board3.json', ['myboard', ''])],
+            out=out,
+            interface=BoardInterface(),
+        )
         assert (board_dir / 'board3.json').exists()
-        out = default_out + [r'Board name \(board4\):', 'Board description', r'Saved DaiKanban board .*board4.*to .*board4\.json']
-        self._test_output(capsys, monkeypatch, [('board new board4.json', ['', ''])], out=out, interface=BoardInterface())
+        out = default_out + [
+            r'Board name \(board4\):',
+            'Board description',
+            r'Saved DaiKanban board .*board4.*to .*board4\.json',
+        ]
+        self._test_output(
+            capsys,
+            monkeypatch,
+            [('board new board4.json', ['', ''])],
+            out=out,
+            interface=BoardInterface(),
+        )
         assert (board_dir / 'board4.json').exists()
         # delete board directory: creating a new board should create it again
         shutil.rmtree(board_dir)
-        out = default_out + ['Board name:', 'Output filename', r'\(.*board1.json\)', 'Board description', r'Saved DaiKanban board .*board1.*to .*board1\.json']
+        out = default_out + [
+            'Board name:',
+            'Output filename',
+            r'\(.*board1.json\)',
+            'Board description',
+            r'Saved DaiKanban board .*board1.*to .*board1\.json',
+        ]
         self._test_output(capsys, monkeypatch, [('board new', ['board1', '', ''])], out=out, interface=BoardInterface())
         assert (board_dir / 'board1.json').exists()
 
@@ -488,16 +647,42 @@ class TestInterface:
         # default board gets loaded
         interface = BoardInterface()
         out = r'  \* board.json\n    empty_board.json\n    empty_file.JSON\n'
-        self._test_output(capsys, monkeypatch, [('board list', None)], out=out, err=f'Board directory: {board_dir}', interface=interface)
+        self._test_output(
+            capsys,
+            monkeypatch,
+            [('board list', None)],
+            out=out,
+            err=f'Board directory: {board_dir}',
+            interface=interface,
+        )
         out = ['Loading default board', 'To switch boards', 'Loaded board with 1 project, 3 tasks']
-        self._test_output(capsys, monkeypatch, [('board load', None), ('board show', None)], out=out, interface=interface)
+        self._test_output(
+            capsys,
+            monkeypatch,
+            [('board load', None), ('board show', None)],
+            out=out,
+            interface=interface,
+        )
         # load nonexistent board
-        self._test_output(capsys, monkeypatch, [('board load fake_board.json', None)], out=no_board_msg, interface=interface)
+        self._test_output(
+            capsys,
+            monkeypatch,
+            [('board load fake_board.json', None)],
+            out=no_board_msg,
+            interface=interface,
+        )
         # delete default board
         board_cfg.default_board_path.unlink()
         interface = BoardInterface()
         out = [no_default_msg, '  empty_board.json\n  empty_file.JSON\n']
-        self._test_output(capsys, monkeypatch, [('board list', None)], out=out, err=f'Board directory: {board_dir}', interface=interface)
+        self._test_output(
+            capsys,
+            monkeypatch,
+            [('board list', None)],
+            out=out,
+            err=f'Board directory: {board_dir}',
+            interface=interface,
+        )
         out = [no_default_msg, 'Default board file does not exist. You can create it with:']
         self._test_output(capsys, monkeypatch, [('board load', None)], out=out, interface=interface)
         with pytest.raises(BoardNotLoadedError, match='No board has been loaded.'):
@@ -506,6 +691,13 @@ class TestInterface:
         for p in board_dir.glob('*'):
             p.unlink()
         interface = BoardInterface()
-        self._test_output(capsys, monkeypatch, [('board list', None)], out=no_default_msg, err=f'Board directory: {board_dir}', interface=interface)
+        self._test_output(
+            capsys,
+            monkeypatch,
+            [('board list', None)],
+            out=no_default_msg,
+            err=f'Board directory: {board_dir}',
+            interface=interface,
+        )
         with pytest.raises(BoardNotLoadedError, match='No board has been loaded.'):
             self._test_output(capsys, monkeypatch, [('board show', None)], interface=interface)

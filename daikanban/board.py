@@ -12,7 +12,18 @@ from typing_extensions import Self
 
 from daikanban import logger
 from daikanban.config import Config, get_config
-from daikanban.errors import AmbiguousProjectNameError, AmbiguousTaskNameError, BoardFileError, DuplicateProjectError, DuplicateTaskError, ProjectNotFoundError, TaskNotFoundError, UUIDImmutableError, VersionMismatchError, catch_key_error
+from daikanban.errors import (
+    AmbiguousProjectNameError,
+    AmbiguousTaskNameError,
+    BoardFileError,
+    DuplicateProjectError,
+    DuplicateTaskError,
+    ProjectNotFoundError,
+    TaskNotFoundError,
+    UUIDImmutableError,
+    VersionMismatchError,
+    catch_key_error,
+)
 from daikanban.model import Id, Model, OptionalDatetime, Project, Task, TaskStatusAction, path_style
 from daikanban.utils import NameMatcher, count_fmt, exact_match, first_name_match, get_current_time
 
@@ -234,7 +245,11 @@ class Board(Model):
         if 'uuid' in kwargs:
             raise ValueError("Cannot modify a task's UUID")
         task = self.get_task(task_id)
-        incomplete_task_names = (t.name for (id_, t) in self.tasks.items() if (id_ != task_id) and (t.completed_time is None))
+        incomplete_task_names = (
+            t.name
+            for (id_, t) in self.tasks.items()
+            if (id_ != task_id) and (t.completed_time is None)
+        )
         kwargs = {'modified_time': get_current_time(), **kwargs}
         task = task._replace(**kwargs)
         if task.project_id is not None:  # validate project ID
@@ -258,11 +273,19 @@ class Board(Model):
         task = self.get_task(task_id)
         self.tasks[task_id] = task.reset()
 
-    def apply_status_action(self, task_id: Id, action: TaskStatusAction, dt: Optional[datetime] = None, first_dt: Optional[datetime] = None) -> Task:
+    def apply_status_action(
+        self,
+        task_id: Id,
+        action: TaskStatusAction,
+        dt: Optional[datetime] = None,
+        first_dt: Optional[datetime] = None,
+    ) -> Task:
         """Changes a task to a new stage, based on the given action at the given time.
         Returns the new task."""
         task = self.get_task(task_id).apply_status_action(action, dt=dt, first_dt=first_dt)
-        incomplete_task_names = {t.name for (id_, t) in self.tasks.items() if (id_ != task_id) and (t.completed_time is None)}
+        incomplete_task_names = {
+            t.name for (id_, t) in self.tasks.items() if (id_ != task_id) and (t.completed_time is None)
+        }
         if task.name in incomplete_task_names:
             logger.warning(f'Duplicate task name {task.name!r}')
         self.tasks[task_id] = task
@@ -286,9 +309,12 @@ class Board(Model):
         """Updates the contents of this board with another board, in-place.
         The basic board metadata (such as name) will remain the same as this board's.
         Exact duplicate projects/tasks will be deduplicated using this board's ID.
-        Projects/tasks with the same UUID but different contents will be reconciled, using the given ConflictResolutionMode."""
+        Projects/tasks with the same UUID but different contents will be reconciled, using the given
+        ConflictResolutionMode."""
         if other.version > self.version:  # assume backward (but not forward) compatibility
-            raise VersionMismatchError(f'Attempted to update version {self.version} board with version {other.version} board')
+            raise VersionMismatchError(
+                f'Attempted to update version {self.version} board with version {other.version} board'
+            )
         proj_id_map = {}  # map from old project IDs to new IDs
         for (other_id, other_proj) in other.projects.items():
             if other_proj.uuid in self._project_uuid_to_id:

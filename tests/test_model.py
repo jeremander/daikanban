@@ -8,7 +8,16 @@ import pytest
 
 from daikanban.board import Board, load_board
 from daikanban.config import DEFAULT_DATETIME_FORMAT, get_config
-from daikanban.errors import AmbiguousProjectNameError, AmbiguousTaskNameError, DuplicateProjectError, ProjectNotFoundError, TaskNotFoundError, TaskStatusError, UUIDImmutableError, VersionMismatchError
+from daikanban.errors import (
+    AmbiguousProjectNameError,
+    AmbiguousTaskNameError,
+    DuplicateProjectError,
+    ProjectNotFoundError,
+    TaskNotFoundError,
+    TaskStatusError,
+    UUIDImmutableError,
+    VersionMismatchError,
+)
 from daikanban.model import Project, Relation, Task, TaskStatus, TaskStatusAction
 from daikanban.task import TASK_SCORERS
 from daikanban.utils import case_insensitive_match, fuzzy_match, get_current_time
@@ -101,7 +110,8 @@ class TestTask:
         with pytest.raises(TypeError, match="Unknown field 'fake'"):
             _ = task._replace(fake='value')
         # types are coerced
-        assert isinstance(task._replace(due_time=get_current_time().strftime(get_config().time.datetime_format)).due_time, datetime)
+        due_time = task._replace(due_time=get_current_time().strftime(get_config().time.datetime_format)).due_time
+        assert isinstance(due_time, datetime)
         assert task._replace(priority='').priority is None
 
     def test_valid_name(self):
@@ -219,7 +229,15 @@ class TestTask:
         task = Task(name='task', created_time=(dt + timedelta(days=90)))
         assert task.modified_time < task.created_time
         # date parsing is flexible
-        for val in [dt, dt.isoformat(), dt.strftime(get_config().time.datetime_format), '2024-01-01', '1/1/2024', 'Jan 1, 2024', 'Jan 1']:
+        for val in [
+            dt,
+            dt.isoformat(),
+            dt.strftime(get_config().time.datetime_format),
+            '2024-01-01',
+            '1/1/2024',
+            'Jan 1, 2024',
+            'Jan 1',
+        ]:
             task = Task(name='task', created_time=val)
             assert isinstance(task.created_time, datetime)
         # invalid timestamps
@@ -610,7 +628,10 @@ class TestBoard:
         assert board1 == orig_board1
         # test version mismatch
         board2.version = board1.version + 1  # type: ignore[assignment]
-        with pytest.raises(VersionMismatchError, match=f'Attempted to update version {board1.version} board with version {board2.version} board'):
+        with pytest.raises(
+            VersionMismatchError,
+            match=f'Attempted to update version {board1.version} board with version {board2.version} board',
+        ):
             board1.update_with_board(board2)
         (board1.version, board2.version) = (board2.version, board1.version)
         board1.update_with_board(board2)
@@ -657,11 +678,17 @@ class TestBoard:
         rel0 = Relation(type='relation', dest=0)
         rel2 = Relation(type='relation', dest=2)
         board2.create_project(Project(name='proj2_1', parent=0, relations=[rel0, rel2]))
-        # parent of 1 is 0 in board2 -> in updated board1, ID 0 becomes 1, ID 1 becomes 2, parent of 2 becomes 1 instead of 0
-        # for the relations, dest=0 gets mapped to 1, but dest=2 is an unrecognized ID, so it stays the same
+        # Parent of 1 is 0 in board2 -> in updated board1, ID 0 becomes 1, ID 1 becomes 2, parent of 2 becomes 1
+        # instead of 0.
+        # For the relations, dest=0 gets mapped to 1, but dest=2 is an unrecognized ID, so it stays the same.
         # TODO: should this be an error instead?
         board1.update_with_board(board2)
-        self._check_board_projects(board1, {0: proj1_0, 1: board2.projects[0], 2: board2.projects[1]._replace(parent=1, relations=[rel0._replace(dest=1), rel2])})
+        projects = {
+            0: proj1_0,
+            1: board2.projects[0],
+            2: board2.projects[1]._replace(parent=1, relations=[rel0._replace(dest=1), rel2]),
+        }
+        self._check_board_projects(board1, projects)
 
     def test_update_board_tasks(self):
         """Tests what happens to tasks when updating a board with another one."""
@@ -706,4 +733,5 @@ class TestBoard:
         board2.create_task(task2_0)
         board2.create_task(task2_1)
         board1.update_with_board(board2)
-        self._check_board_tasks(board1, {0: task1_0, 1: board2.tasks[0]._replace(project_id=1), 2: board2.tasks[1]._replace(parent=1)})
+        tasks = {0: task1_0, 1: board2.tasks[0]._replace(project_id=1), 2: board2.tasks[1]._replace(parent=1)}
+        self._check_board_tasks(board1, tasks)

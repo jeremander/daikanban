@@ -22,11 +22,44 @@ from typing_extensions import Concatenate, Doc, ParamSpec
 from daikanban import PKG_DIR, logger
 from daikanban.board import Board, load_board
 from daikanban.config import Config, get_config
-from daikanban.errors import BoardFileError, BoardNotLoadedError, InvalidTaskStatusError, KanbanError, TaskStatusError, UserInputError
-from daikanban.model import DefaultColor, Id, Model, Project, Task, TaskStatusAction, cmd_style, name_style, path_style, proj_id_style, status_style, task_id_style
+from daikanban.errors import (
+    BoardFileError,
+    BoardNotLoadedError,
+    InvalidTaskStatusError,
+    KanbanError,
+    TaskStatusError,
+    UserInputError,
+)
+from daikanban.model import (
+    DefaultColor,
+    Id,
+    Model,
+    Project,
+    Task,
+    TaskStatusAction,
+    cmd_style,
+    name_style,
+    path_style,
+    proj_id_style,
+    status_style,
+    task_id_style,
+)
 from daikanban.prompt import FieldPrompter, Prompter, model_from_prompt, simple_input
 from daikanban.task import TaskStatus
-from daikanban.utils import NotGiven, NotGivenType, err_style, fuzzy_match, get_current_time, get_duration_between, human_readable_duration, parse_key_value_pair, parse_string_set, prefix_match, style_str, to_snake_case
+from daikanban.utils import (
+    NotGiven,
+    NotGivenType,
+    err_style,
+    fuzzy_match,
+    get_current_time,
+    get_duration_between,
+    human_readable_duration,
+    parse_key_value_pair,
+    parse_string_set,
+    prefix_match,
+    style_str,
+    to_snake_case,
+)
 
 
 if TYPE_CHECKING:
@@ -88,7 +121,9 @@ def parse_duration(s: str) -> Optional[float]:
 
 def _validate_project_or_task_name(name: str, obj_name: str) -> str:
     if not any(c.isalpha() for c in name):
-        raise UserInputError(f'{obj_name.capitalize()} name {name_style(name)} is invalid, must have at least one letter')
+        raise UserInputError(
+            f'{obj_name.capitalize()} name {name_style(name)} is invalid, must have at least one letter'
+        )
     return name
 
 def validate_project_name(name: str) -> str:
@@ -104,8 +139,14 @@ def validate_task_name(name: str) -> str:
 # PRETTY PRINTING #
 ###################
 
-def make_table(tp: type['DataclassInstance'], rows: Iterable[M], suppress_cols: Optional[list[str]] = None, **kwargs: Any) -> Table:
-    """Given a model type and a list of objects of that type, creates a Table displaying the data, with each object being a row.
+def make_table(
+    tp: type['DataclassInstance'],
+    rows: Iterable[M],
+    suppress_cols: Optional[list[str]] = None,
+    **kwargs: Any,
+) -> Table:
+    """Given a model type and a list of objects of that type, creates a Table displaying the data, with each object
+    being a row.
     If a suppress_cols list is given, suppresses these columns from the table."""
     table = Table(**kwargs)
     flags = []  # indicates whether each field has any nontrivial element
@@ -152,7 +193,8 @@ class TaskRow:
     status: str
 
 def simple_task_row_type(*fields: str) -> type:
-    """Given a list of fields associated with a task, creates a dataclass that will be used to display a simplified row for each task.
+    """Given a list of fields associated with a task, creates a dataclass that will be used to display a simplified row
+    for each task.
     These rows are presented in the DaiKanban board view."""
     kwargs: dict[str, Any] = {}
     for name in fields:
@@ -340,8 +382,19 @@ class BoardInterface:
         grid.add_row('', '', f'  status=\\[STATUSES]  | list of statuses ({statuses})')
         grid.add_row('', '', '  project=\\[PROJECTS] | list of project names or IDs')
         grid.add_row('', '', '  tag=\\[TAGS]         | list of tags')
-        grid.add_row('', '', '  limit=\\[SIZE]       | max number of tasks to show per column (a number, or "none" for no limit)')
-        grid.add_row('', '', '  since=\\[WHEN]       | date/time expression (or "anytime" for no time limit), used to limit completed tasks only')
+        grid.add_row(
+            '',
+            '',
+            '  limit=\\[SIZE]       | max number of tasks to show per column (a number, or "none" for no limit)'
+        )
+        grid.add_row(
+            '',
+            '',
+            (
+                '  since=\\[WHEN]       | date/time expression (or "anytime" for no time limit), '
+                'used to limit completed tasks only'
+            ),
+        )
 
     def add_project_help(self, grid: Table) -> None:
         """Adds entries to help menu related to projects."""
@@ -449,7 +502,8 @@ class BoardInterface:
         print(f'Deleted project {name_style(proj.name)} with ID {proj_id_style(id_)}')
 
     def _get_project_field_parsers(self, is_update: bool = True) -> dict[str, Callable[[str], Any]]:
-        """Gets a dict from project fields to parser/validator functions that take a string and return a value for that field.
+        """Gets a dict from project fields to parser/validator functions that take a string and return a value for that
+        field.
         If is_update=True, this is for updating a project; otherwise, it is for a new project."""
         return {
             'name': validate_project_name,
@@ -493,7 +547,15 @@ class BoardInterface:
         """Shows project list."""
         assert self.board is not None
         num_tasks_by_project = self.board.num_tasks_by_project
-        rows = [ProjectRow(id=proj_id_style(id_, bold=True), name=proj.name, created=proj.created_time.strftime(self.config.time.date_format), num_tasks=num_tasks_by_project[id_]) for (id_, proj) in self.board.projects.items()]
+        rows = [
+            ProjectRow(
+                id=proj_id_style(id_, bold=True),
+                name=proj.name,
+                created=proj.created_time.strftime(self.config.time.date_format),
+                num_tasks=num_tasks_by_project[id_],
+            )
+            for (id_, proj) in self.board.projects.items()
+        ]
         if rows:
             table = make_table(ProjectRow, rows)
             print(table)
@@ -572,7 +634,8 @@ class BoardInterface:
             return
         task = board.apply_status_action(id_, action, dt=dt, first_dt=first_dt)
         self.save_board()
-        print(f'Changed task {name_style(task.name)} [not bold]\\[{task_id_style(id_)}][/] to {status_style(task.status)} state')
+        id_style = task_id_style(id_)
+        print(f'Changed task {name_style(task.name)} [not bold]\\[{id_style}][/] to {status_style(task.status)} state')
 
     @require_board
     def delete_task(self, id_or_name: Optional[str] = None) -> None:
@@ -585,11 +648,16 @@ class BoardInterface:
         print(f'Deleted task {name_style(task.name)} with ID {task_id_style(id_)}')
 
     def _get_task_field_parsers(self, is_update: bool = True) -> dict[str, Callable[[str], Any]]:
-        """Gets a dict from project fields to parser/validator functions that take a string and return a value for that field.
+        """Gets a dict from project fields to parser/validator functions that take a string and return a value for that
+        field.
         If is_update=True, this is for updating a task; otherwise, it is for a new task."""
         def _parse_task_set(s: str) -> Optional[set[Id]]:
             # parse comma-separated list of task IDs and/or names
-            return {task_id for elt in (parse_string_set(s) or set()) if (task_id := self._parse_task(elt)) is not None} or None
+            return {
+                task_id
+                for elt in (parse_string_set(s) or set())
+                if (task_id := self._parse_task(elt)) is not None
+            } or None
         return {
             'name': validate_task_name,
             'description': empty_is_none,
@@ -656,7 +724,11 @@ class BoardInterface:
             return None if (task.project_id is None) else self._project_str_from_id(task.project_id)
         def _get_date(dt: Optional[datetime]) -> Optional[str]:
             return None if (dt is None) else dt.strftime(self.config.time.date_format)
-        duration = None if (task.expected_duration is None) else pendulum.duration(days=task.expected_duration).in_words()
+        duration = (
+            None
+            if (task.expected_duration is None)
+            else pendulum.duration(days=task.expected_duration).in_words()
+        )
         return TaskRow(
             id=task_id_style(id_, bold=True),
             name=task.name,
@@ -732,7 +804,11 @@ class BoardInterface:
     def load_board(self, name_or_path: Optional[str | Path] = None) -> None:
         """Loads a board from a JSON file.
         If none is provided, prompts the user interactively."""
-        path = self.config.board.default_board_path if (name_or_path is None) else self.config.board.resolve_board_name_or_path(name_or_path)
+        path = (
+            self.config.board.default_board_path
+            if (name_or_path is None)
+            else self.config.board.resolve_board_name_or_path(name_or_path)
+        )
         if path.exists():
             if name_or_path is None:
                 print(f"Loading default board from {path_style(path)}\nTo switch boards, use {cmd_style('board load')}")
@@ -786,7 +862,10 @@ class BoardInterface:
         board_path = Path(path)
         if not board_path.is_absolute():  # interpret paths relative to board directory, rather than current directory
             board_path = self.config.board.board_dir_path / path
-        create = (not board_path.exists()) or Confirm.ask(f'A file named {path_style(path)} already exists.\n\tOverwrite?')
+        create = (
+            (not board_path.exists())
+            or Confirm.ask(f'A file named {path_style(path)} already exists.\n\tOverwrite?')
+        )
         if create:
             description = simple_input('Board description').strip() or None
             self.board = Board(name=name, description=description)
@@ -805,7 +884,10 @@ class BoardInterface:
             for status in status_set:
                 if status not in valid_statuses:
                     raise InvalidTaskStatusError(status)
-            columns = {col: [status for status in cfg.statuses if (status in status_set)] for (col, cfg) in column_config.items()}
+            columns = {
+                col: [status for status in cfg.statuses if (status in status_set)]
+                for (col, cfg) in column_config.items()
+            }
         else:
             columns = {col: cfg.statuses for (col, cfg) in column_config.items()}
         col_by_status = {}  # map from status to columns
@@ -824,8 +906,13 @@ class BoardInterface:
                 col_by_status[status] = col
         return (col_by_status, col_colors)
 
-    def _filter_task_by_project_or_tag(self, projects: Optional[list[str]] = None, tags: Optional[list[str]] = None) -> Callable[[Task], bool]:
-        """Given project names/IDs and tags, returns a function that filters tasks based on whether their projects or tags match any of the provided values."""
+    def _filter_task_by_project_or_tag(
+        self,
+        projects: Optional[list[str]] = None,
+        tags: Optional[list[str]] = None,
+    ) -> Callable[[Task], bool]:
+        """Given project names/IDs and tags, returns a function that filters tasks based on whether their projects or
+        tags match any of the provided values."""
         filters: list[Callable[[Task], bool]] = []
         if projects:
             project_id_set = {id_ for id_or_name in projects if (id_:= self._parse_project(id_or_name)) is not None}
@@ -934,7 +1021,10 @@ class BoardInterface:
     ) -> None:
         """Displays the board to the screen using the current configurations."""
         if self.board is None:
-            raise BoardNotLoadedError(f"No board has been loaded.\nRun {cmd_style('board new')} to create a new board or {cmd_style('board load')} to load an existing one.")
+            raise BoardNotLoadedError(
+                f"No board has been loaded.\nRun {cmd_style('board new')} to create a new board or "
+                f"{cmd_style('board load')} to load an existing one."
+            )
         limit = self._get_task_limit(limit)
         scorer = self.config.task.scorer
         (col_by_status, col_colors) = self._column_info(statuses)
@@ -961,7 +1051,11 @@ class BoardInterface:
                 header = col_settings.get_col_header(task_count)
                 table.add_column(header, justify='center')
                 task_rows = task_rows_by_col[col]
-                subtable: Table | str = make_table(col_settings.task_row_type, task_rows, suppress_cols=['status']) if task_rows else ''
+                subtable: Table | str = (
+                    make_table(col_settings.task_row_type, task_rows, suppress_cols=['status'])
+                    if task_rows
+                    else ''
+                )
                 subtables.append(subtable)
         if subtables:
             table.add_row(*subtables)

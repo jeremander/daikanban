@@ -41,7 +41,8 @@ class Logger(logging.Logger):
 
     @contextmanager
     def catch_errors(self, *errtypes: type[Exception], msg: Optional[str] = None) -> Generator[None]:
-        """Context manager for catching an error of a certain type (or types), optionally displaying a message, then exiting the program."""
+        """Context manager for catching an error of a certain type (or types), optionally displaying a message, then
+        exiting the program."""
         if is_debug_mode():  # drop into debugger
             try:
                 yield

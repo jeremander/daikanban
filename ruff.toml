@@ -38,7 +38,6 @@ lint.ignore = [
     "D401",  # docstrings in imperative mood
     "D404",  # first word of docstring is "this"
     "D415",  # first line ending with punctuation
-    "E501",  # line length
     "E731",  # assign to lambda expression
     "PT001",  # use of pytest.fixture (with no parens)
     "PT023",  # pytest.marker() instead of pytest.marker
@@ -57,7 +56,7 @@ lint.exclude = [
     "tmp*"
 ]
 
-line-length = 10000
+line-length = 120
 
 # where to search for first-party imports
 # src = ["src", "test"]
