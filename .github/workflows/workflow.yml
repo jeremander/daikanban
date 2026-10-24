@@ -23,7 +23,7 @@ jobs:
             3.14
       - name: Set up pip cache
         if: runner.os == 'Linux'
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('pyproject.toml') }}
@@ -33,7 +33,7 @@ jobs:
       - name: Configure hatch
         run: hatch config set dirs.env.virtual .venv
       - name: Cache hatch virtualenv
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         id: cache-venv
         with:
           path: ./.venv/
