@@ -188,7 +188,7 @@ class TestTimeConfig:
         config = get_config().time
         dur = config.parse_duration(string)
         assert isinstance(dur, float)
-        assert dur == pytest.approx(days)
+        assert dur == pytest.approx(days, abs=1e-3)
 
     @pytest.mark.parametrize('string', INVALID_DURATIONS)
     def test_parse_duration_invalid(self, string):

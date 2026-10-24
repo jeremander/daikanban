@@ -1,7 +1,7 @@
 # TODO list
 
-## `v0.2.1`
-
+- Sort feature for `project show` and `task show`
+  - If something like `project show sort=name` or `project show sort=name:ASC`, how to avoid ambiguity? Just the fact of having an equals?
 - Provide informative error/warning if loaded config file does not match latest schema
   - Ideally load what we can of the file and warn if there's an unknown field (no fields should be required).
     - Currently we probably just silently fail to notice unknown fields?
@@ -67,9 +67,6 @@
       4. Prompt user for action
     - Currently we only do option (3), but the resolution mode should be configurable (and overridable via CLI flag)
     - Implement as a callback, via an enum ConflictResolutionMode
-
-## `v0.3.0`
-
 - Encapsulate notion of a *filter*.
   - Create new library for boolean algebra of predicates? With `FieldPredicate` that checks existence of field at construction time.
 - How to set lists like blocking tasks, relations?

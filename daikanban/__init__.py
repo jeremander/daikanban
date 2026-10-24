@@ -1,4 +1,4 @@
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 import logging
 import os
@@ -40,7 +40,7 @@ class Logger(logging.Logger):
         sys.exit(1)
 
     @contextmanager
-    def catch_errors(self, *errtypes: type[Exception], msg: Optional[str] = None) -> Iterator[None]:
+    def catch_errors(self, *errtypes: type[Exception], msg: Optional[str] = None) -> Generator[None]:
         """Context manager for catching an error of a certain type (or types), optionally displaying a message, then exiting the program."""
         if is_debug_mode():  # drop into debugger
             try:

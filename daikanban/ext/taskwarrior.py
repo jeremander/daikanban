@@ -22,11 +22,11 @@ DATE_FORMAT = '%Y%m%dT%H%M%SZ'
 class TaskwarriorJSONEncoder(ModelJSONEncoder):
     """Custom JSONEncoder ensuring that dates are encoded in the proper format."""
 
-    def default(self, obj: Any) -> Any:
+    def default(self, o: Any) -> Any:
         """Encodes an object to JSON."""
-        if isinstance(obj, datetime):
-            return obj.strftime(DATE_FORMAT)
-        return super().default(obj)
+        if isinstance(o, datetime):
+            return o.strftime(DATE_FORMAT)
+        return super().default(o)
 
 
 @dataclass(frozen=True)
@@ -67,7 +67,7 @@ class TwTask(Model):
     @classmethod
     def from_dict(cls, d: AnyDict, **kwargs: Any) -> Self:
         """Converts a JSON-deserialized dict to a TwTask."""
-        d2 = {}
+        d2: AnyDict = {}
         udas = {}
         for (key, val) in d.items():
             with suppress(TypeError, ValueError):

@@ -29,7 +29,7 @@ class StrEnum(str, Enum):
     NOTE: this class exists in the standard library in Python >= 3.11."""
 
     def __str__(self) -> str:
-        return cast(str, self.value)
+        return cast(str, self.value)  # pyrefly: ignore[redundant-cast]
 
 
 class NotGivenType(Enum):

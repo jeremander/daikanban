@@ -144,15 +144,15 @@ _BaseEncoder = JSONBaseDataclass.json_encoder()
 class ModelJSONEncoder(_BaseEncoder):  # type: ignore[misc, valid-type]
     """Custom JSONEncoder used by default with model classes."""
 
-    def default(self, obj: Any) -> Any:
+    def default(self, o: Any) -> Any:
         """Customizes JSON encoding so that sets can be represented as lists."""
-        if isinstance(obj, AnyUrl):
-            return str(obj)
-        if isinstance(obj, uuid.UUID):
-            return str(obj)
-        if isinstance(obj, set):
-            return sorted(obj)
-        return super().default(obj)
+        if isinstance(o, AnyUrl):
+            return str(o)
+        if isinstance(o, uuid.UUID):
+            return str(o)
+        if isinstance(o, set):
+            return sorted(o)
+        return super().default(o)
 
 
 #########
@@ -168,7 +168,7 @@ class Model(JSONBaseDataclass, suppress_none=True, store_type='off', validate=Fa
     @classmethod
     def _computed_fields(cls) -> list[str]:
         """Gets the list of computed fields (properties marked with the `computed_field` decorator)."""
-        schema = TypeAdapter(cls).core_schema['schema']
+        schema: Any = TypeAdapter(cls).core_schema['schema']  # pyrefly: ignore[bad-typed-dict-key]
         while 'schema' in schema:  # weirdly, 'dataclass-args' schema may be nested in a 'dataclass' schema
             schema = schema['schema']
         return [d['property_name'] for d in schema.get('computed_fields', [])]

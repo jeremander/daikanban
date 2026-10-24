@@ -41,11 +41,12 @@ path = "daikanban/__init__.py"
 
 [tool.hatch.envs.lint]
 dependencies = [
-  "mypy>=1.14",
-  "py-gadzooks>=0.2.9",
+  "mypy >= 2.4",
+  "py-gadzooks >= 0.2.9",
+  "pyrefly >= 1.4",
   "pytest",
-  "ruff>=0.9",
-  "vermin>=1.6",
+  "ruff >= 0.9",
+  "vermin >= 1.6",
 ]
 
 [tool.hatch.envs.lint.scripts]
@@ -54,10 +55,11 @@ run-ruff = "ruff check"
 # ensure compatibility with Py3.10 and higher
 run-vermin = "vermin {args:.}"
 # type-checking
+run-pyrefly = "pyrefly check"
 run-mypy = "mypy --install-types --non-interactive {args:daikanban tests}"
 # print info about lines of code
 run-loc-summarize = "gadzooks loc-summarize daikanban"
-all = ["run-ruff", "run-vermin", "run-mypy", "run-loc-summarize"]
+all = ["run-ruff", "run-vermin", "run-pyrefly", "run-mypy", "run-loc-summarize"]
 
 [tool.hatch.envs.test]
 dependencies = [
@@ -72,7 +74,7 @@ cov-report = ["- coverage combine", "coverage report", "coverage html"]
 cov = ["test", "cov-report"]
 
 [[tool.hatch.envs.test.matrix]]
-python = ["3.10", "3.11", "3.12"]
+python = ["3.10", "3.11", "3.12", "3.13", "3.14"]
 
 [tool.hatch.envs.badge]
 dependencies = [
@@ -124,3 +126,18 @@ addopts = "--verbose --cov=daikanban"
 markers = """
   display: tests display output (might fail in CI due to terminal issues with rich pretty-printing)
 """
+
+[tool.pyrefly]
+preset = "default"
+check-unannotated-defs = true
+infer-return-types = "never"
+
+[[tool.pyrefly.sub-config]]
+matches = "tests/**/*"
+
+[tool.pyrefly.sub-config.errors]
+missing-attribute = "ignore"
+implicit-any-empty-container = "ignore"
+implicit-any-lambda = "ignore"
+implicit-any-parameter = "ignore"
+unannotated-return = "ignore"

@@ -1,6 +1,6 @@
 """Module defining custom error types."""
 
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 import uuid
 
@@ -74,7 +74,7 @@ class BoardNotLoadedError(KanbanError):
 
 
 @contextmanager
-def catch_key_error(cls: type[Exception]) -> Iterator[None]:
+def catch_key_error(cls: type[Exception]) -> Generator[None]:
     """Catches a KeyError and rewraps it as an Exception of the given type."""
     try:
         yield

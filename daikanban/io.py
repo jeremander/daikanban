@@ -36,7 +36,7 @@ FR = TypeVar('FR', bound=FileReadable[Any])
 class BaseImporter(ABC, Generic[FR]):
     """Base class for import a daikanban Board from some external file format."""
     read_mode: ClassVar[str]  # file read mode
-    obj_type: ClassVar[Type[FR]]  # type: ignore[misc]  # type of the object to convert from
+    obj_type: ClassVar[Type[FR]]  # pyrefly: ignore[invalid-annotation]  # type of the object to convert from
 
     @abstractmethod
     def convert_to_board(self, obj: FR) -> Board:

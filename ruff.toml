@@ -48,7 +48,6 @@ lint.ignore = [
     "UP006",  # deprecated collection types in annotations
     "UP007",  # | instead of Union
     "UP035",  # import replacements (collections.abc)
-    "UP038",  # use | with isinstance
     "UP045",  # | None instead of Optional
 ]
 

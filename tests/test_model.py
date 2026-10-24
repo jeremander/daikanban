@@ -173,6 +173,7 @@ class TestTask:
         # no additional time is worked since task is paused
         assert paused.total_time_worked == time_worked
         resumed = paused.resumed()
+        assert isinstance(resumed.first_started_time, datetime)
         assert isinstance(resumed.last_started_time, datetime)
         assert resumed.first_started_time < resumed.last_started_time
         assert resumed.last_paused_time is None

@@ -7,6 +7,7 @@ from typing import Annotated, Any, Callable, Optional
 
 from fancy_dataclass import ConfigDataclass, TOMLDataclass
 import pendulum
+import pendulum.parsing
 from pydantic import Field
 from pydantic.dataclasses import dataclass
 import pytimeparse  # type: ignore[import-untyped]
@@ -225,7 +226,7 @@ class ColumnConfig(TOMLDataclass):
 
     def get_sort_keys(self) -> list[TaskSortKey]:
         """Gets a list of sort keys with which to sort tasks."""
-        keys = self.sort_by if isinstance(self.sort_by, list | tuple) else [self.sort_by]
+        keys = self.sort_by if isinstance(self.sort_by, list | tuple) else [self.sort_by]  # pyrefly: ignore[implicit-any-type-argument]
         return [TaskSortKey(key) if isinstance(key, str) else key for key in keys]
 
 
@@ -302,7 +303,8 @@ class Config(ConfigDataclass, TOMLDataclass, doc_as_comment=True):
         if isinstance(val, date):
             tzinfo = get_current_time().tzinfo
             return self.pretty_value(datetime(year=val.year, month=val.month, day=val.day, tzinfo=tzinfo))
-        if isinstance(val, list | set):  # display comma-separated list
+        if isinstance(val, list | set):  # pyrefly: ignore[implicit-any-type-argument]
+            # display comma-separated list
             vals = sorted(val) if isinstance(val, set) else val
             return ', '.join(map(self.pretty_value, vals))
         return str(val)

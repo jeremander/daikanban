@@ -118,7 +118,7 @@ def make_table(tp: type['DataclassInstance'], rows: Iterable[M], suppress_cols: 
         if flag:  # skip column if all values are trivial
             metadata = fld.metadata or {}  # type: ignore[var-annotated]
             title = metadata.get('title', fld.name)
-            kw = {key: val for (key, val) in metadata.items() if (key != 'title')}
+            kw: dict[str, Any] = {key: val for (key, val) in metadata.items() if (key != 'title')}
             table.add_column(title, **kw)
     config = get_config()
     for row in rows:
@@ -475,7 +475,7 @@ class BoardInterface:
                 kwargs['parse'] = parsers[fld]
             prompters[fld] = FieldPrompter(Project, fld, **kwargs)
         if name is None:
-            defaults = {}
+            defaults: dict[str, Any] = {}
         else:
             del prompters['name']
             defaults = {'name': validate_project_name(name)}
@@ -624,7 +624,7 @@ class BoardInterface:
         # only prompt for the fields specified in the configs
         task_fields = set(self.config.task.new_task_fields)
         if name is None:
-            defaults = {}
+            defaults: dict[str, Any] = {}
         else:
             task_fields.discard('name')
             defaults = {'name': validate_task_name(name)}
@@ -841,7 +841,7 @@ class BoardInterface:
         return lambda _: True
 
     def _get_task_limit(self, limit: int | None | NotGivenType) -> Optional[int]:
-        if limit is NotGiven:
+        if isinstance(limit, NotGivenType):
             limit = self.config.display.max_tasks
         if (limit is not None) and (limit <= 0):
             raise UserInputError('Must select a positive number for task limit')
@@ -849,7 +849,7 @@ class BoardInterface:
 
     def _get_completed_since(self, since: datetime | None | NotGivenType) -> Optional[datetime]:
         now = get_current_time()
-        if since is NotGiven:
+        if isinstance(since, NotGivenType):
             if isinstance(self.config.display.completed_age_off, Real):
                 since = now - timedelta(days=self.config.display.completed_age_off)
             else:
@@ -975,7 +975,7 @@ class BoardInterface:
 
     # SHELL
 
-    def _parse_tokens_for_set_command(self, tokens: list[str]) -> dict[str, str]:
+    def _parse_tokens_for_set_command(self, tokens: list[str]) -> dict[str, Any]:
         if (ntokens := len(tokens)) < 2:
             raise UserInputError('Must provide [ID/NAME] [FIELD] [VALUE]')
         [id_or_name, field] = tokens[:2]
