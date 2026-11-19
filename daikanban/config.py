@@ -140,12 +140,12 @@ class TimeConfig(TOMLDataclass):
         Doc('preferred format for datetimes')
     ] = DEFAULT_DATETIME_FORMAT
     hours_per_work_day: Annotated[
-        float,
+        int | float,
         Doc('number of hours per work day'),
         Field(gt=0, le=24)
     ] = DEFAULT_HOURS_PER_WORK_DAY
     days_per_work_week: Annotated[
-        float,
+        int | float,
         Doc('number of days per work week'),
         Field(gt=0, le=7)
     ] = DEFAULT_DAYS_PER_WORK_WEEK
@@ -261,7 +261,7 @@ class DisplayConfig(TOMLDataclass):
         Field(ge=0)
     ] = None
     completed_age_off: Annotated[
-        Optional[float],
+        Optional[int | float],
         Doc('length of time (in days) after which to stop displaying completed tasks'),
         Field(ge=0)
     ] = 30
